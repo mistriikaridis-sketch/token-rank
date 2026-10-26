@@ -33,7 +33,12 @@ services:
       # volume above so the container does not keep fixtures/users.json. See .env.example.
       - USERS_FILE=${USERS_FILE:-/app/fixtures/users.json}
       - RANKINGS_REQUIRE_AUTH=${RANKINGS_REQUIRE_AUTH:-0}
-      # Optional: POST low-usage alerts when UI/API calls ?notify=true
+      # Pilot alerts (see docs/INSTALL.md). notify=true posts only when the webhook is set.
+      # - LOW_USAGE_THRESHOLD_TOKENS=10000
+      # - ALERT_SPEND_SPIKE_RATIO=2
+      # - ALERT_SPEND_SPIKE_MIN_USD=1
+      # - ALERT_SPEND_THRESHOLD_USD=50
+      # - ALERT_ACCOUNT_THRESHOLDS={"acme-prod":{"min_tokens":5000,"spend_usd":20}}
       # - LOW_USAGE_WEBHOOK_URL=https://hooks.example.com/token-rankings/low-usage
       # Default: SQLite under /data. For Postgres use the overlay. Set POSTGRES_PASSWORD
       # first (do not use the password "token"); the overlay binds 5432 to 127.0.0.1 only.

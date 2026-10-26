@@ -541,6 +541,7 @@
     <section id="page-people" class="page">
       <div class="hint-card" id="homeScope">
         <strong>私有 FinOps。</strong>这里只看你们内网的真实用量，不是公开的模型热度榜。
+        同一个人如果跨了多个账号或多个项目，每一行下面按<strong>账号 × 项目</strong>拆开，不会只留一个总数。用量高不等于会用。
       </div>
       <div class="overview">
         <h2 id="ovTitle">今日概况</h2>
@@ -572,6 +573,8 @@
 
       <div class="toolbar">
         <div class="filters">
+          <select id="filterAccount"><option value="">全部账号</option></select>
+          <select id="filterProject"><option value="">全部项目</option></select>
           <select id="filterTool"><option value="">全部工具</option></select>
           <select id="filterModel"><option value="">全部模型</option></select>
           <select id="filterTeam"><option value="">全部部门</option></select>
@@ -590,7 +593,7 @@
     <!-- Orgs page -->
     <section id="page-orgs" class="page">
       <div class="hint-card">
-        按部门看一共用了多少、平均每人用了多少。
+        按部门看一共用了多少、平均每人用了多少。每个部门下面仍按账号 × 项目拆开。
         <details class="advanced">
           <summary>部门名称从哪来</summary>
           <p>用量里带上部门名就会出现在这里。字段怎么填，请负责安装的同事看安装说明。</p>
@@ -606,6 +609,8 @@
 
       <div class="toolbar">
         <div class="filters">
+          <select id="orgFilterAccount"><option value="">全部账号</option></select>
+          <select id="orgFilterProject"><option value="">全部项目</option></select>
           <select id="orgFilterTool"><option value="">全部工具</option></select>
         </div>
       </div>
@@ -621,7 +626,7 @@
     <!-- Projects page: account × project -->
     <section id="page-projects" class="page">
       <div class="hint-card">
-        按「谁的哪个项目」分开看，而不是只给一个总数。
+        每一行都是一个<strong>账号 × 项目</strong>，不是把多个账号加总成一行。可以按账号或项目再筛。
         <details class="advanced">
           <summary>为什么有的行不出现</summary>
           <p>没有项目名的记录默认隐藏。演示数据默认也不上榜。需要对照时再取消「隐藏未标注」。</p>
@@ -637,8 +642,9 @@
 
       <div class="toolbar">
         <div class="filters">
-          <select id="projectFilterTool"><option value="">全部工具</option></select>
           <select id="projectFilterAccount"><option value="">全部账号</option></select>
+          <select id="projectFilterProject"><option value="">全部项目</option></select>
+          <select id="projectFilterTool"><option value="">全部工具</option></select>
           <label class="toggle-row"><input type="checkbox" id="projectHideUnlabeled" checked /> 隐藏未标注</label>
         </div>
       </div>
@@ -655,7 +661,7 @@
     <!-- Agents page -->
     <section id="page-agents" class="page">
       <div class="hint-card">
-        这里看每个助手用了多少。先在上方选账号，就只看这个人的助手。
+        这里按<strong>账号 × 助手</strong>分开。同一个助手出现在两个账号里会是两行，不会并成一个总数。也可以按项目再筛。
         <details class="advanced">
           <summary>助手怎样才会出现</summary>
           <p>用量里带上助手编号后就会出现。具体字段名请负责安装的同事看 <a href="/docs/INSTALL.md">安装说明</a>。</p>
@@ -671,7 +677,8 @@
 
       <div class="toolbar">
         <div class="filters">
-          <select id="agentFilterAccount"><option value="">全部账号（Demo）</option></select>
+          <select id="agentFilterAccount"><option value="">全部账号</option></select>
+          <select id="agentFilterProject"><option value="">全部项目</option></select>
           <select id="agentFilterTool"><option value="">全部工具</option></select>
           <select id="agentFilterTeam"><option value="">全部部门</option></select>
           <label class="toggle-row"><input type="checkbox" id="agentHideUnlabeled" checked /> 隐藏未标注</label>
@@ -707,7 +714,7 @@
           <select id="meFilterAccount"><option value="">选择账号…</option></select>
           <button type="button" class="btn" id="meCopyBtn">复制本周文案</button>
           <button type="button" class="btn ghost" id="meDrawBtn">生成分享图</button>
-          <button type="button" class="btn ghost" id="meExportBtn">导出 CSV</button>
+          <button type="button" class="btn ghost" id="meExportBtn">导出 FinOps CSV</button>
         </div>
       </div>
 
@@ -761,13 +768,13 @@
     <!-- Alerts page -->
     <section id="page-alerts" class="page">
       <div class="narrative-box" id="alertsNarrative">
-        消耗过低可能说明 AI 工作流尚未真正重构——建设性提醒，不是排名羞辱。
+        用量高不等于会用。用量过低或长期为零，往往说明 AI 工作流还没接到日常工作里。费用要按账号和项目拆开看。
       </div>
       <div class="hint-card">
-        用量太低时给一个提醒，方便复盘工作流有没有真的用上。贴上自己的密钥后，只看自己的账号。
+        试点提醒：闲置、用量过低、费用突增、账号费用阈值。贴上成员密钥后只看自己的账号。
         <details class="advanced">
-          <summary>通知地址</summary>
-          <p>需要推到外部时，由负责安装的同事配置通知地址。没配置就点「推送」也不会往外发。</p>
+          <summary>怎样配置</summary>
+          <p id="alertConfigure">阈值和通知地址由负责安装的同事写在环境变量里，说明见 <a href="/docs/INSTALL.md">安装说明</a>里的企业试点上线清单。没配通知地址时，点「推送」也不会往外发。</p>
         </details>
       </div>
       <div class="pills" id="alertPills">
@@ -777,12 +784,18 @@
       </div>
       <div class="toolbar">
         <div class="filters">
-          <label class="toggle-row">阈值 Tokens
+          <label class="toggle-row">低用量 Tokens
             <input id="alertThreshold" type="number" min="0" value="10000" style="width:120px;margin-left:8px;padding:6px 8px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text)" />
+          </label>
+          <label class="toggle-row">费用阈值（美元）
+            <input id="alertSpend" type="number" min="0" step="0.01" placeholder="留空用环境变量" style="width:140px;margin-left:8px;padding:6px 8px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text)" />
+          </label>
+          <label class="toggle-row">突增倍数
+            <input id="alertSpike" type="number" min="0.1" step="0.1" value="2" style="width:80px;margin-left:8px;padding:6px 8px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text)" />
           </label>
           <button type="button" class="btn" id="alertReloadBtn">刷新</button>
           <button type="button" class="btn ghost" id="alertNotifyBtn">推送 Webhook</button>
-          <button type="button" class="btn ghost" id="alertExportBtn">导出 CSV（需 Key）</button>
+          <button type="button" class="btn ghost" id="alertExportBtn">导出 FinOps CSV</button>
         </div>
       </div>
       <div class="meta">
@@ -791,8 +804,8 @@
       </div>
       <div id="alertList"><div class="empty">加载中…</div></div>
       <div class="panel me-panel" style="padding:14px;margin-top:14px">
-        <h3>已达标账号</h3>
-        <div id="alertOkList"><div class="empty">—</div></div>
+        <h3>按账号 × 项目（不是合计）</h3>
+        <div id="alertByAccount"><div class="empty">—</div></div>
       </div>
     </section>
 
@@ -992,8 +1005,18 @@
       return `<div class="error"><strong>${title}</strong><div>${escapeHtml(String((err && err.message) || err))}</div><div class="empty-steps">${next}</div></div>`;
     }
 
-    function emptyNext(title) {
-      return `<div class="empty"><strong>${escapeHtml(title)}</strong><div class="empty-steps">私有 FinOps：只统计内网真实用量，不是公开的模型热度榜。<br>1. 粘贴用户密钥<br>2. 选择自己的账号<br>3. 打开「我的」查看用量。导入示例见 <a href="/docs/INSTALL.md">安装说明</a>。</div></div>`;
+    function emptyNext(title, detail) {
+      const extra = detail ? `<br>${detail}` : "";
+      return `<div class="empty"><strong>${escapeHtml(title)}</strong><div class="empty-steps">私有 FinOps：只统计内网真实用量，不是公开的模型热度榜。${extra}<br>1. 粘贴用户密钥<br>2. 选择自己的账号<br>3. 打开「我的」或「项目榜」看账号 × 项目拆分。导入示例见 <a href="/docs/INSTALL.md">安装说明</a>。</div></div>`;
+    }
+
+    function splitSummary(splits) {
+      if (!splits || !splits.length) return "";
+      const bits = splits.slice(0, 3).map(s =>
+        `${escapeHtml(s.account_id)} · ${escapeHtml(s.project_id)} · ${fmtTokens(s.total_tokens)}`
+      );
+      const more = splits.length > 3 ? ` · 另有 ${splits.length - 3} 组` : "";
+      return `<div class="sub">拆分 ${bits.join("；")}${more}</div>`;
     }
 
     async function apiFetch(url, options) {
@@ -1227,10 +1250,14 @@
       const host = document.getElementById("peopleTable");
       host.innerHTML = '<div class="empty">加载中…</div>';
       const params = new URLSearchParams({ window: state.peopleWindow });
+      const account = document.getElementById("filterAccount").value;
+      const project = document.getElementById("filterProject").value;
       const tool = document.getElementById("filterTool").value;
       const model = document.getElementById("filterModel").value;
       const team = document.getElementById("filterTeam").value;
       const q = document.getElementById("filterQ").value.trim();
+      if (account) params.set("account_id", account);
+      if (project) params.set("project_id", project);
       if (tool) params.set("tool", tool);
       if (model) params.set("model", model);
       if (team) params.set("team", team);
@@ -1241,6 +1268,8 @@
         await throwIfNotOk(res);
         const data = await res.json();
 
+        fillSelect(document.getElementById("filterAccount"), data.filters.accounts || [], "全部账号");
+        fillSelect(document.getElementById("filterProject"), data.filters.projects || [], "全部项目");
         fillToolSelect(document.getElementById("filterTool"), data.filters.tools || [], data.filters.tool_labels || {}, "全部工具");
         fillSelect(document.getElementById("filterModel"), data.filters.models || [], "全部模型");
         fillSelect(document.getElementById("filterTeam"), data.filters.teams || [], "全部部门");
@@ -1259,19 +1288,24 @@
         document.getElementById("ovRankSub").textContent = `共 ${fmtInt(ov.participants || 0)} 人上榜`;
 
         document.getElementById("peopleMeta").textContent =
-          `${fmtInt(data.totals.participants)} 人 · ${fmtTokens(data.totals.total_tokens)} Tokens · ${approx}${fmtUsd(data.totals.estimated_cost_usd)}`;
+          `${fmtInt(data.totals.participants)} 人 · 拆成 ${fmtInt(data.totals.split_rows || 0)} 组账号×项目 · ${fmtTokens(data.totals.total_tokens)} Tokens · ${approx}${fmtUsd(data.totals.estimated_cost_usd)}`;
         document.getElementById("peopleSync").textContent =
           "更新于 " + new Date(data.generated_at).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" });
         document.getElementById("generatedAt").textContent = document.getElementById("peopleSync").textContent;
 
         if (!data.items.length) {
-          host.innerHTML = emptyNext("还没有个人用量");
+          host.innerHTML = (account || project)
+            ? emptyNext("这个账号或项目下还没有个人用量", "清空上方的账号、项目筛选，或到项目榜核对拆分。")
+            : emptyNext("还没有个人用量");
           return;
         }
         const rows = data.items.map(it => {
           const acct = it.account_id;
           const meHref = acct ? `/me?account_id=${encodeURIComponent(acct)}` : `/me`;
           const agentsHref = acct ? `/agents?account_id=${encodeURIComponent(acct)}` : `/agents`;
+          const counts = (it.account_count > 1 || it.project_count > 1)
+            ? ` · ${fmtInt(it.account_count)} 个账号 × ${fmtInt(it.project_count)} 个项目`
+            : "";
           return `<tr>
             <td>${medalHtml(it.rank)}</td>
             <td>
@@ -1279,7 +1313,8 @@
                 <div class="avatar">${escapeHtml(avatarLetter(it.participant))}</div>
                 <div>
                   <div class="name">${escapeHtml(it.participant)}</div>
-                  <div class="sub">${escapeHtml(it.team || "—")}${acct ? " · " + escapeHtml(acct) : ""}</div>
+                  <div class="sub">${escapeHtml(it.team || "—")}${acct ? " · " + escapeHtml(acct) : ""}${counts}</div>
+                  ${splitSummary(it.splits)}
                 </div>
               </div>
             </td>
@@ -1307,17 +1342,20 @@
       const host = document.getElementById("orgTable");
       host.innerHTML = '<div class="empty">加载中…</div>';
       const params = new URLSearchParams({ window: state.orgWindow });
+      const account = document.getElementById("orgFilterAccount").value;
+      const project = document.getElementById("orgFilterProject").value;
       const tool = document.getElementById("orgFilterTool").value;
+      if (account) params.set("account_id", account);
+      if (project) params.set("project_id", project);
       if (tool) params.set("tool", tool);
       try {
-        const toolsRes = await apiFetch("/api/v1/rankings/people?window=all");
-        if (toolsRes.ok) {
-          const td = await toolsRes.json();
-          fillToolSelect(document.getElementById("orgFilterTool"), td.filters.tools || [], td.filters.tool_labels || {}, "全部工具");
-        }
         const res = await apiFetch("/api/v1/rankings/orgs?" + params.toString());
         await throwIfNotOk(res);
         const data = await res.json();
+        const filters = data.filters || {};
+        fillSelect(document.getElementById("orgFilterAccount"), filters.accounts || [], "全部账号");
+        fillSelect(document.getElementById("orgFilterProject"), filters.projects || [], "全部项目");
+        fillToolSelect(document.getElementById("orgFilterTool"), filters.tools || [], filters.tool_labels || {}, "全部工具");
         const basis = (data.totals && data.totals.cost_basis) || "estimate";
         const approx = (basis === "estimate" || basis === "mixed") ? "≈ " : "";
         document.getElementById("orgMeta").textContent =
@@ -1325,13 +1363,16 @@
         document.getElementById("orgSync").textContent =
           "更新于 " + new Date(data.generated_at).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" });
         if (!data.items.length) {
-          host.innerHTML = emptyNext("还没有部门用量");
+          host.innerHTML = (account || project)
+            ? emptyNext("这个账号或项目下还没有部门用量", "换一个筛选，或清空后看全部部门。")
+            : emptyNext("还没有部门用量");
           return;
         }
         const rows = data.items.map(it => `<tr>
           <td>${medalHtml(it.rank)}</td>
           <td><div class="name">${escapeHtml(it.team)}</div>
-            <div class="sub">${fmtInt(it.participants)} 人 · ${fmtInt(it.requests)} 次</div></td>
+            <div class="sub">${fmtInt(it.participants)} 人 · ${fmtInt(it.account_count || 0)} 个账号 · ${fmtInt(it.project_count || 0)} 个项目</div>
+            ${splitSummary(it.splits)}</td>
           <td class="hide-sm">${fmtTokens(it.per_capita_tokens)}</td>
           <td>
             <div class="tok">${fmtTokens(it.total_tokens)}</div>
@@ -1351,10 +1392,13 @@
       host.innerHTML = '<div class="empty">加载中…</div>';
       const params = new URLSearchParams({ window: state.projectWindow });
       const tool = document.getElementById("projectFilterTool").value;
-      const account = document.getElementById("projectFilterAccount").value;
+      let account = document.getElementById("projectFilterAccount").value;
+      if (!account && state._preProjectAccount) account = state._preProjectAccount;
+      const project = document.getElementById("projectFilterProject").value;
       const hide = document.getElementById("projectHideUnlabeled").checked;
       if (tool) params.set("tool", tool);
       if (account) params.set("account_id", account);
+      if (project) params.set("project_id", project);
       params.set("hide_unlabeled", hide ? "true" : "false");
       try {
         const res = await apiFetch("/api/v1/rankings/projects?" + params.toString());
@@ -1362,16 +1406,23 @@
         const data = await res.json();
         fillToolSelect(document.getElementById("projectFilterTool"), data.filters.tools || [], data.filters.tool_labels || {}, "全部工具");
         fillSelect(document.getElementById("projectFilterAccount"), data.filters.accounts || [], "全部账号");
+        fillSelect(document.getElementById("projectFilterProject"), data.filters.projects || [], "全部项目");
+        if (state._preProjectAccount && (data.filters.accounts || []).includes(state._preProjectAccount)) {
+          document.getElementById("projectFilterAccount").value = state._preProjectAccount;
+        }
         const basis = data.totals.cost_basis || "estimate";
         const approx = (basis === "estimate" || basis === "mixed") ? "≈ " : "";
         document.getElementById("projectMeta").textContent =
-          `${fmtInt(data.totals.projects)} 个项目 · ${fmtTokens(data.totals.total_tokens)} Tokens`;
+          `按账号 × 项目拆开 · ${fmtInt(data.totals.projects)} 组 · ${fmtInt(data.totals.accounts || 0)} 个账号 · ${fmtTokens(data.totals.total_tokens)} Tokens`;
         document.getElementById("projectBasis").className = "basis-badge " + basis;
         document.getElementById("projectBasis").textContent = data.totals.cost_basis_label || "估算";
         document.getElementById("projectSync").textContent =
           "更新于 " + new Date(data.generated_at).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" });
         if (!data.items.length) {
-          host.innerHTML = emptyNext("还没有项目用量");
+          const filtered = account || project || tool;
+          host.innerHTML = filtered
+            ? emptyNext("这个筛选下还没有项目用量", "清空账号或项目筛选。没有项目名的记录默认隐藏，可以取消「隐藏未标注」。")
+            : emptyNext("还没有项目用量");
           return;
         }
         const rows = data.items.map(it => `<tr>
@@ -1399,10 +1450,12 @@
       host.innerHTML = '<div class="empty">加载中…</div>';
       const params = new URLSearchParams({ window: state.agentWindow });
       const account = document.getElementById("agentFilterAccount").value;
+      const project = document.getElementById("agentFilterProject").value;
       const tool = document.getElementById("agentFilterTool").value;
       const team = document.getElementById("agentFilterTeam").value;
       const hide = document.getElementById("agentHideUnlabeled").checked;
       if (account) params.set("account_id", account);
+      if (project) params.set("project_id", project);
       if (tool) params.set("tool", tool);
       if (team) params.set("team", team);
       params.set("hide_unlabeled", hide ? "true" : "false");
@@ -1411,6 +1464,7 @@
         await throwIfNotOk(res);
         const data = await res.json();
           fillSelect(document.getElementById("agentFilterAccount"), data.filters.accounts || [], "全部账号");
+        fillSelect(document.getElementById("agentFilterProject"), data.filters.projects || [], "全部项目");
         fillToolSelect(document.getElementById("agentFilterTool"), data.filters.tools || [], data.filters.tool_labels || {}, "全部工具");
         fillSelect(document.getElementById("agentFilterTeam"), data.filters.teams || [], "全部部门");
         if (state._preAccount && (data.filters.accounts || []).includes(state._preAccount)) {
@@ -1419,20 +1473,27 @@
         const basis = data.totals.cost_basis || "estimate";
         const approx = (basis === "estimate" || basis === "mixed") ? "≈ " : "";
         document.getElementById("agentMeta").textContent =
-          `${fmtInt(data.totals.agents)} 个 Agent · ${fmtTokens(data.totals.total_tokens)} Tokens`;
+          `按账号 × 助手拆开 · ${fmtInt(data.totals.agents)} 行 · ${fmtTokens(data.totals.total_tokens)} Tokens`;
         document.getElementById("agentBasis").className = "basis-badge " + basis;
         document.getElementById("agentBasis").textContent = data.totals.cost_basis_label || "估算";
         document.getElementById("agentSync").textContent =
           "更新于 " + new Date(data.generated_at).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" });
         if (!data.items.length) {
-          host.innerHTML = emptyNext("还没有助手用量");
+          host.innerHTML = (account || project)
+            ? emptyNext("这个账号或项目下还没有助手用量", "清空筛选后再看。没有助手编号的记录默认隐藏。")
+            : emptyNext("还没有助手用量");
           return;
         }
-        const rows = data.items.map(it => `<tr>
+        const rows = data.items.map(it => {
+          const proj = (it.projects || []).slice(0, 3).join("、");
+          const projLine = proj
+            ? `${fmtInt(it.project_count || it.projects.length)} 个项目：${proj}`
+            : "未标注项目";
+          return `<tr>
           <td>${medalHtml(it.rank)}</td>
           <td>
             <div class="name">${escapeHtml(it.label || it.agent_id)}</div>
-            <div class="sub">${escapeHtml(it.account_id || "—")} · ${escapeHtml(it.agent_id)}</div>
+            <div class="sub">${escapeHtml(it.account_id || "—")} · ${escapeHtml(it.agent_id)} · ${escapeHtml(projLine)}</div>
           </td>
           <td>${escapeHtml(it.tool || "—")}</td>
           <td class="hide-sm">${fmtInt(it.requests)}</td>
@@ -1440,10 +1501,11 @@
             <div class="tok">${fmtTokens(it.total_tokens)}</div>
             <div class="cost">${approx}${fmtUsd(it.estimated_cost_usd)} · ${it.share_pct}%</div>
           </td>
-        </tr>`).join("");
+        </tr>`;
+        }).join("");
         host.innerHTML = `<table>
           <thead><tr>
-            <th>排名</th><th>Agent</th><th>主力工具</th><th class="hide-sm">请求数</th><th>Token 用量</th>
+            <th>排名</th><th>账号 · Agent · 项目</th><th>主力工具</th><th class="hide-sm">请求数</th><th>Token 用量</th>
           </tr></thead>
           <tbody>${rows}</tbody>
         </table>`;
@@ -1570,21 +1632,32 @@
       }
     }
 
+    function alertProjectLine(projects) {
+      if (!projects || !projects.length) return "本窗口没有项目";
+      return projects.slice(0, 4).map(p =>
+        `${p.project_id} ${fmtTokens(p.total_tokens)}`
+      ).join(" · ");
+    }
+
     async function loadAlerts(notify) {
       const host = document.getElementById("alertList");
-      const okHost = document.getElementById("alertOkList");
+      const splitHost = document.getElementById("alertByAccount");
       host.innerHTML = '<div class="empty">加载中…</div>';
-      const thr = Number(document.getElementById("alertThreshold").value) || 0;
-      const params = new URLSearchParams({
-        window: state.alertWindow,
-        threshold_tokens: String(thr),
-      });
+      const thr = document.getElementById("alertThreshold").value;
+      const spend = document.getElementById("alertSpend").value.trim();
+      const spike = document.getElementById("alertSpike").value.trim();
+      const params = new URLSearchParams({ window: state.alertWindow });
+      if (thr !== "") params.set("threshold_tokens", String(Number(thr) || 0));
+      if (spend !== "") params.set("spend_threshold_usd", spend);
+      if (spike !== "") params.set("spike_ratio", spike);
       if (notify) params.set("notify", "true");
       try {
-        const res = await apiFetch("/api/v1/alerts/low-usage?" + params.toString());
+        const res = await apiFetch("/api/v1/alerts?" + params.toString());
         await throwIfNotOk(res);
         const data = await res.json();
         document.getElementById("alertsNarrative").textContent = data.narrative || "";
+        const cfg = document.getElementById("alertConfigure");
+        if (cfg && data.configure) cfg.textContent = data.configure;
         const wh = data.webhook || {};
         let whNote = "";
         if (notify) {
@@ -1594,58 +1667,75 @@
         } else if (data.webhook_configured) {
           whNote = " · Webhook 已配置（点「推送」才会 POST）";
         }
+        const rules = (data.rules || []).filter(r => r.enabled).map(r => r.label).join("、");
         document.getElementById("alertMeta").textContent =
-          `评估 ${fmtInt(data.accounts_evaluated)} 账号 · 告警 ${fmtInt(data.alert_count)} · 达标 ${fmtInt(data.ok_count)} · 范围 ${data.scope === "self" ? "仅自己" : "全员"} · 阈值 ${fmtTokens(data.threshold_tokens)}`;
+          `评估 ${fmtInt(data.accounts_evaluated)} 个账号 · ${fmtInt(data.alert_count)} 条提醒 · 范围 ${data.scope === "self" ? "仅自己" : "全员"} · ${rules || "规则"}`;
         document.getElementById("alertSync").textContent =
           "更新于 " + new Date(data.generated_at).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" }) + whNote;
 
-        if (!data.alerts.length) {
-          host.innerHTML = '<div class="alert-card ok"><h4>暂无低消耗告警</h4><div class="msg">所选窗口内，评估账号均已达到或超过阈值。继续把关键工作流交给 AI 吧。</div></div>';
+        if (!data.accounts_evaluated) {
+          host.innerHTML = emptyNext("还没有可评估的账号", "先导入用量，或在用户名单里写上 account_id。");
+        } else if (!data.alerts.length) {
+          host.innerHTML = '<div class="alert-card ok"><h4>本窗口没有触发试点提醒</h4><div class="msg">闲置、用量过低、费用突增和账号费用阈值都没有命中。下面仍按账号和项目拆开，方便核对这不是只有一个总数。</div></div>';
         } else {
           host.innerHTML = data.alerts.map(a => `
             <div class="alert-card">
-              <h4>${escapeHtml(a.name || a.account_id)} · ${escapeHtml(a.account_id)}</h4>
+              <h4>${escapeHtml(a.label || a.rule)} · ${escapeHtml(a.name || a.account_id)}</h4>
               <div class="msg">${escapeHtml(a.message)}</div>
               <div class="meta-line">
-                本窗 ${fmtTokens(a.total_tokens)} Tokens（阈值 ${fmtTokens(a.threshold_tokens)}，差 ${fmtTokens(a.deficit_tokens)}）
-                · ${fmtInt(a.requests)} 次 · ${fmtInt(a.agents)} agents · ${fmtInt(a.projects)} 项目
-                · <a href="/me?account_id=${encodeURIComponent(a.account_id)}">去「我的」看拆分</a>
+                账号 ${escapeHtml(a.account_id)} · ${fmtTokens(a.total_tokens)} Tokens · ${fmtUsd(a.estimated_cost_usd || 0)}
+                · ${escapeHtml(alertProjectLine(a.projects))}
+                · <a href="/projects?account_id=${encodeURIComponent(a.account_id)}">看项目拆分</a>
               </div>
             </div>`).join("");
         }
-        okHost.innerHTML = (data.ok && data.ok.length)
-          ? data.ok.map(a => `<div class="mini-row"><div>${escapeHtml(a.name)} · ${escapeHtml(a.account_id)}</div><div class="tok">${fmtTokens(a.total_tokens)}</div></div>`).join("")
-          : '<div class="empty">无</div>';
+        const rows = data.by_account || [];
+        splitHost.innerHTML = rows.length
+          ? rows.map(a => `<div class="mini-row"><div><strong>${escapeHtml(a.account_id)}</strong><div class="sub">${escapeHtml(alertProjectLine(a.projects))}${(a.alert_rules || []).length ? " · 提醒 " + (a.alert_rules || []).join("、") : ""}</div></div><div class="tok">${fmtTokens(a.total_tokens)}</div></div>`).join("")
+          : '<div class="empty">还没有账号。导入用量后再看拆分。</div>';
       } catch (err) {
         host.innerHTML = errorBlock(err);
+        if (splitHost) splitHost.innerHTML = "";
       }
     }
 
-    async function exportMeCsv() {
+    async function exportUsageCsv(opts) {
+      const options = opts || {};
       if (!getStoredKey()) {
         openKeyModal();
         alert("导出需要先粘贴用户密钥。请用「首次配置」或右上角「贴密钥」。不要粘贴采集用的写入密钥。");
         return;
       }
-      const who = state.whoami || {};
-      const account = (state._lastMe && state._lastMe.account_id)
-        || document.getElementById("meFilterAccount").value
-        || who.account_id
-        || "";
-      const params = new URLSearchParams({ window: state.meWindow || "7d", limit: "10000" });
-      if (account) params.set("account_id", account);
+      const grain = options.grain || "finops";
+      const windowName = options.window || state.meWindow || "7d";
+      const params = new URLSearchParams({ window: windowName, limit: "10000", grain: grain });
+      if (options.account) params.set("account_id", options.account);
       try {
         const res = await apiFetch("/api/v1/export/usage.csv?" + params.toString());
         await throwIfNotOk(res);
         const blob = await res.blob();
         const a = document.createElement("a");
+        const who = options.account || "all";
         a.href = URL.createObjectURL(blob);
-        a.download = `usage_${account || "all"}.csv`;
+        a.download = `${grain}_${who}.csv`;
         a.click();
         URL.revokeObjectURL(a.href);
       } catch (err) {
         alert("导出失败：" + (err.message || err));
       }
+    }
+
+    function exportMeCsv() {
+      const who = state.whoami || {};
+      const account = (state._lastMe && state._lastMe.account_id)
+        || document.getElementById("meFilterAccount").value
+        || who.account_id
+        || "";
+      exportUsageCsv({ grain: "finops", window: state.meWindow || "7d", account: account });
+    }
+
+    function exportAlertsCsv() {
+      exportUsageCsv({ grain: "finops", window: state.alertWindow || "7d", account: "" });
     }
 
     function copyMeShare() {
@@ -1833,6 +1923,7 @@ async function loadForum() {
       const preAccount = qs.get("account_id");
       if (preAccount && state.page === "agents") state._preAccount = preAccount;
       if (preAccount && state.page === "me") state._preMeAccount = preAccount;
+      if (preAccount && state.page === "projects") state._preProjectAccount = preAccount;
       setActiveNav();
       bindPills("peoplePills", "peopleWindow");
       bindPills("orgPills", "orgWindow");
@@ -1857,15 +1948,17 @@ async function loadForum() {
         if (e.key === "Enter") saveSetup();
       });
 
-      ["filterTool", "filterModel", "filterTeam"].forEach(id => {
+      ["filterAccount", "filterProject", "filterTool", "filterModel", "filterTeam"].forEach(id => {
         document.getElementById(id).addEventListener("change", loadPeople);
       });
-      document.getElementById("orgFilterTool").addEventListener("change", loadOrgs);
-      ["projectFilterTool", "projectFilterAccount"].forEach(id => {
+      ["orgFilterAccount", "orgFilterProject", "orgFilterTool"].forEach(id => {
+        document.getElementById(id).addEventListener("change", loadOrgs);
+      });
+      ["projectFilterTool", "projectFilterAccount", "projectFilterProject"].forEach(id => {
         document.getElementById(id).addEventListener("change", loadProjects);
       });
       document.getElementById("projectHideUnlabeled").addEventListener("change", loadProjects);
-      ["agentFilterAccount", "agentFilterTool", "agentFilterTeam"].forEach(id => {
+      ["agentFilterAccount", "agentFilterProject", "agentFilterTool", "agentFilterTeam"].forEach(id => {
         document.getElementById(id).addEventListener("change", loadAgents);
       });
       document.getElementById("agentHideUnlabeled").addEventListener("change", loadAgents);
@@ -1875,8 +1968,10 @@ async function loadForum() {
       document.getElementById("meExportBtn").addEventListener("click", exportMeCsv);
       document.getElementById("alertReloadBtn").addEventListener("click", () => loadAlerts(false));
       document.getElementById("alertNotifyBtn").addEventListener("click", () => loadAlerts(true));
-      document.getElementById("alertExportBtn").addEventListener("click", exportMeCsv);
-      document.getElementById("alertThreshold").addEventListener("change", () => loadAlerts(false));
+      document.getElementById("alertExportBtn").addEventListener("click", exportAlertsCsv);
+      ["alertThreshold", "alertSpend", "alertSpike"].forEach(id => {
+        document.getElementById(id).addEventListener("change", () => loadAlerts(false));
+      });
       let qTimer;
       document.getElementById("filterQ").addEventListener("input", () => {
         clearTimeout(qTimer);
