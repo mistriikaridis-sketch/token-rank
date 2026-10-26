@@ -5,6 +5,7 @@ arguments, and source paths are not reconstructed.
 """
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from app.pricing import estimate_cost, normalize_model_name
@@ -46,6 +47,7 @@ ALLOWED_KEYS = frozenset(
         "generatedTokens",
         "userId",
         "provider",
+        "chargedCents",
     }
 )
 
@@ -186,11 +188,48 @@ def event_for_continue(row: dict[str, Any]) -> dict[str, Any]:
     return body
 
 
+def event_for_cursor(row: dict[str, Any]) -> dict[str, Any]:
+    body = _common(row)
+    body.update(
+        {
+            "prompt_tokens": int(row.get("prompt_tokens") or 0),
+            "completion_tokens": int(row.get("completion_tokens") or 0),
+            "cache_read_tokens": int(row.get("cache_read_tokens") or 0),
+            "cache_write_tokens": int(row.get("cache_write_tokens") or 0),
+            "reasoning_tokens": int(row.get("reasoning_tokens") or 0),
+            "total_tokens": int(row.get("total_tokens") or 0),
+        }
+    )
+    if row.get("cost_basis") == "cursor_charged" and row.get("cost_usd") is not None:
+        try:
+            body["chargedCents"] = round(float(row["cost_usd"]) * 100.0, 6)
+        except (TypeError, ValueError):
+            pass
+    return body
+
+
+def event_for_procode(row: dict[str, Any]) -> dict[str, Any]:
+    body = _common(row)
+    body.update(
+        {
+            "prompt_tokens": int(row.get("prompt_tokens") or 0),
+            "completion_tokens": int(row.get("completion_tokens") or 0),
+            "cache_read_tokens": int(row.get("cache_read_tokens") or 0),
+            "cache_write_tokens": int(row.get("cache_write_tokens") or 0),
+            "reasoning_tokens": int(row.get("reasoning_tokens") or 0),
+            "total_tokens": int(row.get("total_tokens") or 0),
+        }
+    )
+    return body
+
+
 _BUILDERS = {
     "workbuddy": event_for_workbuddy,
     "claude_code": event_for_claude_code,
     "codex": event_for_codex,
     "continue": event_for_continue,
+    "cursor": event_for_cursor,
+    "procode": event_for_procode,
 }
 
 
@@ -215,6 +254,24 @@ def assert_allowed(payload: Any) -> None:
     unknown = sorted({k for k in iter_keys(payload) if k not in ALLOWED_KEYS})
     if unknown:
         raise ValueError("payload has keys outside the usage allowlist: " + ", ".join(unknown))
+
+
+def redact_home(path: str) -> str:
+    """Show a scan root without the absolute home directory."""
+    if not path:
+        return path
+    try:
+        home = Path.home()
+    except RuntimeError:
+        return path
+    candidate = Path(path).expanduser()
+    try:
+        rel = candidate.relative_to(home)
+    except ValueError:
+        return path
+    if not rel.parts:
+        return "~"
+    return "~/" + rel.as_posix()
 
 
 def build_payloads(report: dict[str, ToolScan]) -> dict[str, list[dict[str, Any]]]:
@@ -248,8 +305,8 @@ def summarize(report: dict[str, ToolScan], payloads: dict[str, list[dict[str, An
             for r in scan.rows
         )
         tools[tool] = {
-            "roots": scan.roots,
-            "missing_roots": scan.missing_roots,
+            "roots": [redact_home(root) for root in scan.roots],
+            "missing_roots": [redact_home(root) for root in scan.missing_roots],
             "rows": len(scan.rows),
             "prompt_tokens": prompt,
             "completion_tokens": completion,

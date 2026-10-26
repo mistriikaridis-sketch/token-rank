@@ -82,7 +82,8 @@ curl -s -X POST http://localhost:8000/api/v1/ingest/workbuddy \
 
 - **Admin API**：`POST https://api.cursor.com/teams/filtered-usage-events`
 - 本服务：`POST /api/v1/sync/cursor` 或离线 JSON → `POST /api/v1/ingest/cursor`
-- **不要**把浏览器 cookie / `state.vscdb` 当生产源
+- **本机采集**（`python -m collector`）会读 `state.vscdb` 里 `bubbleId:*` 的 token 与模型名，以及 `~/.cursor/exports` 一类 usage JSON。SQL 不取出对话正文，也不读 `cursorAuth` 的 access token / cookie
+- 新版 Cursor 常把本地气泡 token 写成 0。这种行会跳过，不拿字符数冒充。把仪表盘导出的 `filtered-usage-events.json`（不要带 prompt）放到 `~/.cursor/exports/`
 
 ### 假落盘
 
@@ -103,11 +104,13 @@ curl -s -X POST http://localhost:8000/api/v1/ingest/cursor \
 
 ---
 
-## ProCode / Canoryn（占位）
+## ProCode / Canoryn（聊天库仍不解密）
 
-公开用量 schema **不足**，不做深适配。探测脚本会扫 `~/.canoryn*`、`~/.procode*` 并写入报告；页面说明见 **`/procode`**。
+公开聊天 schema **不足**。Canoryn 的对话在加密 SQLite，密钥在系统钥匙串里。探测脚本会扫 `~/.canoryn*`、`~/.procode*` 并写入报告；页面说明见 **`/procode`**。健康检查 `adapters[]` 里 ProCode 状态仍为 **`placeholder`**。
 
-**闭环**：经 LiteLLM / 网关打 `tool=procode`（header 或 tags）→ 统一 usage → `POST /api/v1/ingest/procode`。样例：`fixtures/procode_events.json`。健康检查 `adapters[]` 里 ProCode 状态为 **`placeholder`**。
+本机采集器会读这些目录（以及各系统应用数据目录）里的 **usage json/jsonl**，不打开 sqlite，也不调用 `canoryn` 命令。样例：`fixtures/procode_events.json`、`fixtures/procode_sample/`。
+
+**闭环**：目录里放 usage 文件后 `python -m collector once`，或经 LiteLLM / 网关打 `tool=procode` → `POST /api/v1/ingest/procode`。这不是一条新的模型网关。
 
 ---
 

@@ -9,6 +9,8 @@ from typing import Any, Callable, Optional
 from app.adapters.claude_code import scan_claude_code_dir
 from app.adapters.codex import scan_codex_dir
 from app.adapters.continue_dev import scan_continue_dir
+from app.adapters.cursor_admin import scan_cursor_dir
+from app.adapters.procode import scan_procode_dir
 from app.adapters.workbuddy import scan_workbuddy_dir
 from app.tools import normalize_tool
 
@@ -21,6 +23,8 @@ TOOL_SCANNERS: dict[str, ScanFn] = {
     "claude_code": scan_claude_code_dir,
     "codex": scan_codex_dir,
     "continue": scan_continue_dir,
+    "cursor": scan_cursor_dir,
+    "procode": scan_procode_dir,
 }
 
 ENV_ROOT = {
@@ -28,6 +32,8 @@ ENV_ROOT = {
     "claude_code": "CLAUDE_PROJECTS_DIR",
     "codex": "CODEX_SESSIONS_DIR",
     "continue": "CONTINUE_DATA_DIR",
+    "cursor": "CURSOR_DATA_DIR",
+    "procode": "PROCODE_DATA_DIR",
 }
 
 # Workbody is the spoken alias already used by scripts/probe_local_tools.py.
@@ -40,6 +46,28 @@ DEFAULT_RELATIVE = {
     "claude_code": (".claude/projects",),
     "codex": (".codex/sessions",),
     "continue": (".continue/dev_data",),
+    # Cursor: ~/.cursor holds exports; the IDE state DB lives in the OS app dir.
+    # ProCode/Canoryn: usage json/jsonl only. Encrypted chat sqlite is not a root.
+    "cursor": (
+        ".cursor",
+        ".config/Cursor",
+        "Library/Application Support/Cursor",
+        "AppData/Roaming/Cursor",
+    ),
+    "procode": (
+        ".procode",
+        ".canoryn",
+        ".config/procode",
+        ".config/canoryn",
+        ".local/share/procode",
+        ".local/share/canoryn",
+        "Library/Application Support/ProCode",
+        "Library/Application Support/Canoryn",
+        "AppData/Roaming/ProCode",
+        "AppData/Roaming/Canoryn",
+        "AppData/Local/ProCode",
+        "AppData/Local/Canoryn",
+    ),
 }
 
 FIXTURE_RELATIVE = {
@@ -47,6 +75,8 @@ FIXTURE_RELATIVE = {
     "claude_code": "fixtures/claude_code_sample",
     "codex": "fixtures/codex_sample",
     "continue": "fixtures/continue_sample",
+    "cursor": "fixtures/cursor_sample",
+    "procode": "fixtures/procode_sample",
 }
 
 _GENERIC_PARTICIPANTS = {
@@ -89,6 +119,36 @@ def _dedupe_paths(paths: list[Path]) -> list[Path]:
     return out
 
 
+def _platform_roots(tool: str) -> list[Path]:
+    """Absolute OS dirs that are not always under the process home.
+
+    Used only for a real machine scan. A caller that passes ``home=`` is
+    simulating a tree and must not also read this process's Cursor install.
+    """
+    found: list[Path] = []
+    xdg = (os.environ.get("XDG_CONFIG_HOME") or "").strip()
+    xdg_data = (os.environ.get("XDG_DATA_HOME") or "").strip()
+    appdata = (os.environ.get("APPDATA") or "").strip()
+    local = (os.environ.get("LOCALAPPDATA") or "").strip()
+    if tool == "cursor":
+        if xdg:
+            found.append(Path(xdg) / "Cursor")
+        if appdata:
+            found.append(Path(appdata) / "Cursor")
+        if local:
+            found.append(Path(local) / "Cursor")
+    elif tool == "procode":
+        if xdg:
+            found.extend([Path(xdg) / "procode", Path(xdg) / "canoryn"])
+        if xdg_data:
+            found.extend([Path(xdg_data) / "procode", Path(xdg_data) / "canoryn"])
+        if appdata:
+            found.extend([Path(appdata) / "ProCode", Path(appdata) / "Canoryn"])
+        if local:
+            found.extend([Path(local) / "ProCode", Path(local) / "Canoryn"])
+    return found
+
+
 def resolve_roots(
     tool: str,
     cfg: CollectorConfig,
@@ -117,11 +177,10 @@ def resolve_roots(
         return found, missing
 
     base = home.expanduser() if home is not None else Path.home()
-    found = []
-    for rel in DEFAULT_RELATIVE[tool]:
-        path = base / rel
-        if path.is_dir():
-            found.append(path)
+    candidates = [base / rel for rel in DEFAULT_RELATIVE[tool]]
+    if home is None:
+        candidates.extend(_platform_roots(tool))
+    found = [path for path in candidates if path.is_dir()]
     return _dedupe_paths(found), []
 
 

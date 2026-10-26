@@ -1,0 +1,57 @@
+{
+  "totalUsageEventsCount": 5,
+  "usageEvents": [
+    {
+      "timestamp": "1792900800000",
+      "userEmail": "alice@acme.com",
+      "conversationId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      "projectId": "/Users/alice/work/chatbot-core",
+      "model": "claude-4.5-sonnet",
+      "kind": "Usage-based",
+      "tokenUsage": {
+        "inputTokens": 100,
+        "outputTokens": 40,
+        "cacheReadTokens": 10,
+        "cacheWriteTokens": 2
+      },
+      "chargedCents": 5.5,
+      "eventId": "cursor-export-alice-1",
+      "cloudAgentId": "cloud-agent-alice",
+      "agentName": "文档写作 Agent"
+    },
+    {
+      "timestamp": "1792901400000",
+      "userEmail": "bob@acme.com",
+      "conversationId": "b0b0b0b0-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      "model": "gpt-4o",
+      "kind": "Included in Business",
+      "tokenUsage": {"inputTokens": 50, "outputTokens": 20},
+      "eventId": "cursor-export-bob-1",
+      "team": "增长运营"
+    },
+    {
+      "timestamp": "1792902000000",
+      "userEmail": "carol@acme.com",
+      "conversationId": "c0c0c0c0-cccc-4ccc-8ccc-cccccccccccc",
+      "model": "企业内部-cursor-模型",
+      "tokenUsage": {"inputTokens": 30, "outputTokens": 10},
+      "eventId": "cursor-export-unknown",
+      "team": "数据智能"
+    },
+    {
+      "timestamp": "1792902600000",
+      "userEmail": "carol@acme.com",
+      "model": "",
+      "tokenUsage": {"inputTokens": 1, "outputTokens": 1},
+      "eventId": "cursor-export-nomodel"
+    },
+    {
+      "timestamp": "1792903200000",
+      "userEmail": "alice@acme.com",
+      "model": "gpt-4o",
+      "tokenUsage": {"inputTokens": 9, "outputTokens": 9},
+      "eventId": "cursor-export-secret",
+      "prompt": "SECRET THIS MUST NEVER BE STORED /Users/alice /Users/bob echo SECRET userAgent filepath NEVER STORE"
+    }
+  ]
+}

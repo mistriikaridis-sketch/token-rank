@@ -9,6 +9,7 @@ from typing import Optional, Sequence
 
 from collector.config import (
     DEFAULT_INTERVAL_MINUTES,
+    SUPPORTED_TOOLS,
     CollectorConfig,
     env_file_path,
     load_config,
@@ -41,7 +42,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="python -m collector",
         description=(
-            "本机采集 WorkBuddy / Claude Code / Codex / Continue 的 Token 用量，"
+            "本机采集 WorkBuddy / Claude Code / Codex / Continue / Cursor / ProCode 的 Token 用量，"
             "上报到私有 Token 消耗排行榜。不上传对话、代码或源文件名。"
         ),
     )
@@ -109,7 +110,7 @@ def _add_scan_flags(parser: argparse.ArgumentParser) -> None:
         "--tool",
         action="append",
         default=None,
-        help="只扫一种工具，可重复。workbody 会当成 workbuddy",
+        help="只扫一种工具，可重复。workbody 会当成 workbuddy，canoryn 会当成 procode",
     )
     parser.add_argument("--account-id")
     parser.add_argument("--participant")
@@ -123,7 +124,10 @@ def _selected_tools(args: argparse.Namespace, cfg: CollectorConfig) -> list[str]
     for name in args.tool:
         slug = canonical_tool(name)
         if slug is None:
-            raise SystemExit(f"不支持的工具：{name}。可选：workbuddy claude_code codex continue")
+            names = " ".join(SUPPORTED_TOOLS)
+            raise SystemExit(
+                f"不支持的工具：{name}。可选：{names}（workbody→workbuddy，canoryn→procode）"
+            )
         if slug not in selected:
             selected.append(slug)
     return selected
