@@ -97,7 +97,7 @@ def _basis_note(primary: str, billed: int, total: int) -> str:
     if total <= 0:
         return "暂无用量"
     if primary == "estimate":
-        return "成本均为价目表估算，非账单实扣"
+        return "成本均为公开列表价估算，不是云厂商发票或实扣账单"
     if primary == "mixed":
         return f"部分行有账单字段（{billed}/{total}），其余为估算"
     return f"成本来自 {cost_basis_label(primary)}（{billed}/{total} 行）"

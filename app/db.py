@@ -508,6 +508,17 @@ def insert_usage_rows(rows: list[dict]) -> dict[str, Any]:
             elif source is not None:
                 source = str(source).strip() or None
 
+            # Known catalog names collapse to a canonical id. Unknown strings
+            # stay as logged so a private model is never dropped or renamed
+            # to "default". Pricing still falls back separately.
+            model_name = r["model"]
+            if isinstance(model_name, str):
+                from app.pricing import normalize_model_name
+
+                canonical = normalize_model_name(model_name)
+                if canonical:
+                    model_name = canonical
+
             cost_usd = r.get("cost_usd")
             if cost_usd is not None:
                 try:
@@ -520,7 +531,7 @@ def insert_usage_rows(rows: list[dict]) -> dict[str, Any]:
                 cost_basis = cost_basis.strip() or None
 
             values = (
-                r["model"],
+                model_name,
                 int(r.get("prompt_tokens") or 0),
                 int(r.get("completion_tokens") or 0),
                 int(r.get("total_tokens") or 0),

@@ -152,6 +152,7 @@ server {
 
 ## 下一步
 
+- 开发者本机采集（Token 数字，不含对话）：[collector/INSTALL.md](../collector/INSTALL.md)（服务上的地址是 `/docs/collector.md`）
 - 验收清单：[ACCEPTANCE.md](ACCEPTANCE.md)
 - 打不开或报错：[TROUBLESHOOTING.md](TROUBLESHOOTING.md)
 - 什么可以公开、什么不能：[SECURITY.md](SECURITY.md)
