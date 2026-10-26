@@ -1,0 +1,21 @@
+[
+  {
+    "api_key": "CHANGE_ME-admin",
+    "role": "admin",
+    "name": "管理员",
+    "note": "这是形状示例，不要把填好的文件提交到仓库。试用名单仍是 fixtures/users.json（demo-alice-key 等）。生产请运行 scripts/bootstrap_prod.sh：生成的文件只保存 api_key_sha256，明文只在终端打印一次。把该文件挂到容器内 /run/token-rankings/users.json，不要覆盖 fixtures/users.json。"
+  },
+  {
+    "api_key_sha256": "CHANGE_ME",
+    "role": "member",
+    "account_id": "your-account",
+    "name": "成员示例",
+    "note": "api_key_sha256 是用户密钥的 SHA-256 十六进制。成员必须带 account_id。"
+  },
+  {
+    "api_key_sha256": "CHANGE_ME",
+    "role": "member",
+    "account_id": "other-account",
+    "name": "另一名成员"
+  }
+]

@@ -1,6 +1,6 @@
 # Token 消耗排行榜
 
-许可证：**MIT** · 版本 **0.17**
+许可证：**MIT** · 版本 **0.18.0**
 
 ## 客户 10 分钟跑通
 
@@ -34,6 +34,8 @@ bash scripts/customer_smoke.sh
 
 看到 `ALL CUSTOMER SMOKE CHECKS PASSED` 才算通过。失败时脚本以非 0 退出。若你已经把 `.env` 里的写入密钥换成了自己的值，先 `export TOKEN_RANKINGS_API_KEY=那一串` 再跑脚本。
 
+交给别人用之前运行 `bash scripts/bootstrap_prod.sh`（见 [安装说明](docs/INSTALL.md)）。没有 `--force` 时不会覆盖已有密钥。交付后再跑一次 `SMOKE_REQUIRE_AUTH=1 bash scripts/customer_smoke.sh`，确认 `demo_keys_in_use=false`。
+
 | 文档 | 内容 |
 |---|---|
 | [docs/INSTALL.md](docs/INSTALL.md) | 安装：Docker 一条命令、可选 Postgres、换掉全部演示密钥 |
@@ -65,7 +67,7 @@ docker compose -f docker-compose.yml -f docker-compose.postgres.yml up -d --buil
 - **交流区** `/forum`：企业内部最小讨论（发帖 / 列表 / 点赞）；匿名只读；禁止贴 Key/对话原文
 - **ProCode** `/procode`：占位适配说明；`POST /api/v1/ingest/procode`
 
-许可证：**MIT** · 版本 **0.17**（客户文档见文首「客户 10 分钟跑通」）
+许可证：**MIT** · 版本 **0.18.0**（客户文档见文首「客户 10 分钟跑通」）
 
 ## 本地探测
 
@@ -268,17 +270,19 @@ curl -s http://localhost:8000/health | jq '.database'
 # → backend=sqlite
 
 # Postgres 叠加（生产建议；不改坏默认 compose）
+# 必填 POSTGRES_PASSWORD。不要用 token 当密码。5432 只绑定 127.0.0.1。
+export POSTGRES_PASSWORD='换成你们自己的长随机密码'
 docker compose -f docker-compose.yml -f docker-compose.postgres.yml up -d --build
 curl -s http://localhost:8000/health | jq '.database'
 # → backend=postgres, connected=true
 bash scripts/verify_postgres.sh   # ingest 幂等 + 排行 + RBAC
 
-# 也可只起库、进程外挂 DATABASE_URL：
+# 也可只起库、进程外挂 DATABASE_URL（密码与 POSTGRES_PASSWORD 相同，不要用 token）：
 # docker compose -f docker-compose.yml -f docker-compose.postgres.yml up -d postgres
-# DATABASE_URL=postgresql://token:token@127.0.0.1:5432/token_rankings uvicorn app.main:app --port 8000
+# DATABASE_URL=postgresql://token:你的密码@127.0.0.1:5432/token_rankings uvicorn app.main:app --port 8000
 ```
 
-生产建议：**用 Postgres**（并发、备份、多副本）；SQLite 仅适合单机 demo / 轻量试用。备份卷 `rankings-pg` 或 `pg_dump`。overlay 会把 Postgres 映射到宿主机 `5432`（可按需改端口）。
+生产建议：**用 Postgres**（并发、备份、多副本）；SQLite 仅适合单机 demo / 轻量试用。备份卷 `rankings-pg` 或 `pg_dump`。overlay 只把 Postgres 映射到宿主机 `127.0.0.1:5432`。
 
 ## 幂等 / 清库
 

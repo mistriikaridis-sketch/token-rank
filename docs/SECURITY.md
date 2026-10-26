@@ -8,20 +8,20 @@
 |---|---|---|
 | 看排行要不要登录 | `RANKINGS_REQUIRE_AUTH=0`，不贴密钥也能看榜 | **改为 `1`**。不贴用户密钥就不能看排行 |
 | 写入密钥 | `dev-token-rankings-change-me`（或 `.env` 里的 `CHANGE_ME`） | 换成一长串只有你们知道的随机字符 |
-| 用户密钥 | `demo-admin-key`、`demo-alice-key`、`demo-dave-key` | 在用户名单里全部换掉 |
+| 用户密钥 | `demo-admin-key`、`demo-alice-key`、`demo-dave-key` | 运行 `scripts/bootstrap_prod.sh`，或在自己的名单里全部换掉 |
 | 数据库 | 本机 SQLite | 需要多人使用时改 Postgres，并更换数据库密码 |
 | 网页提醒 | 仍在使用演示密钥时，顶部出现黄条 | 黄条消失后再交给别人用 |
 
 试用默认是故意放宽的，这样 10 分钟内能跑通。**不要**带着这些默认值上公网或公司正式环境。
 
-生产请在 `.env` 中写：
+生产可以运行 `bash scripts/bootstrap_prod.sh`。它会写入：
 
 ```bash
 RANKINGS_REQUIRE_AUTH=1
 TOKEN_RANKINGS_API_KEY=换成你们自己的长随机串
 ```
 
-然后 `docker compose up -d --build`。
+用户名单写到 `fixtures/users.prod.json`（或你指定的路径），里面只有密钥的 SHA-256，明文只在终端打印一次。没有 `--force` 时不会覆盖已有密钥。然后 `docker compose up -d --build`。
 
 ## 有两种密钥，不要混用
 
@@ -39,7 +39,7 @@ TOKEN_RANKINGS_API_KEY=换成你们自己的长随机串
 - 不要把填好的 `.env` 提交到 Git，或贴到聊天、邮件、截图里。
 - 不要把真实密钥写进仓库。仓库里只应出现 `CHANGE_ME`、`dev-token-rankings-change-me` 和 `demo-*-key` 这类占位。
 - 不要在未换密钥、且 `RANKINGS_REQUIRE_AUTH` 仍为 `0` 时，把 8000 端口开放到公网。否则任何人都能看用量，也能用演示写入密钥灌数据。
-- 不要把 Postgres 的 5432 端口开放到公网。演示密码是 `token`，只能本机试用。
+- 不要把 Postgres 的 5432 端口开放到公网。叠加配置只绑定 `127.0.0.1`。密码来自 `POSTGRES_PASSWORD`，没有默认密码，不要用 `token`。
 - 不要把对话原文、源代码、供应商账单密钥送进本服务。采集只接收用量数字。
 - 可选的 `LITELLM_MASTER_KEY`、`CURSOR_ADMIN_API_KEY` 属于别的系统的密钥。用到才填写，并同样不要提交。
 

@@ -13,11 +13,11 @@
       --border: #3a3224;
       --text: #f3ead8;
       --muted: #a89878;
-      --mint: #f0b429;
-      --mint-dim: #b8860b;
-      --mint-soft: rgba(240, 180, 41, 0.14);
-      --mint-border: rgba(240, 180, 41, 0.45);
-      --card-green: #262014;
+      --accent: #f0b429;
+      --accent-dim: #b8860b;
+      --accent-soft: rgba(240, 180, 41, 0.14);
+      --accent-border: rgba(240, 180, 41, 0.45);
+      --card: #262014;
       --gold: #f0c14b;
       --silver: #c5ced8;
       --bronze: #d4925a;
@@ -53,7 +53,7 @@
       color: var(--text);
       white-space: nowrap;
     }
-    .brand span { color: var(--mint); }
+    .brand span { color: var(--accent); }
     .nav { display: flex; gap: 4px; flex: 1; overflow-x: auto; }
     .nav a {
       padding: 14px 14px 12px;
@@ -63,8 +63,8 @@
       white-space: nowrap;
     }
     .nav a.active {
-      color: var(--mint);
-      border-bottom-color: var(--mint);
+      color: var(--accent);
+      border-bottom-color: var(--accent);
       font-weight: 600;
     }
     .nav a.disabled { opacity: 0.35; cursor: default; pointer-events: none; }
@@ -73,7 +73,7 @@
     .wrap { max-width: 980px; margin: 0 auto; padding: 18px 16px 72px; }
 
     .overview {
-      background: linear-gradient(160deg, #3a2e18 0%, var(--card-green) 55%, #16120c 100%);
+      background: linear-gradient(160deg, #3a2e18 0%, var(--card) 55%, #16120c 100%);
       border: 1px solid rgba(240, 180, 41, 0.18);
       border-radius: 16px;
       padding: 18px 18px 16px;
@@ -96,11 +96,11 @@
     }
     .ov-label { color: #c4b08a; font-size: 0.78rem; margin-bottom: 6px; }
     .ov-value { font-size: 1.55rem; font-weight: 700; letter-spacing: 0.01em; }
-    .ov-value.mint { color: var(--mint); }
+    .ov-value.accent { color: var(--accent); }
     .ov-sub { color: #b5a484; font-size: 0.75rem; margin-top: 4px; }
 
     .hint-card {
-      background: var(--card-green);
+      background: var(--card);
       border: 1px solid rgba(240, 180, 41, 0.16);
       border-radius: 14px;
       padding: 16px 18px;
@@ -109,7 +109,7 @@
       font-size: 0.92rem;
       line-height: 1.5;
     }
-    .hint-card strong { color: var(--mint); font-weight: 600; }
+    .hint-card strong { color: var(--accent); font-weight: 600; }
 
     .pills {
       display: flex; flex-wrap: wrap; gap: 8px;
@@ -125,9 +125,9 @@
       cursor: pointer;
     }
     .pill.active {
-      color: var(--mint);
-      border-color: var(--mint-border);
-      background: var(--mint-soft);
+      color: var(--accent);
+      border-color: var(--accent-border);
+      background: var(--accent-soft);
       font-weight: 600;
     }
 
@@ -200,7 +200,7 @@
       font-size: 0.78rem; font-weight: 700;
       background: linear-gradient(145deg, #4a3a22, #2a2216);
       border: 1px solid rgba(240, 180, 41, 0.25);
-      color: var(--mint);
+      color: var(--accent);
       flex-shrink: 0;
     }
     .chip {
@@ -232,7 +232,7 @@
       margin: 8px auto 0; font-size: 0.88rem; line-height: 1.65;
       text-align: left; max-width: 460px; color: var(--muted);
     }
-    .empty-steps a, .setup-panel a, .warn-banner a { color: var(--mint); }
+    .empty-steps a, .setup-panel a, .warn-banner a { color: var(--accent); }
     .warn-banner {
       background: rgba(240, 193, 75, 0.12);
       border: 1px solid rgba(240, 193, 75, 0.45);
@@ -247,7 +247,7 @@
     .warn-banner strong { color: #ffe08a; }
     .setup-panel {
       background: var(--panel);
-      border: 1px solid var(--mint-border);
+      border: 1px solid var(--accent-border);
       border-radius: 16px;
       padding: 16px;
       margin: 0 0 16px;
@@ -271,7 +271,7 @@
       margin-top: 14px; color: var(--muted); font-size: 0.78rem;
       display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px;
     }
-    .footer a { color: var(--mint); }
+    .footer a { color: var(--accent); }
     .page { display: none; }
     .page.active { display: block; }
 
@@ -289,7 +289,7 @@
     }
     .basis-badge.estimate { color: #c4b5a0; border-color: rgba(212,180,120,0.35); }
     .basis-badge.billed, .basis-badge.cursor_charged, .basis-badge.litellm_spend, .basis-badge.invoice {
-      color: var(--mint); border-color: var(--mint-border); background: var(--mint-soft);
+      color: var(--accent); border-color: var(--accent-border); background: var(--accent-soft);
     }
     .basis-badge.mixed { color: #f0c14b; border-color: rgba(240,193,75,0.4); }
 
@@ -303,16 +303,16 @@
       font-size: 0.78rem;
       color: var(--muted);
     }
-    .cred-strip strong { color: var(--mint); font-weight: 600; }
+    .cred-strip strong { color: var(--accent); font-weight: 600; }
 
     .toggle-row {
       display: flex; align-items: center; gap: 8px;
       color: var(--muted); font-size: 0.82rem;
     }
-    .toggle-row input { accent-color: var(--mint); }
+    .toggle-row input { accent-color: var(--accent); }
 
     .share-card {
-      background: linear-gradient(160deg, #3a2e18 0%, var(--card-green) 55%, #16120c 100%);
+      background: linear-gradient(160deg, #3a2e18 0%, var(--card) 55%, #16120c 100%);
       border: 1px solid rgba(240, 180, 41, 0.22);
       border-radius: 16px;
       padding: 18px;
@@ -325,9 +325,9 @@
     }
     .btn {
       appearance: none;
-      border: 1px solid var(--mint-border);
-      background: var(--mint-soft);
-      color: var(--mint);
+      border: 1px solid var(--accent-border);
+      background: var(--accent-soft);
+      color: var(--accent);
       border-radius: 10px;
       padding: 8px 14px;
       font-size: 0.85rem;
@@ -381,7 +381,7 @@
     }
     .bar > i {
       display: block; height: 100%;
-      background: linear-gradient(90deg, var(--mint-dim), var(--mint));
+      background: linear-gradient(90deg, var(--accent-dim), var(--accent));
       border-radius: 999px;
     }
 
@@ -399,10 +399,10 @@
       font-size: 0.78rem; color: var(--muted);
       max-width: 280px;
     }
-    .key-chip strong { color: var(--mint); font-weight: 600; }
+    .key-chip strong { color: var(--accent); font-weight: 600; }
     .key-btn {
-      background: var(--mint-soft); border: 1px solid var(--mint-border);
-      color: var(--mint); border-radius: 8px; padding: 4px 10px;
+      background: var(--accent-soft); border: 1px solid var(--accent-border);
+      color: var(--accent); border-radius: 8px; padding: 4px 10px;
       font-size: 0.78rem; cursor: pointer;
     }
     .key-btn:hover { background: rgba(240,180,41,0.2); }
@@ -429,7 +429,7 @@
     .key-modal .row { display: flex; gap: 8px; flex-wrap: wrap; }
     .key-modal .hint {
       margin-top: 10px; font-size: 0.78rem; color: var(--muted);
-      background: var(--mint-soft); border-radius: 8px; padding: 8px 10px;
+      background: var(--accent-soft); border-radius: 8px; padding: 8px 10px;
     }
     .alert-card {
       border: 1px solid rgba(248,113,113,0.35);
@@ -444,7 +444,7 @@
     .alert-card .msg { color: #efe4cf; font-size: 0.88rem; line-height: 1.55; }
     .alert-card .meta-line { color: var(--muted); font-size: 0.8rem; margin-top: 8px; }
     .narrative-box {
-      background: linear-gradient(160deg, #3a2e18 0%, var(--card-green) 100%);
+      background: linear-gradient(160deg, #3a2e18 0%, var(--card) 100%);
       border: 1px solid rgba(240,180,41,0.18);
       border-radius: 14px; padding: 14px 16px; margin-bottom: 14px;
       font-size: 0.9rem; line-height: 1.55; color: #efe4cf;
@@ -477,7 +477,7 @@
     }
     .like-btn {
       background: rgba(240,180,41,0.08); border: 1px solid rgba(240,180,41,0.28);
-      color: var(--mint); border-radius: 999px; padding: 4px 12px; cursor: pointer; font: inherit;
+      color: var(--accent); border-radius: 999px; padding: 4px 12px; cursor: pointer; font: inherit;
     }
     .like-btn:hover { background: rgba(240,180,41,0.16); }
     .forum-warn {
@@ -511,25 +511,23 @@
     <div class="warn-banner" id="demoWarn" hidden></div>
     <section class="setup-panel" id="setupPanel" hidden>
       <h2>首次配置</h2>
-      <p>粘贴管理员给你的用户密钥，选好账号，就能看自己的用量。密钥只留在这台浏览器里。</p>
+      <p>三步。密钥只留在这台浏览器里。</p>
       <div class="setup-grid">
         <div>
           <label for="setupKey">1. 粘贴用户密钥</label>
           <input id="setupKey" type="password" autocomplete="off" placeholder="用户密钥，不是采集用的写入密钥" />
         </div>
         <div>
-          <label for="setupAccount">2. 选择账号</label>
+          <label for="setupAccount">2. 选择自己的账号</label>
           <select id="setupAccount"><option value="">导入数据后即可选择</option></select>
         </div>
       </div>
       <div class="setup-actions">
-        <button type="button" class="btn" id="setupSaveBtn">保存并查看我的</button>
+        <button type="button" class="btn" id="setupSaveBtn">3. 保存并打开「我的」</button>
         <button type="button" class="btn ghost" id="setupClearBtn">清除密钥</button>
-        <a class="btn ghost" href="/agents">去看 Agent</a>
       </div>
       <div class="setup-links">
-        3. 说明：
-        <a href="/docs/INSTALL.md">安装（约 10 分钟）</a> ·
+        <a href="/docs/INSTALL.md">安装</a> ·
         <a href="/docs/ACCEPTANCE.md">验收清单</a> ·
         <a href="/docs/SECURITY.md">安全说明</a> ·
         <a href="/docs/TROUBLESHOOTING.md">遇到问题</a>
@@ -541,6 +539,9 @@
     </details>
     <!-- People page -->
     <section id="page-people" class="page">
+      <div class="hint-card" id="homeScope">
+        <strong>私有 FinOps。</strong>这里只看你们内网的真实用量，不是公开的模型热度榜。
+      </div>
       <div class="overview">
         <h2 id="ovTitle">今日概况</h2>
         <div class="overview-grid">
@@ -551,7 +552,7 @@
           </div>
           <div>
             <div class="ov-label">费用 <span class="basis-badge" id="ovBasis">—</span></div>
-            <div class="ov-value mint" id="ovCost">—</div>
+            <div class="ov-value accent" id="ovCost">—</div>
             <div class="ov-sub" id="ovCostSub">按内置 API 价目估算</div>
           </div>
           <div>
@@ -720,7 +721,7 @@
           </div>
           <div>
             <div class="ov-label">费用</div>
-            <div class="ov-value mint" id="meCost">—</div>
+            <div class="ov-value accent" id="meCost">—</div>
             <div class="ov-sub" id="meCostSub">—</div>
           </div>
           <div>
@@ -992,7 +993,7 @@
     }
 
     function emptyNext(title) {
-      return `<div class="empty"><strong>${escapeHtml(title)}</strong><div class="empty-steps">这个时间范围里还没有用量。你可以：<br>1. 把上方时间改成「近7天」再看一次<br>2. 按 <a href="/docs/INSTALL.md">安装说明</a> 导入一份示例<br>3. 在「首次配置」粘贴用户密钥，选择账号，再打开「我的」或 <a href="/agents">Agent</a></div></div>`;
+      return `<div class="empty"><strong>${escapeHtml(title)}</strong><div class="empty-steps">私有 FinOps：只统计内网真实用量，不是公开的模型热度榜。<br>1. 粘贴用户密钥<br>2. 选择自己的账号<br>3. 打开「我的」查看用量。导入示例见 <a href="/docs/INSTALL.md">安装说明</a>。</div></div>`;
     }
 
     async function apiFetch(url, options) {

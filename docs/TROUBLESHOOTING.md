@@ -24,7 +24,15 @@ docker compose logs --tail 80 token-rankings
 
 这是正常的安全提示：服务还在用演示密钥，或排行榜还没要求登录。
 
-处理办法见 [SECURITY.md](SECURITY.md)。全部换成你们自己的密钥，并把生产环境的 `RANKINGS_REQUIRE_AUTH` 设为 `1` 之后，刷新页面，黄条会消失。
+处理办法见 [SECURITY.md](SECURITY.md)。可以运行 `bash scripts/bootstrap_prod.sh`，把密钥换成你们自己的，并把生产环境的 `RANKINGS_REQUIRE_AUTH` 设为 `1`。重启后刷新页面，黄条会消失。
+
+确认接口已经不再标记演示密钥：
+
+```bash
+curl -sS http://localhost:8000/health | python3 -c 'import json,sys; d=json.load(sys.stdin); s=d["setup"]; print("demo_keys_in_use", s.get("demo_keys_in_use"))'
+```
+
+交付时这一行应打印 `demo_keys_in_use False`。
 
 本机试用可以暂时留着黄条。
 

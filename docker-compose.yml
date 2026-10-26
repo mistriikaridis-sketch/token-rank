@@ -10,6 +10,10 @@ services:
       # Demo fake home for probe/scan closed-loop (no real apps required)
       - ./fixtures/probe_home/.workbuddy/projects:/probe/workbuddy/projects:ro
       - ./fixtures/probe_home/.cursor/exports:/probe/cursor/exports:ro
+      # Production roster from scripts/bootstrap_prod.sh (gitignored). Uncomment
+      # together with USERS_FILE=/run/token-rankings/users.json. Do not mount over
+      # fixtures/users.json — that file is the demo roster.
+      # - ./fixtures/users.prod.json:/run/token-rankings/users.json:ro
       # - ${HOME}/.claude/projects:/claude/projects:ro
       # - ${HOME}/.codex/sessions:/codex/sessions:ro
       # - ${HOME}/.continue/dev_data:/continue/dev_data:ro
@@ -25,14 +29,16 @@ services:
       # A copied .env overrides these defaults.
       - TOKEN_RANKINGS_API_KEY=${TOKEN_RANKINGS_API_KEY:-dev-token-rankings-change-me}
       # Light RBAC demo users (admin / alice@acme-prod / dave). Replace before handover.
+      # Production: bash scripts/bootstrap_prod.sh, then uncomment the users.prod.json
+      # volume above so the container does not keep fixtures/users.json. See .env.example.
       - USERS_FILE=${USERS_FILE:-/app/fixtures/users.json}
       - RANKINGS_REQUIRE_AUTH=${RANKINGS_REQUIRE_AUTH:-0}
       # Optional: POST low-usage alerts when UI/API calls ?notify=true
       # - LOW_USAGE_WEBHOOK_URL=https://hooks.example.com/token-rankings/low-usage
-      # Default: SQLite under /data. For Postgres use the overlay:
+      # Default: SQLite under /data. For Postgres use the overlay. Set POSTGRES_PASSWORD
+      # first (do not use the password "token"); the overlay binds 5432 to 127.0.0.1 only.
       #   docker compose -f docker-compose.yml -f docker-compose.postgres.yml up -d --build
       # Or set DATABASE_URL yourself (postgresql://user:pass@host:5432/dbname).
-      # - DATABASE_URL=postgresql://token:token@postgres:5432/token_rankings
       # LiteLLM 定时/手动 sync（取消注释并填真实值后启用 POST /api/v1/sync/litellm）
       # - LITELLM_BASE_URL=http://litellm:4000
       # - LITELLM_MASTER_KEY=sk-your-master-key

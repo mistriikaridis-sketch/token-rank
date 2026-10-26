@@ -1,24 +1,32 @@
-# Optional Postgres overlay — does not change default SQLite one-click:
+# Optional Postgres overlay — does not change the default SQLite one-click:
 #   docker compose up -d --build
-# Production / dual-backend verify:
-#   docker compose -f docker-compose.yml -f docker-compose.postgres.yml up -d --build
+# Production / dual-backend verify (POSTGRES_PASSWORD is required; no default):
+#   POSTGRES_PASSWORD='长随机密码' docker compose -f docker-compose.yml -f docker-compose.postgres.yml up -d --build
 #   bash scripts/verify_postgres.sh
-# The password below is a local demo only. Change POSTGRES_PASSWORD and DATABASE_URL
-# before any shared deploy. Do not publish port 5432 on the public internet.
+#
+# Required env (shell or .env):
+#   POSTGRES_PASSWORD   database password. Do not use "token". Letters and digits only
+#                       (the value is placed in DATABASE_URL).
+# Optional:
+#   POSTGRES_USER       role name, default token (this is not the password)
+#   POSTGRES_DB         database name, default token_rankings
+#
+# Host port 5432 is bound to 127.0.0.1 only. Other machines cannot reach it.
+# Do not publish Postgres on 0.0.0.0.
 
 services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: token
-      POSTGRES_PASSWORD: token
-      POSTGRES_DB: token_rankings
+      POSTGRES_USER: ${POSTGRES_USER:-token}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required. Do not use token.}
+      POSTGRES_DB: ${POSTGRES_DB:-token_rankings}
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - rankings-pg:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U token -d token_rankings"]
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
       interval: 3s
       timeout: 3s
       retries: 20
@@ -27,7 +35,7 @@ services:
 
   token-rankings:
     environment:
-      DATABASE_URL: postgresql://token:token@postgres:5432/token_rankings
+      DATABASE_URL: postgresql://${POSTGRES_USER:-token}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-token_rankings}
     depends_on:
       postgres:
         condition: service_healthy

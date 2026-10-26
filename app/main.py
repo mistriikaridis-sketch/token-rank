@@ -99,7 +99,7 @@ def read_app_version() -> str:
         text = VERSION_FILE.read_text(encoding="utf-8").strip()
     except OSError:
         text = ""
-    return text or "0.17.0"
+    return text or "0.18.0"
 
 
 APP_VERSION = read_app_version()
