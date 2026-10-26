@@ -1,6 +1,6 @@
 # Token 消耗排行榜
 
-许可证：**MIT** · 版本 **0.19.0**
+许可证：**MIT** · 版本 **0.20.0**
 
 ## 客户 10 分钟跑通
 
@@ -67,7 +67,7 @@ docker compose -f docker-compose.yml -f docker-compose.postgres.yml up -d --buil
 - **交流区** `/forum`：企业内部最小讨论（发帖 / 列表 / 点赞）；匿名只读；禁止贴 Key/对话原文
 - **ProCode** `/procode`：占位适配说明；`POST /api/v1/ingest/procode`
 
-许可证：**MIT** · 版本 **0.19.0**（客户文档见文首「客户 10 分钟跑通」）
+许可证：**MIT** · 版本 **0.20.0**（客户文档见文首「客户 10 分钟跑通」）
 
 ## 本地探测
 
@@ -79,7 +79,7 @@ python scripts/probe_local_tools.py --home fixtures/probe_home --out /tmp/token-
 
 ## 开发者本机采集
 
-每台开发机跑一个本地采集器，只把 Token 数字上报到这套**私有**排行榜（不上传对话、代码、源文件名）。覆盖 WorkBuddy（也认 `~/.workbody`）、Claude Code、Codex、Continue。安装和定时任务见 [collector/INSTALL.md](collector/INSTALL.md)。
+每台开发机跑一个本地采集器，只把 Token 数字上报到这套**私有**排行榜（不上传对话、代码、源文件名）。覆盖 WorkBuddy（也认 `~/.workbody`）、Claude Code、Codex、Continue、Cursor、ProCode（也认 Canoryn 目录）。安装和定时任务见 [collector/INSTALL.md](collector/INSTALL.md)（服务上的地址是 `/docs/collector.md`）。
 
 ```bash
 python -m collector preview --fixtures
@@ -91,12 +91,12 @@ python -m collector once --fixtures
 ## 产品原则（口径）
 
 1. **统一口径**：LiteLLM、Cursor Admin、WorkBuddy、Claude Code、Codex CLI、Continue 等 usage **归一到同一 schema** 再入库（`model`、`prompt/completion/cache/reasoning tokens`、`participant`、`team`、`tool`、`account_id`、`project_id`、**`agent_id` / `agent_name`（可选）**、`request_id`、`source`、`timestamp`）。
-2. **工具名归一**：入库一律小写 slug（`cursor` / `workbuddy` / `claude_code` / `codex` / `continue` / …）；UI 筛选用友好名（Cursor / WorkBuddy / Claude Code / Codex / Continue）。
+2. **工具名归一**：入库一律小写 slug（`cursor` / `workbuddy` / `claude_code` / `codex` / `continue` / `procode` / …）；UI 筛选用友好名（Cursor / WorkBuddy / Claude Code / Codex / Continue / ProCode）。
 3. **幂等去重**：`(source, request_id)` 唯一；重复 ingest **不叠量**（`accepted=0` / `skipped` 增加）。
 4. **seed 与真流量分源**：演示数据 `source=seed`，排行默认 **隐藏**（`include_seed=true` 才看）；`SEED_ON_START` 默认 `0`。
 5. **可按项目拆开**：同一账号跨多个 `project_id`；见 `GET /api/v1/rankings/projects`。
 5b. **可按 Agent 拆开**：同一人的 agent 团队里每个 `agent_id` 单独统计；见 `GET /api/v1/rankings/agents?account_id=`。
-6. **采集不存对话原文**：WorkBuddy / Claude Code / Codex CLI / Continue 适配器只抽 usage；`content` / `prompt` / `completion` / `response_item` 对话正文不入库。
+6. **采集不存对话原文**：WorkBuddy / Claude Code / Codex CLI / Continue / Cursor / ProCode 只抽 usage。Cursor 的 `state.vscdb` 只用 SQL 取 token 与模型名，不读对话、不读 cookie。ProCode / Canoryn 的加密聊天库不解密。`content` / `prompt` / `completion` / `response_item` 对话正文不入库。
 7. **写接口鉴权**：`TOKEN_RANKINGS_API_KEY` 保护 ingest / sync / scan / admin / seed。
 7b. **轻量 RBAC**：`USERS_FILE` / `USERS_JSON` 映射用户 API Key → `admin`（全站）或 `member`（仅自己的 `account_id`）。带 member Key 访问排行 /me / 导出时强制过滤；`RANKINGS_REQUIRE_AUTH=1` 时排行 GET 也必须带 Key。
 7c. **导出审计**：`GET /api/v1/export/usage.csv|.json` 需鉴权，写入 `audit_log`；`GET /api/v1/admin/audit` 仅 admin。
@@ -486,6 +486,8 @@ curl -s 'http://localhost:8000/health' | jq '{version,rbac,database,tools_connec
 | `CODEX_ACCOUNT_ID` | — | 本地扫描时补默认账号 |
 | `CONTINUE_DATA_DIR` | `~/.continue/dev_data` | Continue tokensGenerated.jsonl 根目录 |
 | `CONTINUE_ACCOUNT_ID` | — | 本地扫描时补默认账号 |
+| `CURSOR_DATA_DIR` | 见 collector 文档 | 本机 Cursor 根目录（导出或应用数据）。不是 `CURSOR_ADMIN_API_KEY` |
+| `PROCODE_DATA_DIR` | 见 collector 文档 | 本机 ProCode / Canoryn usage json/jsonl 根目录 |
 
 ## 项目结构
 

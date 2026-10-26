@@ -1,12 +1,19 @@
-"""ProCode / Canoryn placeholder adapter.
+"""ProCode / Canoryn usage adapter.
 
-Public usage schema is insufficiently documented. Accept unified usage events
-(tool forced to procode) so teams can tag traffic via LiteLLM/gateway headers
-and still land on the leaderboard.
+Public chat schema is incomplete: Canoryn stores conversations in encrypted
+SQLite and keeps API keys in the macOS Keychain. This module does not decrypt
+those stores and does not read the keychain.
+
+It accepts unified usage events (tool forced to procode), including local
+json/jsonl dropped under ~/.procode, ~/.canoryn, or the OS application-data
+directories. Gateway traffic can still be tagged and pushed to ingest.
 """
 from __future__ import annotations
 
+import json
+import os
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Optional
 
 from app.adapters.parse_stats import ParseStats
@@ -82,6 +89,21 @@ def _has_heavy_forbidden(raw: dict[str, Any]) -> bool:
     return False
 
 
+def _directory_name(value: Any) -> Optional[str]:
+    """Keep a project label. Full paths become the last path segment."""
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    if "/" in text or "\\" in text or text.startswith("~"):
+        normalized = text.replace("\\", "/").rstrip("/")
+        text = normalized.rsplit("/", 1)[-1]
+    if not text or text == "~":
+        return None
+    return _as_str(text)
+
+
 def extract_procode_payload(payload: Any) -> list[dict[str, Any]]:
     if payload is None:
         return []
@@ -142,7 +164,7 @@ def map_procode_event(raw: dict[str, Any]) -> Optional[dict[str, Any]]:
         or raw.get("userEmail")
     )
     participant = _as_str(raw.get("participant") or account_id or raw.get("email") or "anonymous")
-    project_id = _as_str(raw.get("project_id") or raw.get("project") or raw.get("projectId"))
+    project_id = _directory_name(raw.get("project_id") or raw.get("project") or raw.get("projectId"))
     team = _as_str(raw.get("team") or raw.get("team_id"))
     agent_id = _as_str(
         raw.get("agent_id") or raw.get("bot_id") or raw.get("automationId") or raw.get("cloudAgentId")
@@ -239,7 +261,121 @@ ADAPTER_META = {
     "status": "placeholder",
     "aliases": ["procode", "canoryn", "pro code"],
     "notes": (
-        "公开 schema 不足；请经 LiteLLM/网关打 header（如 x-tool=procode / tags tool:procode）"
-        "后用统一 usage schema 推送到 POST /api/v1/ingest/procode。"
+        "聊天库是加密 SQLite，本机采集不解密、不读钥匙串。"
+        "只读 ~/.procode、~/.canoryn 及各系统应用数据目录里的 usage json/jsonl，"
+        "或经网关打 tool=procode 后 POST /api/v1/ingest/procode。"
     ),
 }
+
+_MAX_USAGE_BYTES = 32 * 1024 * 1024
+_SKIP_WALK = frozenset(
+    {
+        "node_modules",
+        "cache",
+        "code cache",
+        "gpucache",
+        "blob_storage",
+        "shadercache",
+    }
+)
+_SKIP_FILE_NAMES = frozenset({"readme.json", "package.json", "package-lock.json"})
+_GENERIC_PARENTS = frozenset({"usage", "logs", "exports", "events", "data"})
+
+
+def _skipped_walk(path: Path) -> bool:
+    return any(part.lower() in _SKIP_WALK for part in path.parts)
+
+
+def _is_procode_usage_file(path: Path) -> bool:
+    if not path.is_file() or _skipped_walk(path):
+        return False
+    if path.suffix.lower() not in {".json", ".jsonl"}:
+        return False
+    name = path.name.lower()
+    if name in _SKIP_FILE_NAMES:
+        return False
+    if any(part in name for part in ("secret", "cookie", "credential", "password", "token", "keychain")):
+        return False
+    return True
+
+
+def _project_hint(root: Path, path: Path) -> Optional[str]:
+    parent = path.parent
+    if parent == root:
+        return None
+    name = parent.name
+    if name.lower() in _GENERIC_PARENTS:
+        upper = parent.parent
+        if upper != root and upper.name.lower() not in _GENERIC_PARENTS:
+            return _as_str(upper.name)
+        return None
+    return _as_str(name)
+
+
+def _events_in_text(text: str, *, jsonl: bool) -> list[dict[str, Any]]:
+    if jsonl:
+        events: list[dict[str, Any]] = []
+        for line in text.splitlines():
+            raw_line = line.strip()
+            if not raw_line or raw_line.startswith("#"):
+                continue
+            try:
+                obj = json.loads(raw_line)
+            except json.JSONDecodeError:
+                continue
+            events.extend(extract_procode_payload(obj))
+        return events
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError:
+        return []
+    return extract_procode_payload(payload)
+
+
+def _dedupe_procode(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    seen: set[str] = set()
+    out: list[dict[str, Any]] = []
+    for row in rows:
+        rid = row.get("request_id")
+        if rid:
+            key = str(rid)
+            if key in seen:
+                continue
+            seen.add(key)
+        out.append(row)
+    return out
+
+
+def scan_procode_dir(root: Optional[str | Path] = None) -> list[dict[str, Any]]:
+    """Scan one ProCode/Canoryn root for usage json/jsonl.
+
+    SQLite (including encrypted ``canoryn.sqlite``) is not opened. ``PROCODE_DATA_DIR``
+    is the default when ``root`` is omitted.
+    """
+    if root is None:
+        root = os.environ.get("PROCODE_DATA_DIR") or str(Path.home() / ".procode")
+    root_path = Path(root).expanduser()
+    if not root_path.is_dir():
+        return []
+
+    rows: list[dict[str, Any]] = []
+    files = sorted(path for path in root_path.rglob("*") if _is_procode_usage_file(path))
+    for path in files:
+        try:
+            size = path.stat().st_size
+        except OSError:
+            continue
+        if size <= 0 or size > _MAX_USAGE_BYTES:
+            continue
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        hint = _project_hint(root_path, path)
+        mapped = map_procode_events(_events_in_text(text, jsonl=path.suffix.lower() == ".jsonl"))
+        if hint:
+            for row in mapped:
+                if not row.get("project_id"):
+                    row["project_id"] = hint
+        rows.extend(mapped)
+    return _dedupe_procode(rows)

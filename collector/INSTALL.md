@@ -2,7 +2,7 @@
 
 许可证：**MIT**。服务跑起来之后，这份说明也可以从 `/docs/collector.md` 读到。给装了 AI 编程工具的开发机用。它定期读本机用量日志，只把 **Token 数字** 报到你们自己的 Token 消耗排行榜，让这个人出现在私有榜上。
 
-这不是公网热度榜，也不是模型网关。Cursor 的用量继续走服务端 Admin API（本机 Cursor 采集不做）。ProCode 仍是占位。
+这不是公网热度榜，也不是模型网关。本机采集覆盖 WorkBuddy、Claude Code、Codex、Continue、Cursor、ProCode（含 Canoryn 目录）。Cursor 的服务端 Admin API 仍然可以单独用。采集器不读浏览器 cookie，也不把管理员密钥写进配置。
 
 ## 会上报什么
 
@@ -17,9 +17,9 @@
 | `project_id` | **目录名**（例如 `chatbot-core`），不是完整路径 |
 | `agent_id` / `agent_name` | 日志里如果有 |
 | `request_id` / `timestamp` | 用来去重、排序 |
-| `tool` / `source` | `workbuddy` / `claude_code` / `codex` / `continue` |
+| `tool` / `source` | `workbuddy` / `claude_code` / `codex` / `continue` / `cursor` / `procode` |
 
-**不会**上报：提示词、回复、工具参数、源代码、源文件名、截图。含大段 `content` / `prompt` 的 WorkBuddy 行整行跳过。
+**不会**上报：提示词、回复、工具参数、源代码、源文件名、截图、Cookie、访问令牌。含大段 `content` / `prompt` / `messages` 的行整行跳过。预览里的目录会把家目录收成 `~/...`，不打印家目录全路径。
 
 费用是公开列表价**估算**（`cost_basis=estimate`），不是发票，也不是云账单实扣。估算只按 prompt 与 completion；缓存 Token 会入库，但不会按缓存单价再加一遍。
 
@@ -76,7 +76,7 @@ python -m collector preview --out /tmp/collector-preview.json
 python -m collector upload --file /tmp/collector-preview.json
 ```
 
-默认每 30 分钟一轮。只扫一种工具：`--tool workbuddy`（`workbody` 同样认）。
+默认每 30 分钟一轮。只扫一种工具：`--tool workbuddy`（`workbody` 同样认）、`--tool cursor`、`--tool procode`（`canoryn` 同样认）。
 
 ## 它会读哪些目录
 
@@ -88,8 +88,53 @@ python -m collector upload --file /tmp/collector-preview.json
 | Claude Code | `~/.claude/projects` |
 | Codex | `~/.codex/sessions` |
 | Continue | `~/.continue/dev_data` |
+| Cursor | 见下表。存在才读 |
+| ProCode / Canoryn | 见下表。存在才读 |
 
-环境变量 `WORKBUDDY_PROJECTS_DIR`、`CLAUDE_PROJECTS_DIR`、`CODEX_SESSIONS_DIR`、`CONTINUE_DATA_DIR` 会盖过上面的默认位置。
+环境变量 `WORKBUDDY_PROJECTS_DIR`、`CLAUDE_PROJECTS_DIR`、`CODEX_SESSIONS_DIR`、`CONTINUE_DATA_DIR`、`CURSOR_DATA_DIR`、`PROCODE_DATA_DIR` 会盖过该工具的默认位置（只扫你指定的那一个目录）。
+
+### Cursor（Linux / macOS / Windows）
+
+目录在，就会扫。没有单独的开关。
+
+| 系统 | 默认目录 |
+|---|---|
+| Linux | `~/.cursor`、`~/.config/Cursor`。若设置了 `XDG_CONFIG_HOME`，也看 `$XDG_CONFIG_HOME/Cursor` |
+| macOS | 上面两个，再加 `~/Library/Application Support/Cursor` |
+| Windows | 用户目录下的 `.cursor`，再加上 `%APPDATA%\Cursor`、`%LOCALAPPDATA%\Cursor` |
+
+读哪两类文件：
+
+1. `User/globalStorage/state.vscdb`。表 `cursorDiskKV`，键是 `bubbleId:*`。只用 SQL 取出 token 数和模型名。不读对话正文，不读 `cursorAuth` 里的 access token 或 cookie。优先 `globalStorage`，避免和工作区副本叠在一起。
+2. 文件名里带 `usage` 的 `.json` / `.jsonl`，以及 `exports/` 目录里的用量 JSON。仪表盘导出的 `filtered-usage-events.json` 放到 `~/.cursor/exports/` 即可。不要把 prompt 放进这个文件。
+
+本地气泡的 input 和 output 如果都是 0（当前 Cursor 经常这样），这一行会跳过，不会用字数冒充 token。这时用上面的导出 JSON。`CURSOR_ADMIN_API_KEY` 只放在跑排行榜的那台机器上，不要写进 `collector.json`。
+
+两边如果都有同一段用量，request_id 并不相同，可能会各记一笔。平时留一种来源就好：要么本机库里的非 0 计数，要么 `exports/` 里的导出。
+
+导出里的 `userEmail` 会拆成不同账号。本机库通常只有当前登录邮箱。不同对话会拆成不同 `project_id`（对话 id 的前缀，或导出里的项目目录名，不保留完整路径）。
+
+换目录：`export CURSOR_DATA_DIR=/你的目录`，或在配置里写 `roots.cursor`（字符串数组）。
+
+### ProCode / Canoryn（Linux / macOS / Windows）
+
+Canoryn 的聊天在加密 SQLite 里，密钥在系统钥匙串。采集器不解密、不读钥匙串，也不调用 `canoryn` 命令（避免把 App 拉起来）。
+
+只读 usage 形状的 `.json` / `.jsonl`（要有模型名和 token 数，字段与 `POST /api/v1/ingest/procode` 相同）。带大段 `prompt` / `content` / `messages` 的行整行跳过。`project` 如果是完整路径，只留最后一级目录名。`.sqlite` 一律不打开。
+
+| 系统 | 默认目录 |
+|---|---|
+| Linux | `~/.procode`、`~/.canoryn`、`~/.config/procode`、`~/.config/canoryn`、`~/.local/share/procode`、`~/.local/share/canoryn`。设置了 `XDG_CONFIG_HOME` / `XDG_DATA_HOME` 时，也看对应目录 |
+| macOS | 上面这些，再加 `~/Library/Application Support/ProCode` 和 `~/Library/Application Support/Canoryn` |
+| Windows | `%APPDATA%\ProCode`、`%APPDATA%\Canoryn`、`%LOCALAPPDATA%\ProCode`、`%LOCALAPPDATA%\Canoryn`，以及用户目录下的 `.procode`、`.canoryn` |
+
+这些目录里还没有 usage 文件时，结果就是 0 行。可以把已经打好 `tool=procode` 的 usage JSON 落到其中任一目录，或继续直接 POST。这不是一条新的模型网关。
+
+换目录：`export PROCODE_DATA_DIR=/你的目录`，或配置 `roots.procode`。
+
+### 预览里不会出现什么
+
+`preview` 把家目录收成 `~/...`。输出里没有提示词、密钥、Cookie、源文件名。不认识的模型名原样保留，费用按 `default` 档估算，并写明这是估算，不是发票。同一条用量再跑一次 `once` 不会叠量。
 
 配置文件：`~/.config/token-rankings/collector.json`（Windows 在 `%APPDATA%\token-rankings\`）。`identity_map` 示例：
 
@@ -172,7 +217,7 @@ python -m collector once --fixtures
 python -m collector once --fixtures
 ```
 
-第一次每个工具的 `accepted` 应大于 0。第二次应为 `accepted=0` 且 `skipped` 大于 0（同一条不叠量）。预览输出里不应出现 `SECRET` 或家目录全路径。
+第一次每个工具（含 `cursor` 和 `procode`）的 `accepted` 应大于 0。第二次应为 `accepted=0` 且 `skipped` 大于 0（同一条不叠量）。预览输出里不应出现 `SECRET`、`/Users/...` 或家目录全路径。样例在 `fixtures/cursor_sample` 和 `fixtures/procode_sample`。
 
 只跑测试、不起服务：
 

@@ -1,0 +1,12 @@
+{
+  "name": "not-usage",
+  "model": "gpt-4o",
+  "prompt_tokens": 999,
+  "completion_tokens": 999,
+  "messages": [
+    {
+      "role": "user",
+      "content": "SECRET THIS MUST NEVER /Users/alice /Users/bob echo SECRET userAgent filepath NEVER STORE"
+    }
+  ]
+}

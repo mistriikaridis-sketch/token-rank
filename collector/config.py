@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 DEFAULT_INTERVAL_MINUTES = 30
-DEFAULT_TOOLS = ("workbuddy", "claude_code", "codex", "continue")
+DEFAULT_TOOLS = ("workbuddy", "claude_code", "codex", "continue", "cursor", "procode")
 SUPPORTED_TOOLS = DEFAULT_TOOLS
 
 

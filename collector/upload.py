@@ -13,6 +13,8 @@ INGEST_PATH = {
     "claude_code": "/api/v1/ingest/claude_code",
     "codex": "/api/v1/ingest/codex",
     "continue": "/api/v1/ingest/continue",
+    "cursor": "/api/v1/ingest/cursor",
+    "procode": "/api/v1/ingest/procode",
 }
 
 CHUNK = 200

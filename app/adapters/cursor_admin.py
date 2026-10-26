@@ -1,17 +1,46 @@
-"""Cursor Teams Admin API adapter — filtered-usage-events → unified usage rows.
+"""Cursor usage adapter — Admin API events and local usage-only reads.
 
 Docs: POST https://api.cursor.com/teams/filtered-usage-events
 Auth: Basic (API key as username, empty password). Env: CURSOR_ADMIN_API_KEY.
 
 Also accepts offline export JSON (fixtures / local ~/.cursor/exports).
+
+Local scan (``scan_cursor_dir``) reads two things and nothing else:
+
+* ``state.vscdb`` ``cursorDiskKV`` rows keyed ``bubbleId:*``. SQL extracts
+  token counts and the model name only. Prompt text and auth tokens are
+  not selected.
+* JSON/JSONL usage exports (dashboard ``filtered-usage-events`` shape).
+
+Bubbles whose token counts are all zero are skipped. Current Cursor builds
+often persist 0/0 locally; a usage export is the fallback. This module does
+not read session cookies and does not call the dashboard.
 """
 from __future__ import annotations
 
+import json
+import os
+import sqlite3
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Optional
 
 from app.adapters.parse_stats import ParseStats
 from app.tools import normalize_tool
+
+# Usage exports only. Do not open transcripts, argv, or MCP config.
+_MAX_USAGE_BYTES = 32 * 1024 * 1024
+_SKIP_EXPORT_NAMES = frozenset(
+    {
+        "argv.json",
+        "mcp.json",
+        "package.json",
+        "package-lock.json",
+        "settings.json",
+        "ide_state.json",
+    }
+)
+_EMAIL_ITEM_KEYS = ("cursorAuth/cachedEmail", "cursorAuth/email")
 
 _FORBIDDEN_TOP = frozenset(
     {
@@ -74,6 +103,21 @@ def _parse_ts(value: Any) -> str:
         except ValueError:
             return datetime.now(timezone.utc).isoformat()
     return datetime.now(timezone.utc).isoformat()
+
+
+def _directory_name(value: Any) -> Optional[str]:
+    """Keep a project label. Full paths become the last path segment."""
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    if "/" in text or "\\" in text or text.startswith("~"):
+        normalized = text.replace("\\", "/").rstrip("/")
+        text = normalized.rsplit("/", 1)[-1]
+    if not text or text == "~":
+        return None
+    return _as_str(text)
 
 
 def _project_from_conversation(conversation_id: Optional[str]) -> Optional[str]:
@@ -182,8 +226,12 @@ def map_cursor_event(raw: dict[str, Any]) -> Optional[dict[str, Any]]:
         or raw.get("service_account_id"),
         max_len=128,
     )
-    account_id = email or user_id
-    participant = email or user_id or "anonymous"
+    # Collector payloads already carry the resolved company account. Prefer
+    # that over the log email so a second map (ingest) does not drop it.
+    explicit_account = _as_str(raw.get("account_id"))
+    explicit_participant = _as_str(raw.get("participant"))
+    account_id = explicit_account or email or user_id
+    participant = explicit_participant or email or user_id or account_id or "anonymous"
 
     conversation_id = _as_str(
         raw.get("conversationId")
@@ -193,8 +241,9 @@ def map_cursor_event(raw: dict[str, Any]) -> Optional[dict[str, Any]]:
         max_len=128,
     )
     project_id = _project_from_conversation(conversation_id)
-    if raw.get("project_id") or raw.get("projectId"):
-        project_id = _as_str(raw.get("project_id") or raw.get("projectId"))
+    explicit_project = _directory_name(raw.get("project_id") or raw.get("projectId") or raw.get("project"))
+    if explicit_project:
+        project_id = explicit_project
 
     team = _as_str(raw.get("team") or raw.get("team_id") or raw.get("teamId"))
 
@@ -347,3 +396,235 @@ def map_cursor_payload(payload: Any) -> list[dict[str, Any]]:
 
 def map_cursor_payload_with_stats(payload: Any) -> tuple[list[dict[str, Any]], ParseStats]:
     return map_cursor_events_with_stats(extract_cursor_events(payload))
+
+
+_SKIP_WALK = frozenset(
+    {
+        "node_modules",
+        "cache",
+        "code cache",
+        "gpucache",
+        "blob_storage",
+        "shadercache",
+        "backup",
+        "backups",
+    }
+)
+_BUBBLE_SQL = """
+SELECT
+  key,
+  COALESCE(json_extract(value, '$.tokenCount.inputTokens'),
+           json_extract(value, '$.tokenUsage.inputTokens'), 0),
+  COALESCE(json_extract(value, '$.tokenCount.outputTokens'),
+           json_extract(value, '$.tokenUsage.outputTokens'), 0),
+  COALESCE(json_extract(value, '$.tokenCount.cacheReadTokens'),
+           json_extract(value, '$.tokenUsage.cacheReadTokens'), 0),
+  COALESCE(json_extract(value, '$.tokenCount.cacheWriteTokens'),
+           json_extract(value, '$.tokenUsage.cacheWriteTokens'), 0),
+  COALESCE(json_extract(value, '$.tokenCount.reasoningTokens'),
+           json_extract(value, '$.tokenUsage.reasoningTokens'), 0),
+  COALESCE(json_extract(value, '$.modelInfo.modelName'),
+           json_extract(value, '$.modelName'),
+           json_extract(value, '$.model')),
+  COALESCE(CAST(json_extract(value, '$.createdAt') AS TEXT),
+           CAST(json_extract(value, '$.timestamp') AS TEXT),
+           CAST(json_extract(value, '$.timestampMs') AS TEXT))
+FROM cursorDiskKV
+WHERE key LIKE 'bubbleId:%'
+"""
+
+
+def _skipped_walk(path: Path) -> bool:
+    return any(part.lower() in _SKIP_WALK for part in path.parts)
+
+
+def _is_usage_export(path: Path) -> bool:
+    if not path.is_file() or _skipped_walk(path):
+        return False
+    if path.suffix.lower() not in {".json", ".jsonl"}:
+        return False
+    name = path.name.lower()
+    if name in _SKIP_EXPORT_NAMES:
+        return False
+    if any(part in name for part in ("secret", "cookie", "credential", "password", "token")):
+        return False
+    if "usage" in name:
+        return True
+    return path.parent.name.lower() == "exports"
+
+
+def _plain_email(value: Any) -> Optional[str]:
+    if value is None:
+        return None
+    if isinstance(value, bytes):
+        value = value.decode("utf-8", errors="replace")
+    text = str(value).strip()
+    if len(text) >= 2 and text[0] == text[-1] and text[0] in {'"', "'"}:
+        text = text[1:-1].strip()
+    if not text or len(text) > 128 or "@" not in text or any(ch.isspace() for ch in text):
+        return None
+    local, _, domain = text.partition("@")
+    if not local or "." not in domain:
+        return None
+    return text
+
+
+def _logged_in_email(conn: sqlite3.Connection) -> Optional[str]:
+    """Email only. Never select access tokens, refresh tokens, or cookies."""
+    try:
+        rows = conn.execute(
+            "SELECT key, value FROM ItemTable WHERE key IN (?, ?)",
+            _EMAIL_ITEM_KEYS,
+        ).fetchall()
+    except sqlite3.Error:
+        return None
+    by_key = {str(key): value for key, value in rows}
+    for key in _EMAIL_ITEM_KEYS:
+        email = _plain_email(by_key.get(key))
+        if email:
+            return email
+    return None
+
+
+def _bubble_ids(key: str) -> tuple[str, str]:
+    rest = key[len("bubbleId:") :] if key.startswith("bubbleId:") else key
+    conv, sep, bubble = rest.partition(":")
+    if sep and conv and bubble:
+        return conv, bubble
+    return "", rest or key
+
+
+def _as_count(value: Any) -> int:
+    if value is None:
+        return 0
+    try:
+        return max(int(float(value)), 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _rows_from_state_db(path: Path) -> list[dict[str, Any]]:
+    uri = f"{path.resolve().as_uri()}?mode=ro"
+    try:
+        conn = sqlite3.connect(uri, uri=True)
+    except sqlite3.Error:
+        return []
+    try:
+        conn.execute("PRAGMA query_only=ON")
+        email = _logged_in_email(conn)
+        try:
+            fetched = conn.execute(_BUBBLE_SQL).fetchall()
+        except sqlite3.Error:
+            return []
+    finally:
+        conn.close()
+
+    rows: list[dict[str, Any]] = []
+    for key, prompt, completion, cache_read, cache_write, reasoning, model, created in fetched:
+        prompt_n = _as_count(prompt)
+        completion_n = _as_count(completion)
+        cache_read_n = _as_count(cache_read)
+        cache_write_n = _as_count(cache_write)
+        reasoning_n = _as_count(reasoning)
+        # Current Cursor builds often store 0/0. Do not invent a count.
+        if prompt_n == 0 and completion_n == 0 and cache_read_n == 0 and cache_write_n == 0 and reasoning_n == 0:
+            continue
+        model_name = str(model).strip() if model is not None else ""
+        if not model_name:
+            continue
+        conv, bubble = _bubble_ids(str(key))
+        raw: dict[str, Any] = {
+            "model": model_name,
+            "timestamp": created,
+            "conversationId": conv or None,
+            "request_id": f"cursor:bubble:{conv}:{bubble}"[:256],
+            "tokenUsage": {
+                "inputTokens": prompt_n,
+                "outputTokens": completion_n,
+                "cacheReadTokens": cache_read_n,
+                "cacheWriteTokens": cache_write_n,
+                "reasoningTokens": reasoning_n,
+            },
+        }
+        if email:
+            raw["userEmail"] = email
+        row = map_cursor_event(raw)
+        if row:
+            rows.append(row)
+    return rows
+
+
+def _state_dbs(root: Path) -> list[Path]:
+    found: list[Path] = []
+    for path in root.rglob("state.vscdb"):
+        if not path.is_file() or path.name != "state.vscdb" or _skipped_walk(path):
+            continue
+        found.append(path)
+    global_dbs = [path for path in found if "globalstorage" in {part.lower() for part in path.parts}]
+    return global_dbs or found
+
+
+def _rows_from_export(path: Path) -> list[dict[str, Any]]:
+    try:
+        size = path.stat().st_size
+    except OSError:
+        return []
+    if size <= 0 or size > _MAX_USAGE_BYTES:
+        return []
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return []
+    if path.suffix.lower() == ".jsonl":
+        events: list[dict[str, Any]] = []
+        for line in text.splitlines():
+            raw_line = line.strip()
+            if not raw_line or raw_line.startswith("#"):
+                continue
+            try:
+                obj = json.loads(raw_line)
+            except json.JSONDecodeError:
+                continue
+            events.extend(extract_cursor_events(obj))
+        return map_cursor_events(events)
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError:
+        return []
+    return map_cursor_payload(payload)
+
+
+def _dedupe_cursor(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    seen: set[str] = set()
+    out: list[dict[str, Any]] = []
+    for row in rows:
+        rid = row.get("request_id")
+        if rid:
+            key = str(rid)
+            if key in seen:
+                continue
+            seen.add(key)
+        out.append(row)
+    return out
+
+
+def scan_cursor_dir(root: Optional[str | Path] = None) -> list[dict[str, Any]]:
+    """Scan one Cursor root for usage exports and globalStorage state.vscdb.
+
+    ``CURSOR_DATA_DIR`` is the default when ``root`` is omitted. The collector
+    passes each discovered directory itself (``~/.cursor``, Application Support,
+    ``%APPDATA%\\Cursor``, and so on).
+    """
+    if root is None:
+        root = os.environ.get("CURSOR_DATA_DIR") or str(Path.home() / ".cursor")
+    root_path = Path(root).expanduser()
+    if not root_path.is_dir():
+        return []
+
+    rows: list[dict[str, Any]] = []
+    for path in _state_dbs(root_path):
+        rows.extend(_rows_from_state_db(path))
+    exports = sorted(path for path in root_path.rglob("*") if _is_usage_export(path))
+    for path in exports:
+        rows.extend(_rows_from_export(path))
+    return _dedupe_cursor(rows)

@@ -1,0 +1,28 @@
+{
+  "events": [
+    {
+      "model": "gpt-4o-mini",
+      "prompt_tokens": 100,
+      "completion_tokens": 20,
+      "account_id": "frank@acme.com",
+      "participant": "frank@acme.com",
+      "team": "平台研发",
+      "agent_id": "pc-router",
+      "agent_name": "ProCode 路由",
+      "request_id": "procode-sample-001",
+      "timestamp": "2026-10-26T04:00:00Z",
+      "project": "/Users/alice/work/billing-bot"
+    },
+    {
+      "model": "企业内部-procode-模型",
+      "prompt_tokens": 50,
+      "completion_tokens": 10,
+      "account_id": "grace@acme.com",
+      "participant": "grace@acme.com",
+      "project_id": "ledger",
+      "team": "增长运营",
+      "request_id": "procode-sample-002",
+      "timestamp": "2026-10-26T04:10:00Z"
+    }
+  ]
+}

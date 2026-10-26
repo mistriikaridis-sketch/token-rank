@@ -22,6 +22,8 @@ for _name in (
     "CLAUDE_PROJECTS_DIR",
     "CODEX_SESSIONS_DIR",
     "CONTINUE_DATA_DIR",
+    "CURSOR_DATA_DIR",
+    "PROCODE_DATA_DIR",
 ):
     os.environ.pop(_name, None)
 
@@ -30,13 +32,15 @@ from fastapi.testclient import TestClient  # noqa: E402
 from app.adapters.claude_code import map_claude_code_events  # noqa: E402
 from app.adapters.codex import map_codex_events  # noqa: E402
 from app.adapters.continue_dev import map_continue_events  # noqa: E402
+from app.adapters.cursor_admin import map_cursor_events  # noqa: E402
+from app.adapters.procode import map_procode_events  # noqa: E402
 from app.adapters.workbuddy import map_workbuddy_events  # noqa: E402
 from app.db import db, init_db  # noqa: E402
 from app.main import app  # noqa: E402
 from collector.config import CollectorConfig  # noqa: E402
-from collector.payload import build_payloads, iter_keys, ALLOWED_KEYS  # noqa: E402
+from collector.payload import build_payloads, iter_keys, redact_home, summarize, ALLOWED_KEYS  # noqa: E402
 from collector.service import render  # noqa: E402
-from collector.sources import scan_all  # noqa: E402
+from collector.sources import ToolScan, scan_all  # noqa: E402
 from collector.upload import INGEST_PATH, upload_payloads  # noqa: E402
 
 init_db()
@@ -53,6 +57,9 @@ FORBIDDEN_SNIPPETS = (
 )
 
 
+LOCAL_TOOLS = ("workbuddy", "claude_code", "codex", "continue", "cursor", "procode")
+
+
 def _remap(tool: str, events: list[dict]) -> list[dict]:
     if tool == "workbuddy":
         return map_workbuddy_events(events)
@@ -62,6 +69,10 @@ def _remap(tool: str, events: list[dict]) -> list[dict]:
         return map_codex_events(events)
     if tool == "continue":
         return map_continue_events(events)
+    if tool == "cursor":
+        return map_cursor_events(events)
+    if tool == "procode":
+        return map_procode_events(events)
     raise AssertionError(tool)
 
 
@@ -77,7 +88,7 @@ class CollectorFixtureTests(unittest.TestCase):
         cls.payloads = build_payloads(cls.report)
 
     def test_each_tool_has_rows(self) -> None:
-        for tool in ("workbuddy", "claude_code", "codex", "continue"):
+        for tool in LOCAL_TOOLS:
             self.assertGreater(len(self.report[tool].rows), 0, tool)
             self.assertGreater(len(self.payloads[tool]), 0, tool)
 
@@ -197,9 +208,10 @@ class CollectorFixtureTests(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, proc.stderr)
         doc = json.loads(proc.stdout)
         self.assertGreater(doc["totals"]["rows"], 0)
-        for tool in ("workbuddy", "claude_code", "codex", "continue"):
+        for tool in LOCAL_TOOLS:
             self.assertGreater(doc["tools"][tool]["rows"], 0, tool)
         blob = proc.stdout
+        self.assertNotIn(str(Path.home()), blob)
         for snippet in FORBIDDEN_SNIPPETS:
             self.assertNotIn(snippet, blob)
         self.assertIn("列表价", doc["totals"]["cost_note_zh"])
@@ -229,6 +241,227 @@ class CollectorFixtureTests(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertIn("*/30 * * * *", proc.stdout)
         self.assertNotIn(str(Path.home() / ".config" / "systemd"), proc.stdout)
+
+    def test_cursor_and_procode_split_without_secrets(self) -> None:
+        cursor_rows = self.report["cursor"].rows
+        cursor_ids = {row["request_id"] for row in cursor_rows}
+        self.assertIn("cursor-export-alice-1", cursor_ids)
+        self.assertIn("cursor-export-bob-1", cursor_ids)
+        self.assertIn("cursor-export-jsonl-1", cursor_ids)
+        self.assertNotIn("cursor-export-secret", cursor_ids)
+        self.assertNotIn("cursor-export-nomodel", cursor_ids)
+        self.assertNotIn("cursor-export-jsonl-secret", cursor_ids)
+        self.assertIn(
+            "cursor:bubble:aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa:11111111-1111-4111-8111-111111111111",
+            cursor_ids,
+        )
+        self.assertNotIn(
+            "cursor:bubble:aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa:11111111-1111-4111-8111-111111111112",
+            cursor_ids,
+        )
+        accounts = {row["account_id"] for row in cursor_rows}
+        self.assertTrue({"alice@acme.com", "bob@acme.com", "carol@acme.com"} <= accounts)
+        projects = {row["project_id"] for row in cursor_rows}
+        self.assertIn("chatbot-core", projects)
+        self.assertGreaterEqual(len(projects), 2)
+        models = {row["model"] for row in cursor_rows}
+        self.assertIn("default", models)
+        self.assertIn("企业内部-cursor-模型", models)
+        self.assertIn("企业内部-cursor-气泡", models)
+        bubble = next(
+            row
+            for row in cursor_rows
+            if str(row["request_id"]).endswith("11111111-1111-4111-8111-111111111111")
+        )
+        self.assertEqual(bubble["cache_read_tokens"], 1000)
+        self.assertEqual(bubble["account_id"], "alice@acme.com")
+        alice = next(row for row in cursor_rows if row["request_id"] == "cursor-export-alice-1")
+        self.assertEqual(alice["project_id"], "chatbot-core")
+        self.assertEqual(alice["cost_basis"], "cursor_charged")
+
+        procode_rows = self.report["procode"].rows
+        procode_ids = {row["request_id"] for row in procode_rows}
+        self.assertEqual(
+            procode_ids,
+            {"procode-sample-001", "procode-sample-002", "procode-sample-004"},
+        )
+        by_id = {row["request_id"]: row for row in procode_rows}
+        self.assertEqual(by_id["procode-sample-001"]["project_id"], "billing-bot")
+        self.assertEqual(by_id["procode-sample-001"]["account_id"], "frank@acme.com")
+        self.assertEqual(by_id["procode-sample-002"]["account_id"], "grace@acme.com")
+        self.assertEqual(by_id["procode-sample-002"]["model"], "企业内部-procode-模型")
+        self.assertEqual(by_id["procode-sample-004"]["project_id"], "batch")
+        self.assertGreaterEqual(len({row["project_id"] for row in procode_rows}), 2)
+
+        blob = json.dumps(self.payloads, ensure_ascii=False)
+        for snippet in FORBIDDEN_SNIPPETS:
+            self.assertNotIn(snippet, blob, snippet)
+        self.assertNotIn("cursorAuth", blob)
+        self.assertNotIn("accessToken", blob)
+
+    def test_home_layouts_and_canoryn_alias(self) -> None:
+        home = Path(tempfile.mkdtemp(prefix="tr-home-"))
+        export_dir = home / ".cursor" / "exports"
+        export_dir.mkdir(parents=True)
+        (export_dir / "usage.json").write_text(
+            json.dumps(
+                {
+                    "usageEvents": [
+                        {
+                            "model": "gpt-4o-mini",
+                            "userEmail": "alice@acme.com",
+                            "eventId": "cursor-home-export",
+                            "timestamp": "2026-10-26T08:00:00Z",
+                            "conversationId": "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+                            "tokenUsage": {"inputTokens": 6, "outputTokens": 2},
+                        }
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+        db_dir = home / ".config" / "Cursor" / "User" / "globalStorage"
+        db_dir.mkdir(parents=True)
+        import sqlite3
+
+        db_path = db_dir / "state.vscdb"
+        conn = sqlite3.connect(db_path)
+        conn.execute("CREATE TABLE cursorDiskKV (key TEXT PRIMARY KEY, value TEXT)")
+        conn.execute("CREATE TABLE ItemTable (key TEXT PRIMARY KEY, value TEXT)")
+        conn.execute(
+            "INSERT INTO ItemTable(key, value) VALUES ('cursorAuth/cachedEmail', 'bob@acme.com')"
+        )
+        conn.execute(
+            "INSERT INTO cursorDiskKV(key, value) VALUES (?, ?)",
+            (
+                "bubbleId:ffffffff-ffff-4fff-8fff-ffffffffffff:33333333-3333-4333-8333-333333333333",
+                json.dumps(
+                    {
+                        "text": "SECRET THIS MUST NEVER /Users/alice",
+                        "tokenCount": {"inputTokens": 4, "outputTokens": 1},
+                        "modelInfo": {"modelName": "gpt-4o"},
+                        "createdAt": "2026-10-26T09:00:00Z",
+                    }
+                ),
+            ),
+        )
+        conn.commit()
+        conn.close()
+
+        (home / ".procode").mkdir()
+        (home / ".procode" / "events.json").write_text(
+            json.dumps(
+                {
+                    "model": "gpt-4o-mini",
+                    "prompt_tokens": 3,
+                    "completion_tokens": 1,
+                    "account_id": "frank@acme.com",
+                    "request_id": "procode-home-1",
+                    "timestamp": "2026-10-26T10:00:00Z",
+                    "project": "/Users/bob/work/home-bot",
+                }
+            ),
+            encoding="utf-8",
+        )
+        canoryn = home / "Library" / "Application Support" / "Canoryn"
+        canoryn.mkdir(parents=True)
+        (canoryn / "usage.jsonl").write_text(
+            json.dumps(
+                {
+                    "model": "deepseek-chat",
+                    "prompt_tokens": 8,
+                    "completion_tokens": 2,
+                    "account_id": "grace@acme.com",
+                    "project_id": "mac-canoryn",
+                    "request_id": "procode-home-2",
+                    "timestamp": "2026-10-26T10:05:00Z",
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        win = home / "AppData" / "Roaming" / "ProCode"
+        win.mkdir(parents=True)
+        (win / "usage.json").write_text(
+            json.dumps(
+                {
+                    "model": "glm-4-plus",
+                    "prompt_tokens": 9,
+                    "completion_tokens": 3,
+                    "account_id": "frank@acme.com",
+                    "project_id": "win-procode",
+                    "request_id": "procode-home-3",
+                    "timestamp": "2026-10-26T10:10:00Z",
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        found = scan_all(CollectorConfig(), tools=["cursor", "procode"], home=home)
+        cursor_ids = {row["request_id"] for row in found["cursor"].rows}
+        self.assertIn("cursor-home-export", cursor_ids)
+        self.assertIn(
+            "cursor:bubble:ffffffff-ffff-4fff-8fff-ffffffffffff:33333333-3333-4333-8333-333333333333",
+            cursor_ids,
+        )
+        bubble = next(row for row in found["cursor"].rows if str(row["request_id"]).startswith("cursor:bubble:"))
+        self.assertEqual(bubble["account_id"], "bob@acme.com")
+        self.assertNotIn("SECRET", json.dumps(build_payloads(found), ensure_ascii=False))
+        procode_ids = {row["request_id"]: row for row in found["procode"].rows}
+        self.assertEqual(set(procode_ids), {"procode-home-1", "procode-home-2", "procode-home-3"})
+        self.assertEqual(procode_ids["procode-home-1"]["project_id"], "home-bot")
+
+        appdata = Path(tempfile.mkdtemp(prefix="tr-appdata-"))
+        leaked = appdata / "Cursor" / "exports"
+        leaked.mkdir(parents=True)
+        (leaked / "usage.json").write_text(
+            json.dumps(
+                {
+                    "model": "gpt-4o",
+                    "userEmail": "leak@acme.com",
+                    "eventId": "cursor-should-not-leak",
+                    "timestamp": "2026-10-26T11:00:00Z",
+                    "tokenUsage": {"inputTokens": 1, "outputTokens": 1},
+                }
+            ),
+            encoding="utf-8",
+        )
+        os.environ["APPDATA"] = str(appdata)
+        try:
+            isolated = scan_all(CollectorConfig(), tools=["cursor"], home=home)
+        finally:
+            os.environ.pop("APPDATA", None)
+        isolated_ids = {row["request_id"] for row in isolated["cursor"].rows}
+        self.assertNotIn("cursor-should-not-leak", isolated_ids)
+
+        proc = subprocess.run(
+            [sys.executable, "-m", "collector", "preview", "--fixtures", "--json", "--tool", "canoryn"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        doc = json.loads(proc.stdout)
+        self.assertEqual(set(doc["tools"]), {"procode"})
+        self.assertGreater(doc["tools"]["procode"]["rows"], 0)
+
+    def test_preview_redacts_home_prefix(self) -> None:
+        home = Path.home()
+        report = {
+            "cursor": ToolScan(
+                tool="cursor",
+                roots=[str(home / ".cursor" / "exports")],
+                missing_roots=[str(home / ".procode")],
+                rows=[],
+            )
+        }
+        doc = summarize(report, {"cursor": []})
+        blob = json.dumps(doc, ensure_ascii=False)
+        self.assertNotIn(str(home), blob)
+        self.assertEqual(doc["tools"]["cursor"]["roots"], ["~/.cursor/exports"])
+        self.assertEqual(doc["tools"]["cursor"]["missing_roots"], ["~/.procode"])
+        self.assertEqual(redact_home(str(home)), "~")
 
 
 def path_for(tool: str) -> str:

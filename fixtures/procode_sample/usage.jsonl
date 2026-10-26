@@ -1,0 +1,2 @@
+{"model":"deepseek-chat","usage":{"prompt_tokens":10,"completion_tokens":4},"account":"frank@acme.com","project_id":"batch","request_id":"procode-sample-003","timestamp":"2026-10-26T05:00:00Z","prompt":"SECRET THIS MUST NEVER BE STORED /Users/alice /Users/bob echo SECRET userAgent filepath NEVER STORE"}
+{"model":"deepseek-chat","prompt_tokens":15,"completion_tokens":5,"account_id":"grace@acme.com","participant":"grace@acme.com","project_id":"batch","request_id":"procode-sample-004","timestamp":"2026-10-26T05:05:00Z"}

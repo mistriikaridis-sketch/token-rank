@@ -13,7 +13,7 @@ curl -s http://localhost:8000/health
 ```
 
 - [ ] 能打开，且 `"status"` 为 `"ok"`
-- [ ] `"version"` 是 `0.19.0`
+- [ ] `"version"` 是 `0.20.0`
 - [ ] 若仍是演示密钥，`"setup"."demo_keys_in_use"` 为 `true`，网页顶部有黄色提醒
 - [ ] 交付之后 `"setup"."demo_keys_in_use"` 为 `false`，且 `"setup"."rankings_require_auth"` 为 `true`
 

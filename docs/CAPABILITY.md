@@ -1,6 +1,6 @@
 # Token 消耗排行榜 · 能力总览
 
-客户验收请用 [ACCEPTANCE.md](ACCEPTANCE.md)（当前版本见仓库 `VERSION`，**0.19.0**）。下面是能力索引，不是购买方清单。
+客户验收请用 [ACCEPTANCE.md](ACCEPTANCE.md)（当前版本见仓库 `VERSION`，**0.20.0**）。下面是能力索引，不是购买方清单。
 
 面向 Mateo 的一页验收清单。代码：`/workspace/token-rankings` · 许可证 MIT · 本地：`http://localhost:8000`
 
@@ -37,11 +37,11 @@
 
 ## 采集与口径
 
-- 工具：LiteLLM、Cursor Admin、WorkBuddy、Claude Code、Codex、Continue（+ 通用 OpenAI usage）
+- 工具：LiteLLM、Cursor（Admin 或本机）、WorkBuddy、Claude Code、Codex、Continue、ProCode（+ 通用 OpenAI usage）
 - 归一：tool 小写 slug、`(source, request_id)` 幂等、seed 默认隐藏
 - 维度：`account_id` / `project_id` / `agent_id`；未标注默认可隐藏
 - 成本：`estimate` / `cursor_charged` / `litellm_spend` / 混合；UI 标明「列表价估算，不是发票」。`pricing.json` 覆盖 OpenAI / Anthropic / Google / Meta / Mistral / xAI / Cohere，以及 DeepSeek、通义千问、月之暗面 Kimi、智谱 GLM、豆包、百川、MiniMax、零一万物。未知模型名原样入库，只把估价落到 `default` 档
-- 本机采集：`python -m collector`（见 [collector/INSTALL.md](../collector/INSTALL.md)）。WorkBuddy（含 Workbody 目录别名）、Claude Code、Codex、Continue。只上传 Token 数字。Cursor 本地采集、ProCode 深适配仍不做
+- 本机采集：`python -m collector`（见 [collector/INSTALL.md](../collector/INSTALL.md)，服务上是 `/docs/collector.md`）。WorkBuddy（含 Workbody）、Claude Code、Codex、Continue、Cursor、ProCode（含 Canoryn 目录）。只上传 Token 数字。Cursor 不读 cookie；ProCode 不解密聊天库
 - 可信度：`/health` 含工具覆盖、agent_id 占比、近 1h 并发近似
 
 ## 安全与部署
@@ -65,7 +65,8 @@ sudo docker compose up -d --build
 
 - 自研全能网关 → 对接 LiteLLM
 - 公网热度榜 → 外链 OpenRouter rankings
-- ProCode **深**适配 → 仅占位 ingest（`/procode`）
+- ProCode **深**适配（解密 Canoryn 聊天库）→ 只收 usage json/jsonl，页面 `/procode` 仍标 placeholder
 - 全功能社区（楼中楼/关注）
-- Cursor 本地采集、ProCode 深适配（本版不做）
+- 用 Cursor 登录 cookie 拉仪表盘。本地气泡计数为 0 时，改放 usage 导出，或在服务端用 Admin API
+
 （`/forum` 已是最小发帖闭环。开发者本机采集见 `collector/INSTALL.md`。）

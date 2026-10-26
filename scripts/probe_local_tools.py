@@ -319,8 +319,8 @@ def to_markdown(report: dict[str, Any]) -> str:
     lines.append("## 闭环建议")
     lines.append("")
     lines.append("1. WorkBuddy：`POST /api/v1/scan/workbuddy?root=...`（需 write API Key）")
-    lines.append("2. Cursor：Admin sync 或 `POST /api/v1/ingest/cursor` 推送 export JSON")
-    lines.append("3. ProCode：统一 schema → `POST /api/v1/ingest/procode`；见 `/procode` 与 `docs/NON_GOALS.md`")
+    lines.append("2. Cursor：本机 `python -m collector`（state.vscdb 只抽 token；或 `~/.cursor/exports`），或 Admin sync / `POST /api/v1/ingest/cursor`")
+    lines.append("3. ProCode：usage json/jsonl → `python -m collector`，或统一 schema → `POST /api/v1/ingest/procode`；不解密聊天库")
     lines.append("")
     return "\n".join(lines) + "\n"
 
