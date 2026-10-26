@@ -53,7 +53,7 @@ docker compose -f docker-compose.yml -f docker-compose.postgres.yml up -d --buil
 
 ## 给实施同事
 
-企业内 LLM **Token / 估算成本排行榜**。暗色 + 薄荷绿 UI：
+企业内 LLM **Token / 估算成本排行榜**。暗色 + 琥珀金 UI：
 
 - **个人榜** `/people`：按参与者排行（主力工具 / 主力模型 / Token / 估算成本）；可链到「我的 Agents」
 - **组织榜** `/orgs`：按部门排行（总量 / 人均 / 人数）；可按 **工具** 筛选

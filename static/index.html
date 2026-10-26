@@ -6,24 +6,24 @@
   <title>Token 消耗排行榜</title>
   <style>
     :root {
-      --bg: #0d1110;
-      --bg-elevated: #121816;
-      --panel: #15201c;
-      --panel-2: #1a2822;
-      --border: #24352e;
-      --text: #e8f0ec;
-      --muted: #8aa398;
-      --mint: #6ee7b0;
-      --mint-dim: #3d8f6e;
-      --mint-soft: rgba(110, 231, 176, 0.12);
-      --mint-border: rgba(110, 231, 176, 0.45);
-      --card-green: #1b3329;
+      --bg: #12100c;
+      --bg-elevated: #18140e;
+      --panel: #1c1812;
+      --panel-2: #241e16;
+      --border: #3a3224;
+      --text: #f3ead8;
+      --muted: #a89878;
+      --mint: #f0b429;
+      --mint-dim: #b8860b;
+      --mint-soft: rgba(240, 180, 41, 0.14);
+      --mint-border: rgba(240, 180, 41, 0.45);
+      --card-green: #262014;
       --gold: #f0c14b;
       --silver: #c5ced8;
       --bronze: #d4925a;
       --danger: #f87171;
-      --row-alt: rgba(110, 231, 176, 0.04);
-      --row-hover: rgba(110, 231, 176, 0.08);
+      --row-alt: rgba(240, 180, 41, 0.04);
+      --row-hover: rgba(240, 180, 41, 0.08);
     }
     * { box-sizing: border-box; }
     body {
@@ -37,7 +37,7 @@
 
     .topbar {
       position: sticky; top: 0; z-index: 20;
-      background: rgba(13, 17, 16, 0.92);
+      background: rgba(18, 16, 12, 0.92);
       backdrop-filter: blur(10px);
       border-bottom: 1px solid var(--border);
     }
@@ -73,8 +73,8 @@
     .wrap { max-width: 980px; margin: 0 auto; padding: 18px 16px 72px; }
 
     .overview {
-      background: linear-gradient(160deg, #1f3a30 0%, var(--card-green) 55%, #14241e 100%);
-      border: 1px solid rgba(110, 231, 176, 0.18);
+      background: linear-gradient(160deg, #3a2e18 0%, var(--card-green) 55%, #16120c 100%);
+      border: 1px solid rgba(240, 180, 41, 0.18);
       border-radius: 16px;
       padding: 18px 18px 16px;
       margin-bottom: 18px;
@@ -84,7 +84,7 @@
       margin: 0 0 14px;
       font-size: 0.95rem;
       font-weight: 600;
-      color: #cfe8db;
+      color: #efe4cf;
     }
     .overview-grid {
       display: grid;
@@ -94,18 +94,18 @@
     @media (max-width: 720px) {
       .overview-grid { grid-template-columns: 1fr; }
     }
-    .ov-label { color: #9fbfb0; font-size: 0.78rem; margin-bottom: 6px; }
+    .ov-label { color: #c4b08a; font-size: 0.78rem; margin-bottom: 6px; }
     .ov-value { font-size: 1.55rem; font-weight: 700; letter-spacing: 0.01em; }
     .ov-value.mint { color: var(--mint); }
-    .ov-sub { color: #8fb09f; font-size: 0.75rem; margin-top: 4px; }
+    .ov-sub { color: #b5a484; font-size: 0.75rem; margin-top: 4px; }
 
     .hint-card {
       background: var(--card-green);
-      border: 1px solid rgba(110, 231, 176, 0.16);
+      border: 1px solid rgba(240, 180, 41, 0.16);
       border-radius: 14px;
       padding: 16px 18px;
       margin-bottom: 16px;
-      color: #c5ddd0;
+      color: #e4d5bc;
       font-size: 0.92rem;
       line-height: 1.5;
     }
@@ -164,7 +164,7 @@
     th, td {
       padding: 13px 12px;
       text-align: left;
-      border-bottom: 1px solid rgba(36, 53, 46, 0.85);
+      border-bottom: 1px solid rgba(58, 50, 36, 0.85);
       vertical-align: middle;
     }
     th {
@@ -184,7 +184,7 @@
       display: inline-flex; width: 28px; height: 28px;
       align-items: center; justify-content: center;
       border-radius: 50%; font-weight: 800; font-size: 0.8rem;
-      background: #1c2a24; color: var(--muted);
+      background: #2a2418; color: var(--muted);
     }
     .medal.g { background: radial-gradient(circle at 35% 30%, #ffe08a, var(--gold)); color: #3a2800; }
     .medal.s { background: radial-gradient(circle at 35% 30%, #fff, var(--silver)); color: #2a3038; }
@@ -198,8 +198,8 @@
       width: 32px; height: 32px; border-radius: 50%;
       display: inline-flex; align-items: center; justify-content: center;
       font-size: 0.78rem; font-weight: 700;
-      background: linear-gradient(145deg, #2a4a3c, #1a2e26);
-      border: 1px solid rgba(110, 231, 176, 0.25);
+      background: linear-gradient(145deg, #4a3a22, #2a2216);
+      border: 1px solid rgba(240, 180, 41, 0.25);
       color: var(--mint);
       flex-shrink: 0;
     }
@@ -209,7 +209,7 @@
       border-radius: 8px;
       background: rgba(255,255,255,0.04);
       border: 1px solid var(--border);
-      color: #c5d9ce;
+      color: #e0d2ba;
       font-size: 0.82rem;
     }
     .tok {
@@ -223,7 +223,7 @@
       margin-top: 3px;
       font-variant-numeric: tabular-nums;
     }
-    .num { font-variant-numeric: tabular-nums; color: #d5e6dd; }
+    .num { font-variant-numeric: tabular-nums; color: #efe4cf; }
     .muted { color: var(--muted); }
     .empty, .error { padding: 28px 18px; text-align: center; color: var(--muted); }
     .empty strong, .error strong { display: block; color: var(--text); font-size: 1rem; margin-bottom: 8px; }
@@ -312,8 +312,8 @@
     .toggle-row input { accent-color: var(--mint); }
 
     .share-card {
-      background: linear-gradient(160deg, #1f3a30 0%, var(--card-green) 55%, #14241e 100%);
-      border: 1px solid rgba(110, 231, 176, 0.22);
+      background: linear-gradient(160deg, #3a2e18 0%, var(--card-green) 55%, #16120c 100%);
+      border: 1px solid rgba(240, 180, 41, 0.22);
       border-radius: 16px;
       padding: 18px;
       margin: 14px 0;
@@ -321,7 +321,7 @@
       font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       font-size: 0.86rem;
       line-height: 1.55;
-      color: #d7ebe1;
+      color: #efe4cf;
     }
     .btn {
       appearance: none;
@@ -345,7 +345,7 @@
       border: 1px dashed var(--border);
       border-radius: 12px;
       padding: 12px 14px;
-      color: #b7cdc2;
+      color: #c4b08a;
       font-size: 0.82rem;
       line-height: 1.55;
       white-space: pre-wrap;
@@ -363,13 +363,13 @@
     .me-panel h3 {
       margin: 0 0 10px;
       font-size: 0.9rem;
-      color: #cfe8db;
+      color: #efe4cf;
       font-weight: 600;
     }
     .mini-row {
       display: flex; justify-content: space-between; gap: 10px;
       padding: 8px 0;
-      border-bottom: 1px solid rgba(36, 53, 46, 0.7);
+      border-bottom: 1px solid rgba(58, 50, 36, 0.7);
       font-size: 0.88rem;
     }
     .mini-row:last-child { border-bottom: none; }
@@ -405,7 +405,7 @@
       color: var(--mint); border-radius: 8px; padding: 4px 10px;
       font-size: 0.78rem; cursor: pointer;
     }
-    .key-btn:hover { background: rgba(110,231,176,0.2); }
+    .key-btn:hover { background: rgba(240,180,41,0.2); }
     .key-btn.ghost {
       background: transparent; border-color: var(--border); color: var(--muted);
     }
@@ -437,17 +437,17 @@
       border-radius: 14px; padding: 14px 16px; margin-bottom: 10px;
     }
     .alert-card.ok {
-      border-color: rgba(110,231,176,0.35);
-      background: rgba(110,231,176,0.08);
+      border-color: rgba(240,180,41,0.35);
+      background: rgba(240,180,41,0.08);
     }
     .alert-card h4 { margin: 0 0 6px; font-size: 0.95rem; }
-    .alert-card .msg { color: #cfe8db; font-size: 0.88rem; line-height: 1.55; }
+    .alert-card .msg { color: #efe4cf; font-size: 0.88rem; line-height: 1.55; }
     .alert-card .meta-line { color: var(--muted); font-size: 0.8rem; margin-top: 8px; }
     .narrative-box {
-      background: linear-gradient(160deg, #1f3a30 0%, var(--card-green) 100%);
-      border: 1px solid rgba(110,231,176,0.18);
+      background: linear-gradient(160deg, #3a2e18 0%, var(--card-green) 100%);
+      border: 1px solid rgba(240,180,41,0.18);
       border-radius: 14px; padding: 14px 16px; margin-bottom: 14px;
-      font-size: 0.9rem; line-height: 1.55; color: #cfe8db;
+      font-size: 0.9rem; line-height: 1.55; color: #efe4cf;
     }
 
 
@@ -470,16 +470,16 @@
       padding: 14px 16px; margin-bottom: 12px;
     }
     .forum-post h4 { margin: 0 0 8px; font-size: 1.02rem; }
-    .forum-post .body { color: #cfe8db; font-size: 0.9rem; line-height: 1.55; white-space: pre-wrap; }
+    .forum-post .body { color: #efe4cf; font-size: 0.9rem; line-height: 1.55; white-space: pre-wrap; }
     .forum-post .meta-line {
       display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
       margin-top: 10px; color: var(--muted); font-size: 0.8rem;
     }
     .like-btn {
-      background: rgba(110,231,176,0.08); border: 1px solid rgba(110,231,176,0.28);
+      background: rgba(240,180,41,0.08); border: 1px solid rgba(240,180,41,0.28);
       color: var(--mint); border-radius: 999px; padding: 4px 12px; cursor: pointer; font: inherit;
     }
-    .like-btn:hover { background: rgba(110,231,176,0.16); }
+    .like-btn:hover { background: rgba(240,180,41,0.16); }
     .forum-warn {
       color: #fbbf24; font-size: 0.85rem; margin-top: 8px; display: none;
     }
@@ -842,7 +842,7 @@
       </div>
       <div class="panel" style="margin-top:14px">
         <h3 style="margin:0 0 8px;font-size:1rem">推送示例</h3>
-        <pre style="white-space:pre-wrap;color:#cfe8db;font-size:0.8rem;margin:0">curl -X POST http://localhost:8000/api/v1/ingest/procode \
+        <pre style="white-space:pre-wrap;color:#efe4cf;font-size:0.8rem;margin:0">curl -X POST http://localhost:8000/api/v1/ingest/procode \
   -H "Authorization: Bearer $TOKEN_RANKINGS_API_KEY" \
   -H 'Content-Type: application/json' \
   -d @fixtures/procode_events.json</pre>
@@ -1665,37 +1665,37 @@
       const ctx = canvas.getContext("2d");
       const w = canvas.width, h = canvas.height;
       const grd = ctx.createLinearGradient(0, 0, w, h);
-      grd.addColorStop(0, "#1f3a30");
-      grd.addColorStop(0.55, "#1b3329");
-      grd.addColorStop(1, "#0d1110");
+      grd.addColorStop(0, "#3a2e18");
+      grd.addColorStop(0.55, "#262014");
+      grd.addColorStop(1, "#12100c");
       ctx.fillStyle = grd;
       ctx.fillRect(0, 0, w, h);
-      ctx.strokeStyle = "rgba(110,231,176,0.35)";
+      ctx.strokeStyle = "rgba(240,180,41,0.35)";
       ctx.lineWidth = 2;
       ctx.strokeRect(16, 16, w - 32, h - 32);
-      ctx.fillStyle = "#6ee7b0";
+      ctx.fillStyle = "#f0b429";
       ctx.font = "bold 28px sans-serif";
       ctx.fillText("Token 周报", 48, 70);
-      ctx.fillStyle = "#cfe8db";
+      ctx.fillStyle = "#efe4cf";
       ctx.font = "18px sans-serif";
       ctx.fillText(`账号 ${data.account_id} · ${data.window}`, 48, 104);
       const ov = data.overview || {};
-      ctx.fillStyle = "#e8f0ec";
+      ctx.fillStyle = "#f3ead8";
       ctx.font = "bold 44px sans-serif";
       ctx.fillText(fmtTokens(ov.total_tokens) + " Tokens", 48, 180);
-      ctx.fillStyle = "#6ee7b0";
+      ctx.fillStyle = "#f0b429";
       ctx.font = "bold 32px sans-serif";
       const approx = (ov.cost_basis === "estimate" || ov.cost_basis === "mixed") ? "≈ " : "";
       ctx.fillText(approx + fmtUsd(ov.estimated_cost_usd) + " · " + (ov.cost_basis_label || "估算"), 48, 230);
       const topA = (data.agents || []).find(a => !a.unlabeled) || (data.agents || [])[0];
       const topP = (data.projects || []).find(p => !p.unlabeled) || (data.projects || [])[0];
-      ctx.fillStyle = "#9fbfb0";
+      ctx.fillStyle = "#c4b08a";
       ctx.font = "16px sans-serif";
       ctx.fillText("Top Agent: " + ((topA && (topA.label || topA.agent_id)) || "—"), 48, 290);
       ctx.fillText("Top 项目: " + ((topP && topP.project_id) || "—"), 48, 320);
       const tools = (data.tools || []).slice(0, 3).map(t => `${t.label} ${t.share_pct}%`).join(" · ");
       ctx.fillText("工具: " + (tools || "—"), 48, 350);
-      ctx.fillStyle = "#6ee7b0";
+      ctx.fillStyle = "#f0b429";
       ctx.font = "14px sans-serif";
       ctx.fillText("Token 消耗排行榜 · 企业内部", 48, 390);
       canvas.style.display = "block";
