@@ -225,8 +225,48 @@
     }
     .num { font-variant-numeric: tabular-nums; color: #d5e6dd; }
     .muted { color: var(--muted); }
-    .empty, .error { padding: 36px 18px; text-align: center; color: var(--muted); }
+    .empty, .error { padding: 28px 18px; text-align: center; color: var(--muted); }
+    .empty strong, .error strong { display: block; color: var(--text); font-size: 1rem; margin-bottom: 8px; }
     .error { color: var(--danger); }
+    .empty-steps, .error .empty-steps {
+      margin: 8px auto 0; font-size: 0.88rem; line-height: 1.65;
+      text-align: left; max-width: 460px; color: var(--muted);
+    }
+    .empty-steps a, .setup-panel a, .warn-banner a { color: var(--mint); }
+    .warn-banner {
+      background: rgba(240, 193, 75, 0.12);
+      border: 1px solid rgba(240, 193, 75, 0.45);
+      color: #f6e3a8;
+      border-radius: 12px;
+      padding: 12px 14px;
+      margin: 0 0 14px;
+      font-size: 0.9rem;
+      line-height: 1.55;
+    }
+    .warn-banner[hidden] { display: none; }
+    .warn-banner strong { color: #ffe08a; }
+    .setup-panel {
+      background: var(--panel);
+      border: 1px solid var(--mint-border);
+      border-radius: 16px;
+      padding: 16px;
+      margin: 0 0 16px;
+    }
+    .setup-panel[hidden] { display: none; }
+    .setup-panel h2 { margin: 0 0 6px; font-size: 1.05rem; }
+    .setup-panel p { margin: 0 0 12px; color: var(--muted); font-size: 0.88rem; line-height: 1.5; }
+    .setup-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .setup-panel label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 6px; }
+    .setup-panel input, .setup-panel select {
+      width: 100%; padding: 10px 12px; border-radius: 10px;
+      border: 1px solid var(--border); background: var(--bg); color: var(--text); font: inherit;
+    }
+    .setup-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
+    .setup-links { margin-top: 10px; font-size: 0.82rem; color: var(--muted); }
+    details.advanced { margin: 0 0 14px; color: var(--muted); font-size: 0.82rem; }
+    details.advanced summary { cursor: pointer; }
+    details.advanced p { margin: 8px 0 0; line-height: 1.5; }
+    @media (max-width: 720px) { .setup-grid { grid-template-columns: 1fr; } }
     .footer {
       margin-top: 14px; color: var(--muted); font-size: 0.78rem;
       display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px;
@@ -459,17 +499,46 @@
         <a href="/me" data-page="me">我的</a>
         <a href="/alerts" data-page="alerts">提醒</a>
         <a href="/forum" data-page="forum">交流区</a>
-        <a href="/procode" data-page="procode">ProCode</a>
       </nav>
       <div class="top-right">
-        <div class="key-chip" id="keyChip"><span>未贴 Key · 公开榜</span></div>
-        <button type="button" class="key-btn" id="keyOpenBtn">贴 Key</button>
+        <div class="key-chip" id="keyChip"><span>未贴密钥</span></div>
+        <button type="button" class="key-btn" id="keyOpenBtn">贴密钥</button>
       </div>
     </div>
   </div>
 
   <div class="wrap">
-    <div class="cred-strip" id="credStrip">可信度指标加载中…</div>
+    <div class="warn-banner" id="demoWarn" hidden></div>
+    <section class="setup-panel" id="setupPanel" hidden>
+      <h2>首次配置</h2>
+      <p>粘贴管理员给你的用户密钥，选好账号，就能看自己的用量。密钥只留在这台浏览器里。</p>
+      <div class="setup-grid">
+        <div>
+          <label for="setupKey">1. 粘贴用户密钥</label>
+          <input id="setupKey" type="password" autocomplete="off" placeholder="用户密钥，不是采集用的写入密钥" />
+        </div>
+        <div>
+          <label for="setupAccount">2. 选择账号</label>
+          <select id="setupAccount"><option value="">导入数据后即可选择</option></select>
+        </div>
+      </div>
+      <div class="setup-actions">
+        <button type="button" class="btn" id="setupSaveBtn">保存并查看我的</button>
+        <button type="button" class="btn ghost" id="setupClearBtn">清除密钥</button>
+        <a class="btn ghost" href="/agents">去看 Agent</a>
+      </div>
+      <div class="setup-links">
+        3. 说明：
+        <a href="/docs/INSTALL.md">安装（约 10 分钟）</a> ·
+        <a href="/docs/ACCEPTANCE.md">验收清单</a> ·
+        <a href="/docs/SECURITY.md">安全说明</a> ·
+        <a href="/docs/TROUBLESHOOTING.md">遇到问题</a>
+      </div>
+    </section>
+    <details class="advanced" id="credDetails">
+      <summary>高级指标（给负责安装的同事）</summary>
+      <div class="cred-strip" id="credStrip">加载中…</div>
+    </details>
     <!-- People page -->
     <section id="page-people" class="page">
       <div class="overview">
@@ -494,9 +563,9 @@
       </div>
 
       <div class="pills" id="peoplePills">
-        <button type="button" class="pill active" data-window="today">今天</button>
+        <button type="button" class="pill" data-window="today">今天</button>
         <button type="button" class="pill" data-window="yesterday">昨天</button>
-        <button type="button" class="pill" data-window="7d">近7天</button>
+        <button type="button" class="pill active" data-window="7d">近7天</button>
         <button type="button" class="pill" data-window="30d">近30天</button>
       </div>
 
@@ -520,8 +589,11 @@
     <!-- Orgs page -->
     <section id="page-orgs" class="page">
       <div class="hint-card">
-        按<strong>组织 / 部门</strong>汇总 Token 用量与估算成本。人均 = 部门总量 ÷ 参与人数。
-        可对接现有网关的 team / 部门标签做归因。
+        按部门看一共用了多少、平均每人用了多少。
+        <details class="advanced">
+          <summary>部门名称从哪来</summary>
+          <p>用量里带上部门名就会出现在这里。字段怎么填，请负责安装的同事看安装说明。</p>
+        </details>
       </div>
 
       <div class="pills" id="orgPills">
@@ -548,8 +620,11 @@
     <!-- Projects page: account × project -->
     <section id="page-projects" class="page">
       <div class="hint-card">
-        按<strong>账号 × 项目</strong>拆开看消耗，避免「只吐一个总量」的黑盒。
-        同一人跑多个项目时，每一行是一对 (account, project)。演示 seed 默认隐藏；数据默认私有，不公网导出。
+        按「谁的哪个项目」分开看，而不是只给一个总数。
+        <details class="advanced">
+          <summary>为什么有的行不出现</summary>
+          <p>没有项目名的记录默认隐藏。演示数据默认也不上榜。需要对照时再取消「隐藏未标注」。</p>
+        </details>
       </div>
 
       <div class="pills" id="projectPills">
@@ -579,9 +654,11 @@
     <!-- Agents page -->
     <section id="page-agents" class="page">
       <div class="hint-card">
-        按<strong>Agent</strong>看团队里每个 agent 大概烧多少 Token / 成本。
-        用上方账号下拉看「我的 agents」；也可从个人榜点「看 Agents」跳转。
-        数据来自 LiteLLM tags / Cursor <code>cloudAgentId</code> 等字段归一后的 <code>agent_id</code>。
+        这里看每个助手用了多少。先在上方选账号，就只看这个人的助手。
+        <details class="advanced">
+          <summary>助手怎样才会出现</summary>
+          <p>用量里带上助手编号后就会出现。具体字段名请负责安装的同事看 <a href="/docs/INSTALL.md">安装说明</a>。</p>
+        </details>
       </div>
 
       <div class="pills" id="agentPills">
@@ -613,8 +690,8 @@
     <!-- Me page: personal self-service -->
     <section id="page-me" class="page">
       <div class="hint-card">
-        选一个<strong>账号</strong>，只看自己的 Agent / 项目消耗、本周合计与工具分布。
-        可复制「本周卡片」文案分享。上报时记得带 <code>agent_id</code>。
+        看自己的用量：助手、项目、本周合计。可以复制一段文字发到群里。
+        还没配过的话，用页面上方的「首次配置」。
       </div>
 
       <div class="pills" id="mePills">
@@ -673,7 +750,10 @@
         <div id="meTools"><div class="empty">—</div></div>
       </div>
 
-      <div class="howto" id="meHowto">上报说明加载后显示…</div>
+      <details class="advanced">
+        <summary>怎样让助手出现在这里（给负责安装的同事）</summary>
+        <div class="howto" id="meHowto">说明加载后显示…</div>
+      </details>
     </section>
 
 
@@ -683,9 +763,11 @@
         消耗过低可能说明 AI 工作流尚未真正重构——建设性提醒，不是排名羞辱。
       </div>
       <div class="hint-card">
-        简单规则：所选时间窗内，账号 <code>total_tokens</code> 低于阈值则进入告警列表。
-        Admin / 未贴 Key 看全员；贴上 <strong>member Key</strong> 后只看自己。
-        可选 Webhook：服务端配置 <code>LOW_USAGE_WEBHOOK_URL</code> 后，点「推送 Webhook」才会 POST。
+        用量太低时给一个提醒，方便复盘工作流有没有真的用上。贴上自己的密钥后，只看自己的账号。
+        <details class="advanced">
+          <summary>通知地址</summary>
+          <p>需要推到外部时，由负责安装的同事配置通知地址。没配置就点「推送」也不会往外发。</p>
+        </details>
       </div>
       <div class="pills" id="alertPills">
         <button type="button" class="pill" data-window="today">今天</button>
@@ -717,7 +799,7 @@
     <!-- Forum page -->
     <section id="page-forum" class="page">
       <div class="narrative-box" id="forumDisclaimer">
-        企业内部讨论区（最小闭环）。匿名可浏览；贴上用户 Key 后可发帖。禁止粘贴 API Key / Token / 私钥 / 对话原文。
+        公司内部讨论。不贴密钥时只能看；贴上用户密钥后可以发帖。不要粘贴密钥、密码或对话原文。
       </div>
       <div class="hint-card">
         不是全功能社区：只有发帖、列表（时间倒序）、简单点赞。敏感密钥请勿上传——服务端也会拦截疑似 Key 内容。
@@ -730,7 +812,7 @@
         <div class="row">
           <button type="button" class="btn" id="forumSubmitBtn">发布</button>
           <button type="button" class="btn ghost" id="forumReloadBtn">刷新列表</button>
-          <span class="hint-inline" id="forumAuthHint">未贴 Key · 仅可浏览；点顶栏「贴 Key」后发帖</span>
+          <span class="hint-inline" id="forumAuthHint">还没贴密钥，只能浏览。贴上用户密钥后可以发帖</span>
         </div>
         <div class="forum-warn" id="forumWarn"></div>
       </div>
@@ -750,8 +832,8 @@
         公开用量 schema 不足，本产品<strong>不做深适配</strong>。请经 LiteLLM / 网关标注
         <code>tool=procode</code>（header 或 tags），再推统一 usage 到
         <code>POST /api/v1/ingest/procode</code>。探测脚本会扫 <code>~/.canoryn*</code>、<code>~/.procode*</code>。
-        不做自研网关、不做公网热度榜 → <a href="/docs/NON_GOALS.md">NON_GOALS</a> ·
-        <a href="/docs/probe.md">probe.md</a>
+        不做自研网关、不做公网热度榜 → <a href="/docs/NON_GOALS.md">不做的事</a> ·
+        <a href="/docs/INSTALL.md">安装说明</a>
       </div>
       <div class="stats" style="margin-top:12px">
         <div class="stat"><div class="label">适配状态</div><div class="value" id="procodeStatus">—</div></div>
@@ -770,7 +852,7 @@
       </div>
     </section>
 
-      <span id="footerCostNote">成本口径见各榜徽章 · <a href="/docs">API</a> · <a href="/health">健康检查</a></span>
+      <span id="footerCostNote">费用数字是估算 · <a href="/docs/INSTALL.md">安装</a> · <a href="/docs/TROUBLESHOOTING.md">排错</a> · <a href="/procode">接入说明</a> · <a href="/docs">接口文档</a> · <a href="/health">健康检查</a></span>
       <span id="generatedAt"></span>
     </div>
   </div>
@@ -778,15 +860,15 @@
   <!-- API Key modal: user keys only — never prefill service ingest key -->
   <div class="key-modal-backdrop" id="keyModal" role="dialog" aria-modal="true">
     <div class="key-modal">
-      <h3>贴上用户 API Key</h3>
-      <p>Key 只存在本机浏览器 <code>localStorage</code>，请求排行 / 我的 / 导出 / 提醒时自动带上 Header。Member Key 会自动只看自己的账号。请勿把服务端 ingest Key（如 <code>TOKEN_RANKINGS_API_KEY</code>）写进前端默认值。</p>
-      <input id="keyInput" type="password" autocomplete="off" placeholder="例如 demo-alice-key" />
+      <h3>粘贴用户密钥</h3>
+      <p>密钥只存在这台浏览器里，用来看排行、我的、导出和提醒。成员密钥只会看到自己的账号。请不要把采集用的写入密钥粘贴到这里。</p>
+      <input id="keyInput" type="password" autocomplete="off" placeholder="向管理员要的用户密钥" />
       <div class="row">
         <button type="button" class="key-btn" id="keySaveBtn">保存</button>
         <button type="button" class="key-btn ghost" id="keyClearBtn">清除</button>
         <button type="button" class="key-btn ghost" id="keyCancelBtn">关闭</button>
       </div>
-      <div class="hint">Demo：<code>demo-alice-key</code>（Alice / acme-prod）· <code>demo-dave-key</code> · <code>demo-admin-key</code>（管理员）。服务 ingest Key 请只给采集脚本用。</div>
+      <div class="hint">试用可先粘贴 <code>demo-alice-key</code>（账号 acme-prod）。这是演示密钥，正式使用前要换掉，页面黄条会提醒。说明见 <a href="/docs/SECURITY.md">安全说明</a>。</div>
     </div>
   </div>
 
@@ -797,7 +879,7 @@
 
     const state = {
       page: "people",
-      peopleWindow: "today",
+      peopleWindow: "7d",
       orgWindow: "7d",
       projectWindow: "7d",
       agentWindow: "7d",
@@ -871,6 +953,48 @@
       return { "Authorization": "Bearer " + key };
     }
 
+    async function throwIfNotOk(res) {
+      if (res.ok) return res;
+      let message = "";
+      const raw = await res.text();
+      try {
+        const data = JSON.parse(raw);
+        const detail = data && data.detail;
+        if (detail && typeof detail === "object") message = detail.message || "";
+        else if (typeof detail === "string") message = detail;
+      } catch (_) {
+        message = raw;
+      }
+      if (res.status === 401) {
+        message = message || "没有通过身份验证。请先在「首次配置」里粘贴用户密钥。";
+      } else if (res.status === 403) {
+        message = message || "没有权限。成员只能查看自己的账号。";
+      } else if (!message) {
+        message = "请求失败（HTTP " + res.status + "）。请看安装说明或排错文档。";
+      }
+      const err = new Error(message);
+      err.status = res.status;
+      throw err;
+    }
+
+    function errorBlock(err) {
+      const status = err && err.status;
+      let title = "暂时打不开";
+      let next = "下一步：确认服务已启动，然后看 <a href=\"/docs/TROUBLESHOOTING.md\">排错</a>。";
+      if (status === 401) {
+        title = "需要先贴密钥";
+        next = "下一步：在「首次配置」粘贴管理员给你的用户密钥（不要填采集用的写入密钥）。见 <a href=\"/docs/SECURITY.md\">安全说明</a>。";
+      } else if (status === 403) {
+        title = "没有权限看这里";
+        next = "下一步：成员只能看自己的账号。请换自己的密钥，或请管理员检查用户名单。见 <a href=\"/docs/SECURITY.md\">安全说明</a>。";
+      }
+      return `<div class="error"><strong>${title}</strong><div>${escapeHtml(String((err && err.message) || err))}</div><div class="empty-steps">${next}</div></div>`;
+    }
+
+    function emptyNext(title) {
+      return `<div class="empty"><strong>${escapeHtml(title)}</strong><div class="empty-steps">这个时间范围里还没有用量。你可以：<br>1. 把上方时间改成「近7天」再看一次<br>2. 按 <a href="/docs/INSTALL.md">安装说明</a> 导入一份示例<br>3. 在「首次配置」粘贴用户密钥，选择账号，再打开「我的」或 <a href="/agents">Agent</a></div></div>`;
+    }
+
     async function apiFetch(url, options) {
       const opts = Object.assign({}, options || {});
       const headers = Object.assign({}, authHeaders(), opts.headers || {});
@@ -893,19 +1017,80 @@
             + ` · ${escapeHtml(data.role || "")}`
             + (scope ? ` · ${escapeHtml(scope)}` : "")
             + (data.key_hint ? ` <span class="muted">${escapeHtml(data.key_hint)}</span>` : "");
-          btn.textContent = "换 Key";
+          btn.textContent = "换密钥";
         } else if (getStoredKey()) {
-          chip.innerHTML = `<span style="color:var(--danger)">Key 无效</span>`;
-          btn.textContent = "重贴 Key";
+          chip.innerHTML = `<span style="color:var(--danger)">密钥不正确</span>`;
+          btn.textContent = "重贴密钥";
         } else {
-          chip.innerHTML = `<span>未贴 Key · 公开榜</span>`;
-          btn.textContent = "贴 Key";
+          chip.innerHTML = `<span>未贴密钥</span>`;
+          btn.textContent = "贴密钥";
         }
       } catch (err) {
         chip.textContent = "鉴权状态未知";
       }
       updateForumAuthHint();
+      if (typeof syncSetupPanel === "function") syncSetupPanel();
       return state.whoami;
+    }
+
+    function showSetupPanel() {
+      const panel = document.getElementById("setupPanel");
+      if (!panel) return;
+      panel.hidden = !(state.page === "people" || state.page === "me");
+    }
+
+    async function refreshSetupAccounts() {
+      const sel = document.getElementById("setupAccount");
+      if (!sel) return;
+      const who = state.whoami;
+      if (who && who.authenticated && who.role === "member" && who.account_id) {
+        sel.innerHTML = `<option value="${escapeHtml(who.account_id)}">${escapeHtml(who.account_id)}（我的账号）</option>`;
+        sel.value = who.account_id;
+        sel.disabled = true;
+        return;
+      }
+      sel.disabled = false;
+      try {
+        const res = await apiFetch("/api/v1/rankings/agents?window=all&hide_unlabeled=false");
+        if (!res.ok) return;
+        const data = await res.json();
+        const accounts = (data.filters && data.filters.accounts) || [];
+        const cur = sel.value || state._preMeAccount || "";
+        fillSelect(sel, accounts, accounts.length ? "选择账号…" : "导入数据后即可选择");
+        if (cur && accounts.includes(cur)) sel.value = cur;
+      } catch (_) { /* 账号列表可以稍后再选 */ }
+    }
+
+    function syncSetupPanel() {
+      showSetupPanel();
+      const input = document.getElementById("setupKey");
+      if (input && document.activeElement !== input) input.value = getStoredKey();
+      refreshSetupAccounts();
+    }
+
+    async function saveSetup() {
+      const key = document.getElementById("setupKey").value.trim();
+      const account = document.getElementById("setupAccount").value;
+      setStoredKey(key);
+      const url = account ? ("/me?account_id=" + encodeURIComponent(account)) : "/me";
+      if (state.page === "me") {
+        state._preMeAccount = account;
+        await refreshWhoami();
+        if (account && new URLSearchParams(location.search).get("account_id") !== account) {
+          history.replaceState(null, "", url);
+        }
+        loadMe();
+        return;
+      }
+      location.href = url;
+    }
+
+    async function clearSetup() {
+      setStoredKey("");
+      const input = document.getElementById("setupKey");
+      if (input) input.value = "";
+      await refreshWhoami();
+      reloadActivePage();
     }
 
     function openKeyModal() {
@@ -1008,6 +1193,19 @@
         if (!res.ok) throw new Error("health " + res.status);
         const h = await res.json();
         const basis = h.cost_basis || {};
+        const setup = h.setup || {};
+        const warn = document.getElementById("demoWarn");
+        if (warn) {
+          if (setup.demo_keys_in_use) {
+            const lines = (setup.warnings || []).map(w => escapeHtml(w)).join("<br>");
+            warn.hidden = false;
+            warn.innerHTML = `<strong>演示密钥仍在使用。</strong> 交给别人用之前请先处理下面几件事。 <a href="/docs/SECURITY.md">怎么改</a>`
+              + (lines ? `<br>${lines}` : "");
+          } else {
+            warn.hidden = true;
+            warn.innerHTML = "";
+          }
+        }
         el.innerHTML =
           `已接入工具 <strong>${fmtInt(h.tools_connected || 0)}</strong>` +
           (h.tools && h.tools.length ? `（${h.tools.map(escapeHtml).join(" · ")}）` : "") +
@@ -1039,7 +1237,7 @@
 
       try {
         const res = await apiFetch("/api/v1/rankings/people?" + params.toString());
-        if (!res.ok) throw new Error(await res.text());
+        await throwIfNotOk(res);
         const data = await res.json();
 
         fillToolSelect(document.getElementById("filterTool"), data.filters.tools || [], data.filters.tool_labels || {}, "全部工具");
@@ -1066,7 +1264,7 @@
         document.getElementById("generatedAt").textContent = document.getElementById("peopleSync").textContent;
 
         if (!data.items.length) {
-          host.innerHTML = '<div class="empty">暂无数据。贴上用户 Key 后 member 只看自己；或先 ingest fixture。</div>';
+          host.innerHTML = emptyNext("还没有个人用量");
           return;
         }
         const rows = data.items.map(it => {
@@ -1100,7 +1298,7 @@
           <tbody>${rows}</tbody>
         </table>`;
       } catch (err) {
-        host.innerHTML = `<div class="error">加载失败：${escapeHtml(String(err.message || err))}</div>`;
+        host.innerHTML = errorBlock(err);
       }
     }
 
@@ -1117,7 +1315,7 @@
           fillToolSelect(document.getElementById("orgFilterTool"), td.filters.tools || [], td.filters.tool_labels || {}, "全部工具");
         }
         const res = await apiFetch("/api/v1/rankings/orgs?" + params.toString());
-        if (!res.ok) throw new Error(await res.text());
+        await throwIfNotOk(res);
         const data = await res.json();
         const basis = (data.totals && data.totals.cost_basis) || "estimate";
         const approx = (basis === "estimate" || basis === "mixed") ? "≈ " : "";
@@ -1126,7 +1324,7 @@
         document.getElementById("orgSync").textContent =
           "更新于 " + new Date(data.generated_at).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" });
         if (!data.items.length) {
-          host.innerHTML = '<div class="empty">暂无组织数据</div>';
+          host.innerHTML = emptyNext("还没有部门用量");
           return;
         }
         const rows = data.items.map(it => `<tr>
@@ -1143,7 +1341,7 @@
           <thead><tr><th>排名</th><th>组织 / 部门</th><th class="hide-sm">人均</th><th>Token / 成本</th></tr></thead>
           <tbody>${rows}</tbody></table>`;
       } catch (err) {
-        host.innerHTML = `<div class="error">加载失败：${escapeHtml(String(err.message || err))}</div>`;
+        host.innerHTML = errorBlock(err);
       }
     }
 
@@ -1159,7 +1357,7 @@
       params.set("hide_unlabeled", hide ? "true" : "false");
       try {
         const res = await apiFetch("/api/v1/rankings/projects?" + params.toString());
-        if (!res.ok) throw new Error(await res.text());
+        await throwIfNotOk(res);
         const data = await res.json();
         fillToolSelect(document.getElementById("projectFilterTool"), data.filters.tools || [], data.filters.tool_labels || {}, "全部工具");
         fillSelect(document.getElementById("projectFilterAccount"), data.filters.accounts || [], "全部账号");
@@ -1172,7 +1370,7 @@
         document.getElementById("projectSync").textContent =
           "更新于 " + new Date(data.generated_at).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" });
         if (!data.items.length) {
-          host.innerHTML = '<div class="empty">暂无项目数据</div>';
+          host.innerHTML = emptyNext("还没有项目用量");
           return;
         }
         const rows = data.items.map(it => `<tr>
@@ -1191,7 +1389,7 @@
           <thead><tr><th>排名</th><th>项目 · 账号</th><th class="hide-sm">工具</th><th>Token / 成本</th></tr></thead>
           <tbody>${rows}</tbody></table>`;
       } catch (err) {
-        host.innerHTML = `<div class="error">加载失败：${escapeHtml(String(err.message || err))}</div>`;
+        host.innerHTML = errorBlock(err);
       }
     }
 
@@ -1209,9 +1407,9 @@
       params.set("hide_unlabeled", hide ? "true" : "false");
       try {
         const res = await apiFetch("/api/v1/rankings/agents?" + params.toString());
-        if (!res.ok) throw new Error(await res.text());
+        await throwIfNotOk(res);
         const data = await res.json();
-        fillSelect(document.getElementById("agentFilterAccount"), data.filters.accounts || [], "全部账号（Demo）");
+          fillSelect(document.getElementById("agentFilterAccount"), data.filters.accounts || [], "全部账号");
         fillToolSelect(document.getElementById("agentFilterTool"), data.filters.tools || [], data.filters.tool_labels || {}, "全部工具");
         fillSelect(document.getElementById("agentFilterTeam"), data.filters.teams || [], "全部部门");
         if (state._preAccount && (data.filters.accounts || []).includes(state._preAccount)) {
@@ -1226,7 +1424,7 @@
         document.getElementById("agentSync").textContent =
           "更新于 " + new Date(data.generated_at).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" });
         if (!data.items.length) {
-          host.innerHTML = '<div class="empty">暂无 Agent 数据</div>';
+          host.innerHTML = emptyNext("还没有助手用量");
           return;
         }
         const rows = data.items.map(it => `<tr>
@@ -1249,7 +1447,7 @@
           <tbody>${rows}</tbody>
         </table>`;
       } catch (err) {
-        host.innerHTML = `<div class="error">加载失败：${escapeHtml(String(err.message || err))}</div>`;
+        host.innerHTML = errorBlock(err);
       }
     }
 
@@ -1304,10 +1502,10 @@
       }
 
       if (!account && !(who && who.authenticated && who.role === "member")) {
-        document.getElementById("meShareCard").textContent = "请先选择账号，或贴上 member Key 自动锁定自己的账号";
-        document.getElementById("meAgents").innerHTML = '<div class="empty">请选择账号</div>';
-        document.getElementById("meProjects").innerHTML = '<div class="empty">请选择账号</div>';
-        document.getElementById("meTools").innerHTML = '<div class="empty">请选择账号</div>';
+        document.getElementById("meShareCard").textContent = "请先在上方「首次配置」里粘贴用户密钥，并选择账号。";
+        document.getElementById("meAgents").innerHTML = emptyNext("还没选账号");
+        document.getElementById("meProjects").innerHTML = '<div class="empty">选好账号后，这里会列出项目</div>';
+        document.getElementById("meTools").innerHTML = '<div class="empty">选好账号后，这里会列出用过的工具</div>';
         return;
       }
 
@@ -1315,7 +1513,7 @@
         const params = new URLSearchParams({ window: state.meWindow });
         if (account) params.set("account_id", account);
         const res = await apiFetch("/api/v1/me?" + params.toString());
-        if (!res.ok) throw new Error(await res.text());
+        await throwIfNotOk(res);
         const data = await res.json();
         account = data.account_id || account;
         if (data.filters && data.filters.accounts && !memberLocked) {
@@ -1336,8 +1534,8 @@
         document.getElementById("meCountsSub").textContent = `${fmtInt(ov.tools)} 种工具`;
         document.getElementById("meShareCard").textContent = data.share_text || "";
         document.getElementById("meHowto").textContent = data.how_to_report_agent_id || "";
-        document.getElementById("meAgents").innerHTML = renderMiniList(data.agents, "label", "暂无 Agent");
-        document.getElementById("meProjects").innerHTML = renderMiniList(data.projects, "project_id", "暂无项目");
+        document.getElementById("meAgents").innerHTML = renderMiniList(data.agents, "label", "还没有助手。导入一份示例，或等用量进来后再看。");
+        document.getElementById("meProjects").innerHTML = renderMiniList(data.projects, "project_id", "还没有项目。导入一份示例，或等用量进来后再看。");
         const tools = data.tools || [];
         document.getElementById("meTools").innerHTML = tools.length ? tools.map(t => `
           <div class="mini-row">
@@ -1345,7 +1543,7 @@
             <div class="tok">${fmtTokens(t.total_tokens)}</div>
           </div>
           <div class="bar-wrap"><div class="bar"><i style="width:${Math.min(100, t.share_pct || 0)}%"></i></div></div>
-        `).join("") : '<div class="empty">暂无工具分布</div>';
+        `).join("") : '<div class="empty">还没有工具分布。导入一份示例后再看。</div>';
         document.getElementById("generatedAt").textContent =
           "更新于 " + new Date(data.generated_at).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" });
         state._lastMe = data;
@@ -1367,7 +1565,7 @@
           }
         } catch (_) { /* ignore */ }
       } catch (err) {
-        document.getElementById("meShareCard").textContent = "加载失败：" + (err.message || err);
+        document.getElementById("meShareCard").innerHTML = errorBlock(err);
       }
     }
 
@@ -1383,7 +1581,7 @@
       if (notify) params.set("notify", "true");
       try {
         const res = await apiFetch("/api/v1/alerts/low-usage?" + params.toString());
-        if (!res.ok) throw new Error(await res.text());
+        await throwIfNotOk(res);
         const data = await res.json();
         document.getElementById("alertsNarrative").textContent = data.narrative || "";
         const wh = data.webhook || {};
@@ -1418,14 +1616,14 @@
           ? data.ok.map(a => `<div class="mini-row"><div>${escapeHtml(a.name)} · ${escapeHtml(a.account_id)}</div><div class="tok">${fmtTokens(a.total_tokens)}</div></div>`).join("")
           : '<div class="empty">无</div>';
       } catch (err) {
-        host.innerHTML = `<div class="error">加载失败：${escapeHtml(String(err.message || err))}</div>`;
+        host.innerHTML = errorBlock(err);
       }
     }
 
     async function exportMeCsv() {
       if (!getStoredKey()) {
         openKeyModal();
-        alert("导出需要用户 API Key（member / admin），请先贴 Key。不要使用服务端 ingest Key 作为浏览器默认。");
+        alert("导出需要先粘贴用户密钥。请用「首次配置」或右上角「贴密钥」。不要粘贴采集用的写入密钥。");
         return;
       }
       const who = state.whoami || {};
@@ -1437,7 +1635,7 @@
       if (account) params.set("account_id", account);
       try {
         const res = await apiFetch("/api/v1/export/usage.csv?" + params.toString());
-        if (!res.ok) throw new Error(await res.text());
+        await throwIfNotOk(res);
         const blob = await res.blob();
         const a = document.createElement("a");
         a.href = URL.createObjectURL(blob);
@@ -1509,11 +1707,11 @@
       if (!el) return;
       const key = getStoredKey();
       if (!key) {
-        el.textContent = "未贴 Key · 仅可浏览；点顶栏「贴 Key」后发帖（demo-alice-key / demo-admin-key）";
+        el.textContent = "还没贴密钥，只能浏览。请在「首次配置」粘贴用户密钥后再发帖。";
       } else if (state.whoami && state.whoami.name) {
-        el.textContent = `以 ${state.whoami.name}（${state.whoami.role}）发帖 · Key ${state.whoami.key_hint || ""}`;
+        el.textContent = `以 ${state.whoami.name} 发帖`;
       } else {
-        el.textContent = "已贴 Key · 可发帖";
+        el.textContent = "已贴密钥，可以发帖";
       }
     }
 
@@ -1552,7 +1750,7 @@ async function loadForum() {
       showForumWarn("");
       try {
         const res = await apiFetch("/api/v1/forum/posts?limit=50");
-        if (!res.ok) throw new Error("HTTP " + res.status);
+        await throwIfNotOk(res);
         const data = await res.json();
         if (data.disclaimer) {
           document.getElementById("forumDisclaimer").textContent = data.disclaimer;
@@ -1564,7 +1762,7 @@ async function loadForum() {
         document.getElementById("generatedAt").textContent = new Date().toLocaleString("zh-CN");
         const items = data.items || [];
         if (!items.length) {
-          host.innerHTML = '<div class="empty">还没有帖子。贴上用户 Key 后发第一条吧。</div>';
+          host.innerHTML = '<div class="empty"><strong>还没有帖子</strong><div class="empty-steps">贴上用户密钥后就可以发第一条。只谈用量和工作流，不要粘贴密钥或对话原文。</div></div>';
           return;
         }
         host.innerHTML = items.map(p => `
@@ -1582,14 +1780,14 @@ async function loadForum() {
           btn.addEventListener("click", () => likeForumPost(btn.dataset.like));
         });
       } catch (e) {
-        host.innerHTML = `<div class="empty">加载失败：${escapeHtml(e.message || e)}</div>`;
+        host.innerHTML = errorBlock(e);
       }
     }
 
     async function submitForumPost() {
       showForumWarn("");
       if (!getStoredKey()) {
-        showForumWarn("请先点顶栏「贴 Key」再发帖（例如 demo-alice-key）。");
+        showForumWarn("请先在「首次配置」或右上角粘贴用户密钥，然后再发帖。");
         openKeyModal();
         return;
       }
@@ -1651,6 +1849,11 @@ async function loadForum() {
       });
       document.getElementById("keyInput").addEventListener("keydown", (e) => {
         if (e.key === "Enter") saveKeyFromModal();
+      });
+      document.getElementById("setupSaveBtn").addEventListener("click", saveSetup);
+      document.getElementById("setupClearBtn").addEventListener("click", clearSetup);
+      document.getElementById("setupKey").addEventListener("keydown", (e) => {
+        if (e.key === "Enter") saveSetup();
       });
 
       ["filterTool", "filterModel", "filterTeam"].forEach(id => {
