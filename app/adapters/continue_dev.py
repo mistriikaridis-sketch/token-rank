@@ -265,7 +265,10 @@ def map_continue_event(raw: dict[str, Any]) -> Optional[dict[str, Any]]:
         return None
 
     provider = _as_str(flat.get("provider") or flat.get("providerName"))
-    ts = _parse_ts(flat.get("timestamp") or flat.get("ts") or flat.get("created_at"))
+    raw_ts = flat.get("timestamp") or flat.get("ts") or flat.get("created_at")
+    ts = _parse_ts(raw_ts)
+    # Missing timestamps must not make the idempotency key move every scan.
+    id_ts = ts if raw_ts not in (None, "") else ""
 
     account_id = _as_str(
         flat.get("account_id")
@@ -307,7 +310,7 @@ def map_continue_event(raw: dict[str, Any]) -> Optional[dict[str, Any]]:
     )
     if not request_id:
         request_id = _synthetic_request_id(
-            ts=ts,
+            ts=id_ts,
             account_id=account_id,
             model=model,
             provider=provider,

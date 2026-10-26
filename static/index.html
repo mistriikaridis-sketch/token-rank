@@ -553,7 +553,7 @@
           <div>
             <div class="ov-label">费用 <span class="basis-badge" id="ovBasis">—</span></div>
             <div class="ov-value accent" id="ovCost">—</div>
-            <div class="ov-sub" id="ovCostSub">按内置 API 价目估算</div>
+            <div class="ov-sub" id="ovCostSub">按公开列表价估算（非发票）</div>
           </div>
           <div>
             <div class="ov-label">榜首排名</div>
@@ -853,7 +853,7 @@
       </div>
     </section>
 
-      <span id="footerCostNote">费用数字是估算 · <a href="/docs/INSTALL.md">安装</a> · <a href="/docs/TROUBLESHOOTING.md">排错</a> · <a href="/procode">接入说明</a> · <a href="/docs">接口文档</a> · <a href="/health">健康检查</a></span>
+      <span id="footerCostNote">费用数字是列表价估算，不是发票 · <a href="/docs/INSTALL.md">安装</a> · <a href="/docs/TROUBLESHOOTING.md">排错</a> · <a href="/procode">接入说明</a> · <a href="/docs">接口文档</a> · <a href="/health">健康检查</a></span>
       <span id="generatedAt"></span>
     </div>
   </div>
@@ -1252,7 +1252,7 @@
         const basis = ov.cost_basis || "estimate";
         const approx = (basis === "estimate" || basis === "mixed") ? "≈ " : "";
         document.getElementById("ovCost").textContent = approx + fmtUsd(ov.my_cost_usd);
-        document.getElementById("ovCostSub").textContent = ov.cost_basis_note || "按内置 API 价目估算";
+        document.getElementById("ovCostSub").textContent = ov.cost_basis_note || "按公开列表价估算（非发票）";
         document.getElementById("ovBasis").className = "basis-badge " + basis;
         document.getElementById("ovBasis").textContent = ov.cost_basis_label || "估算";
         document.getElementById("ovRank").textContent = ov.my_rank != null ? ("#" + ov.my_rank) : "—";

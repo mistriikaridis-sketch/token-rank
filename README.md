@@ -1,6 +1,6 @@
 # Token 消耗排行榜
 
-许可证：**MIT** · 版本 **0.18.0**
+许可证：**MIT** · 版本 **0.19.0**
 
 ## 客户 10 分钟跑通
 
@@ -67,7 +67,7 @@ docker compose -f docker-compose.yml -f docker-compose.postgres.yml up -d --buil
 - **交流区** `/forum`：企业内部最小讨论（发帖 / 列表 / 点赞）；匿名只读；禁止贴 Key/对话原文
 - **ProCode** `/procode`：占位适配说明；`POST /api/v1/ingest/procode`
 
-许可证：**MIT** · 版本 **0.18.0**（客户文档见文首「客户 10 分钟跑通」）
+许可证：**MIT** · 版本 **0.19.0**（客户文档见文首「客户 10 分钟跑通」）
 
 ## 本地探测
 
@@ -76,6 +76,17 @@ python scripts/probe_local_tools.py --home fixtures/probe_home --out /tmp/token-
 ```
 
 详见 `docs/probe.md` · 非目标 `docs/NON_GOALS.md`。
+
+## 开发者本机采集
+
+每台开发机跑一个本地采集器，只把 Token 数字上报到这套**私有**排行榜（不上传对话、代码、源文件名）。覆盖 WorkBuddy（也认 `~/.workbody`）、Claude Code、Codex、Continue。安装和定时任务见 [collector/INSTALL.md](collector/INSTALL.md)。
+
+```bash
+python -m collector preview --fixtures
+python -m collector once --fixtures
+```
+
+模型名都会入库。国内外主流模型按公开列表价估算；不认识的名字原样保留，计价用 `default` 档。费用不是发票。
 
 ## 产品原则（口径）
 
@@ -90,7 +101,7 @@ python scripts/probe_local_tools.py --home fixtures/probe_home --out /tmp/token-
 7b. **轻量 RBAC**：`USERS_FILE` / `USERS_JSON` 映射用户 API Key → `admin`（全站）或 `member`（仅自己的 `account_id`）。带 member Key 访问排行 /me / 导出时强制过滤；`RANKINGS_REQUIRE_AUTH=1` 时排行 GET 也必须带 Key。
 7c. **导出审计**：`GET /api/v1/export/usage.csv|.json` 需鉴权，写入 `audit_log`；`GET /api/v1/admin/audit` 仅 admin。
 7d. **数据库**：默认 SQLite（一键 demo）；生产设 `DATABASE_URL=postgresql://…` 真切 Postgres（`usage_events` / `audit_log` / 幂等唯一索引齐全）。
-8. **成本口径可见**：`cost_basis` 区分 `estimate` / `cursor_charged` / `litellm_spend` / `invoice`；UI 徽章标注，混合时标明「含估算」。
+8. **成本口径可见**：`cost_basis` 区分 `estimate` / `cursor_charged` / `litellm_spend` / `invoice`；UI 徽章标注，混合时标明「含估算」。列表价覆盖国内外主流模型，未知模型仍入库，只是估价落到 default；页面写明这不是发票。
 9. **未标注可隐藏**：无 `project_id` / `agent_id` 归「未标注」，排行默认 `hide_unlabeled=true`。
 10. **个人自助**：`/me?account_id=` 看自己的 Agent / 项目 / 工具分布，可复制周报文案或生成分享图。
 11. **浏览器贴用户 Key**：`localStorage` 存 member/admin Key；请求自动带 `Authorization`；提供清除；**不要**把 `TOKEN_RANKINGS_API_KEY` 写进前端默认。

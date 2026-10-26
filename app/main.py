@@ -99,7 +99,7 @@ def read_app_version() -> str:
         text = VERSION_FILE.read_text(encoding="utf-8").strip()
     except OSError:
         text = ""
-    return text or "0.18.0"
+    return text or "0.19.0"
 
 
 APP_VERSION = read_app_version()
@@ -2584,6 +2584,15 @@ def probe_doc() -> FileResponse:
 @app.get("/docs/NON_GOALS.md")
 def non_goals_doc() -> FileResponse:
     return _markdown_doc("NON_GOALS.md")
+
+
+@app.get("/docs/collector.md")
+def collector_doc() -> FileResponse:
+    """Local collector install notes (token counts only)."""
+    path = Path(__file__).resolve().parent.parent / "collector" / "INSTALL.md"
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="collector/INSTALL.md missing")
+    return FileResponse(path, media_type="text/markdown; charset=utf-8")
 
 
 @app.get("/")
