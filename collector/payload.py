@@ -304,7 +304,7 @@ def summarize(report: dict[str, ToolScan], payloads: dict[str, list[dict[str, An
             )
             for r in scan.rows
         )
-        tools[tool] = {
+        info: dict[str, Any] = {
             "roots": [redact_home(root) for root in scan.roots],
             "missing_roots": [redact_home(root) for root in scan.missing_roots],
             "rows": len(scan.rows),
@@ -314,6 +314,9 @@ def summarize(report: dict[str, ToolScan], payloads: dict[str, list[dict[str, An
             "estimated_cost_usd": round(cost, 6),
             "events": payloads.get(tool, []),
         }
+        if scan.diagnostics:
+            info["diagnostics"] = scan.diagnostics
+        tools[tool] = info
         totals["rows"] += len(scan.rows)
         totals["prompt_tokens"] += prompt
         totals["completion_tokens"] += completion

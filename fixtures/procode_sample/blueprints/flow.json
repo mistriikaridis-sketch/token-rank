@@ -1,0 +1,8 @@
+{
+  "model": "gpt-4o-mini",
+  "prompt_tokens": 3,
+  "completion_tokens": 1,
+  "account_id": "grace@acme.com",
+  "request_id": "procode-blueprint-must-skip",
+  "timestamp": "2026-10-26T06:40:00Z"
+}

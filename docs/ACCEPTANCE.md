@@ -13,7 +13,7 @@ curl -s http://localhost:8000/health
 ```
 
 - [ ] 能打开，且 `"status"` 为 `"ok"`
-- [ ] `"version"` 是 `0.21.0`
+- [ ] `"version"` 是 `0.21.1`
 - [ ] 若仍是演示密钥，`"setup"."demo_keys_in_use"` 为 `true`，网页顶部有黄色提醒
 - [ ] 交付之后 `"setup"."demo_keys_in_use"` 为 `false`，且 `"setup"."rankings_require_auth"` 为 `true`
 
@@ -103,3 +103,134 @@ SMOKE_REQUIRE_AUTH=1 bash scripts/customer_smoke.sh
 - [ ] 没有把 `.env`、`fixtures/users.prod.json`、数据库文件或真实密钥提交到仓库
 
 说明见 [SECURITY.md](SECURITY.md)。内网试点再按 [INSTALL.md](INSTALL.md) 的「企业试点上线清单」核对 Postgres、HTTPS、密钥、登录、采集、账号×项目拆分、提醒和 FinOps 导出。
+
+## 真机采集验收
+
+给 Mateo 在一台装了开发工具的电脑上打勾。不需要读代码。排行榜可以在这台电脑上，也可以在内网另一台。同一份命令也写在 [collector/INSTALL.md](../collector/INSTALL.md)（服务上是 `/docs/collector.md`）。
+
+不要把写入密钥贴进网页「首次配置」。网页上贴的是用户密钥。
+
+### 1. 安装或指到排行榜
+
+本机试跑：
+
+```bash
+docker compose up -d --build
+export RANKINGS_URL=http://127.0.0.1:8000
+```
+
+已经有服务时，只改地址，例如 `export RANKINGS_URL=https://rankings.example.internal`。
+
+```bash
+curl -sS "$RANKINGS_URL/health"
+```
+
+- [ ] `"status"` 为 `"ok"`
+- [ ] `"version"` 是 `0.21.1`
+- [ ] `adapters` 里 ProCode 的 `"status"` 仍是 `placeholder`
+- [ ] `blocked` 含 `encrypted_sqlite`、`keychain`、`canoryn_cli`
+- [ ] `notes` 写明不解密、不打开数据库、不读钥匙串、不启动 canoryn
+
+### 2. 写入密钥，每个工具 preview 和 once
+
+```bash
+export TOKEN_RANKINGS_API_KEY=你的写入密钥
+python -m collector install --url "$RANKINGS_URL" --account-id mateo@acme.com --participant Mateo
+
+for tool in workbuddy claude_code codex continue cursor procode; do
+  echo "==== $tool ===="
+  python -m collector preview --tool "$tool"
+  python -m collector once --tool "$tool"
+done
+python -m collector preview --tool canoryn --json
+```
+
+- [ ] `workbuddy`、`claude_code`、`codex`、`continue`、`cursor`、`procode` 都跑完，没有连接错误
+- [ ] `canoryn` 和 `procode` 扫的是同一处。JSON 里 `tools` 只有 `procode`
+- [ ] 本机没有该工具的目录时是 0 行。这是正常的，不是失败
+- [ ] ProCode 的说明仍是 placeholder，并写明不解密
+
+### 3. 私有榜能看到账号 × 项目
+
+浏览器打开 `$RANKINGS_URL/projects`。有采集数据之后，每一行是一个账号上的一个项目，不是把同一个人收成一个总数。
+
+```bash
+curl -sS -H "Authorization: Bearer 成员或管理员密钥" \
+  "$RANKINGS_URL/api/v1/rankings/projects?window=30d&hide_unlabeled=true"
+curl -sS -H "Authorization: Bearer 管理员密钥" \
+  "$RANKINGS_URL/api/v1/rankings?window=30d&group_by=account_project"
+```
+
+- [ ] `totals.breakdown` 是 `account_id × project_id`
+- [ ] 同一人至少两个项目时，榜上是两行
+- [ ] 用成员密钥去请求别人的 `account_id`，HTTP 状态是 403
+
+个人榜上同一个人跨账号时，行下面有拆分。筛选条会写明当前账号和项目。
+
+### 4. 提醒和 FinOps 导出
+
+```bash
+curl -sS -H "Authorization: Bearer 成员或管理员密钥" \
+  "$RANKINGS_URL/api/v1/alerts?window=7d"
+curl -sS -H "Authorization: Bearer 成员或管理员密钥" \
+  "$RANKINGS_URL/api/v1/export/usage.csv?window=30d&grain=finops" -o /tmp/finops.csv
+head -1 /tmp/finops.csv
+curl -sS -H "Authorization: Bearer 成员或管理员密钥" \
+  "$RANKINGS_URL/api/v1/export/usage.json?window=30d&grain=finops"
+```
+
+- [ ] `/api/v1/alerts` 返回 200。页面 `/alerts` 能打开。成员密钥只评估自己的账号
+- [ ] CSV 第一行含 `account_id,project_id,model,tool`
+- [ ] 不认识的模型名原样还在。估价用 default 档时，JSON 里 `estimate` 为 `true`，`price_tier` 为 `default`。这不是发票
+
+旧地址 `/api/v1/alerts/low-usage` 仍然只做低用量。试点用 `/api/v1/alerts`。
+
+### 5. 隐私
+
+```bash
+python -m collector preview --json > /tmp/preview.json
+```
+
+- [ ] 输出里没有提示词、回复、密钥、Cookie
+- [ ] 没有 `/Users/...` 或 `/home/某用户` 这种家目录全路径。目录显示成 `~/...`
+- [ ] ProCode 的 `diagnostics` 只有计数和文件名（例如 `canoryn.sqlite`），没有数据库正文，也没有钥匙串
+
+### 6. 第二次 once 不叠量
+
+```bash
+python -m collector once --tool cursor
+python -m collector once --tool cursor
+```
+
+有 Cursor 用量时：
+
+- [ ] 第二次每个有数据的工具 `accepted` 为 0，`skipped` 大于 0
+
+这台电脑还没有用量时：
+
+- [ ] 两次都打印「没有用量可上报」，榜上的数字不变
+
+`workbuddy`、`claude_code`、`codex`、`continue`、`procode` 同样再跑一次，规则一样。
+
+### 7. Cursor 气泡是 0/0 时改用导出
+
+当前 Cursor 经常把本地气泡的 input 和 output 都写成 0。这种行会跳过，不会用字数冒充 token。
+
+- [ ] `python -m collector preview --tool cursor` 若是 0 行，而本机又有 `state.vscdb`，先确认是不是全 0 被跳过
+- [ ] 从 Cursor 仪表盘导出用量，文件名用 `filtered-usage-events.json`，不要把 prompt 放进去
+- [ ] 放到 `~/.cursor/exports/`
+- [ ] 再 preview，应出现行。`project_id` 只是目录名或对话 id 的前缀
+
+`CURSOR_ADMIN_API_KEY` 只放在跑排行榜的那台机器上，不要写进 `collector.json`。
+
+### 8. 常见失败
+
+| 看到什么 | 原因 | 怎么处理 |
+|---|---|---|
+| `缺少 TOKEN_RANKINGS_API_KEY` | 没设写入密钥 | `export TOKEN_RANKINGS_API_KEY=...`，或 `python -m collector install --save-key` |
+| `HTTP 401` | 密钥不对，或把网页上的用户密钥当成了写入密钥 | 用服务 `.env` 里的 `TOKEN_RANKINGS_API_KEY` |
+| `连不上 http://...` | `RANKINGS_URL` 错了，或服务没起来 | 先 `curl -sS "$RANKINGS_URL/health"` |
+| 0 行，且写着没找到目录 | 这台电脑没有该工具的数据目录 | 正常。没装的工具不必造目录 |
+| ProCode 目录在，但仍是 0 行 | 里面只有加密库、蓝图或评论，没有 usage json | 看 `diagnostics.unopened_db_seen`。不要解密，也不要启动 `canoryn`。状态保持 `placeholder` |
+| preview 里出现家目录全路径 | 采集器版本过旧 | 升到 `0.21.1` |
+| 项目榜是空的，但 preview 有行 | 还没 once，或窗口选得太窄，或勾了隐藏未标注 | 先 once，窗口改 `30d` 或 `all`，核对 `project_id` |

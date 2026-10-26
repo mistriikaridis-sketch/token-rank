@@ -30,5 +30,5 @@
 ## 相关
 
 - 本地探测：`scripts/probe_local_tools.py`、`docs/probe.md`
-- ProCode 占位说明：页面 `/procode`
+- ProCode 占位说明：页面 `/procode`。不解密 Canoryn 聊天库，健康检查保持 `placeholder`
 - 能力总览：`docs/CAPABILITY.md`

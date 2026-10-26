@@ -8,6 +8,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -40,7 +41,7 @@ from app.main import app  # noqa: E402
 from collector.config import CollectorConfig  # noqa: E402
 from collector.payload import build_payloads, iter_keys, redact_home, summarize, ALLOWED_KEYS  # noqa: E402
 from collector.service import render  # noqa: E402
-from collector.sources import ToolScan, scan_all  # noqa: E402
+from collector.sources import ToolScan, _platform_roots, scan_all  # noqa: E402
 from collector.upload import INGEST_PATH, upload_payloads  # noqa: E402
 
 init_db()
@@ -283,7 +284,12 @@ class CollectorFixtureTests(unittest.TestCase):
         procode_ids = {row["request_id"] for row in procode_rows}
         self.assertEqual(
             procode_ids,
-            {"procode-sample-001", "procode-sample-002", "procode-sample-004"},
+            {
+                "procode-sample-001",
+                "procode-sample-002",
+                "procode-sample-004",
+                "procode-sample-005",
+            },
         )
         by_id = {row["request_id"]: row for row in procode_rows}
         self.assertEqual(by_id["procode-sample-001"]["project_id"], "billing-bot")
@@ -291,7 +297,25 @@ class CollectorFixtureTests(unittest.TestCase):
         self.assertEqual(by_id["procode-sample-002"]["account_id"], "grace@acme.com")
         self.assertEqual(by_id["procode-sample-002"]["model"], "企业内部-procode-模型")
         self.assertEqual(by_id["procode-sample-004"]["project_id"], "batch")
+        self.assertEqual(by_id["procode-sample-005"]["project_id"], "export-bot")
+        self.assertEqual(by_id["procode-sample-005"]["model"], "企业内部-procode-导出")
+        self.assertEqual(by_id["procode-sample-005"]["prompt_tokens"], 12)
+        self.assertEqual(by_id["procode-sample-005"]["cache_read_tokens"], 2)
         self.assertGreaterEqual(len({row["project_id"] for row in procode_rows}), 2)
+        for blocked_id in (
+            "procode-discussion-must-skip",
+            "procode-blueprint-must-skip",
+            "procode-apikey-file-must-skip",
+        ):
+            self.assertNotIn(blocked_id, procode_ids)
+        diag = self.report["procode"].diagnostics
+        self.assertEqual(diag["adapter_status"], "placeholder")
+        self.assertIn("encrypted_sqlite", diag["blocked"])
+        self.assertGreaterEqual(diag["unopened_db_seen"], 1)
+        self.assertIn("canoryn.sqlite", diag["unopened_db_basenames"])
+        self.assertGreaterEqual(diag["discussions_skipped"], 1)
+        self.assertGreaterEqual(diag["blueprints_skipped"], 1)
+        self.assertGreaterEqual(diag["files_skipped_credential_name"], 1)
 
         blob = json.dumps(self.payloads, ensure_ascii=False)
         for snippet in FORBIDDEN_SNIPPETS:
@@ -462,6 +486,211 @@ class CollectorFixtureTests(unittest.TestCase):
         self.assertEqual(doc["tools"]["cursor"]["roots"], ["~/.cursor/exports"])
         self.assertEqual(doc["tools"]["cursor"]["missing_roots"], ["~/.procode"])
         self.assertEqual(redact_home(str(home)), "~")
+
+    def test_procode_skips_sqlite_discussions_and_reads_export_aliases(self) -> None:
+        home = Path(tempfile.mkdtemp(prefix="tr-procode-"))
+        canoryn = home / "Library" / "Application Support" / "canoryn"
+        canoryn.mkdir(parents=True)
+        sqlite_path = canoryn / "canoryn.sqlite"
+        sqlite_path.write_text(
+            json.dumps(
+                {
+                    "model": "gpt-4o",
+                    "prompt_tokens": 9,
+                    "completion_tokens": 1,
+                    "request_id": "procode-sqlite-must-not-open",
+                    "account_id": "frank@acme.com",
+                }
+            ),
+            encoding="utf-8",
+        )
+        (canoryn / "discussions").mkdir()
+        (canoryn / "discussions" / "thread.json").write_text(
+            json.dumps(
+                {
+                    "model": "gpt-4o-mini",
+                    "prompt_tokens": 4,
+                    "completion_tokens": 1,
+                    "request_id": "procode-discussion-temp",
+                    "content": "hi",
+                }
+            ),
+            encoding="utf-8",
+        )
+        (canoryn / "blueprints").mkdir()
+        (canoryn / "blueprints" / "flow.json").write_text(
+            json.dumps(
+                {
+                    "model": "gpt-4o-mini",
+                    "prompt_tokens": 3,
+                    "completion_tokens": 1,
+                    "request_id": "procode-blueprint-temp",
+                }
+            ),
+            encoding="utf-8",
+        )
+        export = home / ".config" / "Canoryn" / "exports"
+        export.mkdir(parents=True)
+        (export / "token-usage.json").write_text(
+            json.dumps(
+                {
+                    "modelName": "企业内部-procode-导出",
+                    "inputTokens": 7,
+                    "outputTokens": 1,
+                    "userEmail": "grace@acme.com",
+                    "requestId": "procode-token-usage-1",
+                    "createdAt": "2026-10-26T12:00:00Z",
+                    "projectPath": "/Users/alice/work/token-bot",
+                }
+            ),
+            encoding="utf-8",
+        )
+        (export / "api_key.json").write_text(
+            json.dumps(
+                {
+                    "model": "gpt-4o",
+                    "prompt_tokens": 2,
+                    "completion_tokens": 1,
+                    "request_id": "procode-apikey-temp",
+                }
+            ),
+            encoding="utf-8",
+        )
+        share = home / ".local" / "share" / "ProCode" / "usage"
+        share.mkdir(parents=True)
+        (share / "events.jsonl").write_text(
+            json.dumps(
+                {
+                    "model": "glm-4-plus",
+                    "prompt_tokens": 5,
+                    "completion_tokens": 2,
+                    "account_id": "frank@acme.com",
+                    "project_id": "linux-procode",
+                    "request_id": "procode-linux-share-1",
+                    "timestamp": "2026-10-26T12:05:00Z",
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        win = home / "AppData" / "Local" / "canoryn"
+        win.mkdir(parents=True)
+        (win / "usage.json").write_text(
+            json.dumps(
+                {
+                    "model": "deepseek-chat",
+                    "prompt_tokens": 8,
+                    "completion_tokens": 1,
+                    "account_id": "grace@acme.com",
+                    "project_id": "win-local",
+                    "request_id": "procode-win-local-1",
+                    "timestamp": "2026-10-26T12:10:00Z",
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        real_read = Path.read_text
+
+        def guarded(self: Path, *args: object, **kwargs: object) -> str:
+            if self.suffix.lower() in {".sqlite", ".sqlite3", ".db", ".cryn", ".crynpack"}:
+                raise AssertionError(f"opened database file {self.name}")
+            if self.name.lower() == "api_key.json":
+                raise AssertionError("opened credential-named file")
+            if "discussions" in {part.lower() for part in self.parts}:
+                raise AssertionError("opened discussions file")
+            if "blueprints" in {part.lower() for part in self.parts}:
+                raise AssertionError("opened blueprints file")
+            return real_read(self, *args, **kwargs)
+
+        with patch.object(Path, "read_text", guarded):
+            found = scan_all(CollectorConfig(), tools=["procode"], home=home)
+        ids = {row["request_id"]: row for row in found["procode"].rows}
+        self.assertEqual(
+            set(ids),
+            {"procode-token-usage-1", "procode-linux-share-1", "procode-win-local-1"},
+        )
+        self.assertEqual(ids["procode-token-usage-1"]["project_id"], "token-bot")
+        self.assertEqual(ids["procode-token-usage-1"]["account_id"], "grace@acme.com")
+        self.assertEqual(ids["procode-token-usage-1"]["model"], "企业内部-procode-导出")
+        diag = found["procode"].diagnostics
+        self.assertEqual(diag["adapter_status"], "placeholder")
+        self.assertGreaterEqual(diag["unopened_db_seen"], 1)
+        self.assertGreaterEqual(diag["discussions_skipped"], 1)
+        self.assertGreaterEqual(diag["blueprints_skipped"], 1)
+        self.assertGreaterEqual(diag["files_skipped_credential_name"], 1)
+        self.assertIn("不打开 sqlite", diag["blocked_zh"])
+        payloads = build_payloads(found)
+        blob = json.dumps({"diagnostics": diag, "payloads": payloads}, ensure_ascii=False)
+        self.assertNotIn("procode-sqlite-must-not-open", blob)
+        self.assertNotIn("/Users/alice", blob)
+        self.assertNotIn(str(home), json.dumps(diag, ensure_ascii=False))
+
+        source = (ROOT / "app" / "adapters" / "procode.py").read_text(encoding="utf-8")
+        self.assertNotIn("subprocess", source)
+        self.assertNotIn("sqlcipher", source.lower())
+        self.assertNotIn("keyring", source.lower())
+
+    def test_procode_platform_roots_and_health_stay_placeholder(self) -> None:
+        config_home = Path(tempfile.mkdtemp(prefix="tr-xdg-"))
+        data_home = config_home / "share"
+        appdata = config_home / "roaming"
+        local = config_home / "local"
+        previous = {
+            name: os.environ.get(name)
+            for name in ("XDG_CONFIG_HOME", "XDG_DATA_HOME", "APPDATA", "LOCALAPPDATA")
+        }
+        os.environ["XDG_CONFIG_HOME"] = str(config_home)
+        os.environ["XDG_DATA_HOME"] = str(data_home)
+        os.environ["APPDATA"] = str(appdata)
+        os.environ["LOCALAPPDATA"] = str(local)
+        try:
+            roots = {str(path) for path in _platform_roots("procode")}
+        finally:
+            for name, value in previous.items():
+                if value is None:
+                    os.environ.pop(name, None)
+                else:
+                    os.environ[name] = value
+        self.assertIn(str(config_home / "Canoryn"), roots)
+        self.assertIn(str(data_home / "ProCode"), roots)
+        self.assertIn(str(appdata / "canoryn"), roots)
+        self.assertIn(str(local / "procode"), roots)
+
+        health = self.client.get("/health")
+        self.assertEqual(health.status_code, 200, health.text)
+        body = health.json()
+        self.assertEqual(body["version"], (ROOT / "VERSION").read_text(encoding="utf-8").strip())
+        procode = next(item for item in body["adapters"] if item["id"] == "procode")
+        self.assertEqual(procode["status"], "placeholder")
+        self.assertEqual(procode["collects"], "usage_json")
+        self.assertEqual(procode["blocked"], ["encrypted_sqlite", "keychain", "canoryn_cli"])
+        for phrase in ("不解密", "不打开数据库", "不读钥匙串", "不启动 canoryn", "placeholder"):
+            self.assertIn(phrase, procode["notes"])
+
+    def test_operator_docs_cover_real_machine_acceptance(self) -> None:
+        acceptance = (ROOT / "docs" / "ACCEPTANCE.md").read_text(encoding="utf-8")
+        collector = (ROOT / "collector" / "INSTALL.md").read_text(encoding="utf-8")
+        install = (ROOT / "docs" / "INSTALL.md").read_text(encoding="utf-8")
+        for text in (acceptance, collector):
+            for phrase in (
+                "真机采集验收",
+                "workbuddy",
+                "claude_code",
+                "codex",
+                "continue",
+                "cursor",
+                "canoryn",
+                "account_id × project_id",
+                "grain=finops",
+                "filtered-usage-events",
+                "placeholder",
+                "不解密",
+                "TOKEN_RANKINGS_API_KEY",
+            ):
+                self.assertIn(phrase, text, phrase)
+        self.assertIn("真机采集验收", install)
+        self.assertIn("docs/ACCEPTANCE.md", collector)
 
 
 def path_for(tool: str) -> str:

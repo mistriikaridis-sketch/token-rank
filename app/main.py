@@ -99,7 +99,7 @@ def read_app_version() -> str:
         text = VERSION_FILE.read_text(encoding="utf-8").strip()
     except OSError:
         text = ""
-    return text or "0.21.0"
+    return text or "0.21.1"
 
 
 APP_VERSION = read_app_version()
@@ -483,6 +483,8 @@ def health() -> dict[str, Any]:
             "id": PROCODE_ADAPTER_META["id"],
             "status": PROCODE_ADAPTER_META["status"],
             "display": PROCODE_ADAPTER_META["display"],
+            "collects": PROCODE_ADAPTER_META["collects"],
+            "blocked": list(PROCODE_ADAPTER_META["blocked"]),
             "notes": PROCODE_ADAPTER_META["notes"],
         },
         {"id": "openai-usage", "status": "supported", "display": "OpenAI usage"},
@@ -814,9 +816,11 @@ def ingest_procode(
     payload: Any = Body(...),
     _auth: str = Depends(require_write_api_key),
 ) -> IngestResult:
-    """Placeholder ProCode ingest: unified usage schema with tool=procode.
+    """ProCode ingest: unified usage schema with tool=procode.
 
-    Public ProCode/Canoryn schema is incomplete; tag gateway traffic and push here.
+    The local adapter stays placeholder. This route does not read SQLite,
+    the keychain, or the canoryn CLI. Push usage json here, or let the
+    collector read usage json/jsonl from the operator's drop-in directory.
     """
     events = extract_procode_payload(payload)
     mapped, parse_stats = map_procode_events_with_stats(events)

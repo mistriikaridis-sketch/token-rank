@@ -14,7 +14,7 @@ def _read_version() -> str:
         text = path.read_text(encoding="utf-8").strip()
     except OSError:
         text = ""
-    return text or "0.21.0"
+    return text or "0.21.1"
 
 
 __version__ = _read_version()

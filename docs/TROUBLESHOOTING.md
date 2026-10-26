@@ -59,6 +59,18 @@ curl -sS http://localhost:8000/health | python3 -c 'import json,sys; d=json.load
 - HTTP 503：服务器没有配置 `TOKEN_RANKINGS_API_KEY`。在 `.env` 里填上，然后 `docker compose up -d --build`。
 - 找不到文件：确认当前目录是仓库根目录，且存在 `fixtures/litellm_spend_logs.json`。
 
+## 本机采集是 0 行，或 ProCode 一直是 placeholder
+
+ProCode 的 `placeholder` 是当前的真实状态，不是故障。公开文档没有本机用量接口。加密 sqlite、钥匙串和 `canoryn` 命令都不会碰。
+
+- 先 `curl` 排行榜的 `/health`，确认地址和版本。
+- `缺少 TOKEN_RANKINGS_API_KEY` 或 HTTP 401：用的是写入密钥，不是网页上贴的用户密钥。
+- 连不上：检查 `RANKINGS_URL`。
+- 目录不存在：这台电脑没装那个工具。0 行是正常的。
+- ProCode 目录在但仍是 0 行：里面多半只有加密库或蓝图。看 preview 里的 `diagnostics.unopened_db_seen`。把 usage json/jsonl 放到 `~/.procode` 或文档里的其他目录，不要解密。
+
+逐步打勾见 [ACCEPTANCE.md](ACCEPTANCE.md) 的「真机采集验收」。
+
 ## 排行榜是空的
 
 - 演示人设默认不出现在榜上。请先按 [INSTALL.md](INSTALL.md) 导入一份示例，或等真实用量进来。

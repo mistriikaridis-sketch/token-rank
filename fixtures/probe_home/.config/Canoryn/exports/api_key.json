@@ -1,0 +1,7 @@
+{
+  "model": "gpt-4o-mini",
+  "prompt_tokens": 2,
+  "completion_tokens": 1,
+  "request_id": "probe-apikey-file-must-skip",
+  "account_id": "frank@acme.com"
+}

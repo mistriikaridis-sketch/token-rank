@@ -1,6 +1,6 @@
 # Token 消耗排行榜 · 能力总览
 
-客户验收请用 [ACCEPTANCE.md](ACCEPTANCE.md)（当前版本见仓库 `VERSION`，**0.21.0**）。下面是能力索引，不是购买方清单。内网试点清单在 [INSTALL.md](INSTALL.md)。
+客户验收请用 [ACCEPTANCE.md](ACCEPTANCE.md)（当前版本见仓库 `VERSION`，**0.21.1**）。下面是能力索引，不是购买方清单。内网试点清单在 [INSTALL.md](INSTALL.md)。真机采集打勾见 ACCEPTANCE 的「真机采集验收」。
 
 面向 Mateo 的一页验收清单。代码：`/workspace/token-rankings` · 许可证 MIT · 本地：`http://localhost:8000`
 
@@ -65,7 +65,7 @@ sudo docker compose up -d --build
 
 - 自研全能网关 → 对接 LiteLLM
 - 公网热度榜 → 外链 OpenRouter rankings
-- ProCode **深**适配（解密 Canoryn 聊天库）→ 只收 usage json/jsonl，页面 `/procode` 仍标 placeholder
+- ProCode **深**适配（解密 Canoryn 聊天库、读钥匙串、启动 `canoryn`）→ 只收 usage json/jsonl，健康检查和页面 `/procode` 仍标 placeholder
 - 全功能社区（楼中楼/关注）
 - 用 Cursor 登录 cookie 拉仪表盘。本地气泡计数为 0 时，改放 usage 导出，或在服务端用 Admin API
 

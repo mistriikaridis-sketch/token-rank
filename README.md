@@ -1,6 +1,6 @@
 # Token 消耗排行榜
 
-许可证：**MIT** · 版本 **0.21.0**
+许可证：**MIT** · 版本 **0.21.1**
 
 ## 客户 10 分钟跑通
 
@@ -39,7 +39,7 @@ bash scripts/customer_smoke.sh
 | 文档 | 内容 |
 |---|---|
 | [docs/INSTALL.md](docs/INSTALL.md) | 安装：Docker 一条命令、可选 Postgres、换掉全部演示密钥、企业试点上线清单 |
-| [docs/ACCEPTANCE.md](docs/ACCEPTANCE.md) | 验收：健康检查、导入一份示例、看到 /me 与 /agents、成员只能看自己的账号 |
+| [docs/ACCEPTANCE.md](docs/ACCEPTANCE.md) | 验收：健康检查、导入一份示例、成员隔离；另有真机采集验收（六个工具、账号 × 项目、提醒与 FinOps） |
 | [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | 打不开、401、403、榜是空的 |
 | [docs/SECURITY.md](docs/SECURITY.md) | 试用默认不强制登录；生产请设 `RANKINGS_REQUIRE_AUTH=1`；不要公开哪些东西 |
 
@@ -67,7 +67,7 @@ docker compose -f docker-compose.yml -f docker-compose.postgres.yml up -d --buil
 - **交流区** `/forum`：企业内部最小讨论（发帖 / 列表 / 点赞）；匿名只读；禁止贴 Key/对话原文
 - **ProCode** `/procode`：占位适配说明；`POST /api/v1/ingest/procode`
 
-许可证：**MIT** · 版本 **0.21.0**（客户文档见文首「客户 10 分钟跑通」）
+许可证：**MIT** · 版本 **0.21.1**（客户文档见文首「客户 10 分钟跑通」）
 
 ## 本地探测
 

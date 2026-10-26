@@ -174,6 +174,9 @@ def _print_human(doc: dict) -> None:
         if info["missing_roots"]:
             missing = "；缺少 " + ", ".join(info["missing_roots"])
         print(f"  {tool}: {info['rows']} 行 ← {roots}{missing}", file=sys.stderr)
+        note = (info.get("diagnostics") or {}).get("note_zh")
+        if note:
+            print(f"    {note}", file=sys.stderr)
     print(doc["privacy"]["model_support_zh"], file=sys.stderr)
 
 
