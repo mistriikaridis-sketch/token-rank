@@ -1,6 +1,6 @@
 # Token 消耗排行榜 · 能力总览
 
-客户验收请用 [ACCEPTANCE.md](ACCEPTANCE.md)（当前版本见仓库 `VERSION`，**0.20.0**）。下面是能力索引，不是购买方清单。
+客户验收请用 [ACCEPTANCE.md](ACCEPTANCE.md)（当前版本见仓库 `VERSION`，**0.21.0**）。下面是能力索引，不是购买方清单。内网试点清单在 [INSTALL.md](INSTALL.md)。
 
 面向 Mateo 的一页验收清单。代码：`/workspace/token-rankings` · 许可证 MIT · 本地：`http://localhost:8000`
 
@@ -12,12 +12,12 @@
 
 | 路径 | 能力 |
 |---|---|
-| `/people` | 个人榜：主力工具/模型、Token、成本口径徽章 |
-| `/orgs` | 组织/部门榜：总量、人均 |
-| `/projects` | 账号 × 项目拆分（反黑盒总量） |
-| `/agents` | 按 agent_id 看每个 Agent 烧多少 |
-| `/me` | 个人自助：Agent/项目 Top、工具分布、周报文案/分享图、导出 CSV |
-| `/alerts` | 低消耗提醒（建设性文案） |
+| `/people` | 个人榜：主力工具/模型；每人下面按账号 × 项目拆开，可筛账号和项目 |
+| `/orgs` | 组织/部门榜：总量、人均，并带账号 × 项目拆分 |
+| `/projects` | 账号 × 项目拆分（不是合计） |
+| `/agents` | 按账号 × agent_id 拆开，并列出项目 |
+| `/me` | 个人自助：Agent/项目 Top、工具分布、周报文案/分享图、FinOps CSV |
+| `/alerts` | 闲置、用量过低、费用突增、账号费用阈值（中文） |
 | `/forum` | 企业内部交流区：发帖/列表/点赞；匿名只读 |
 | `/procode` | ProCode 占位说明 + ingest 指引 |
 | 顶栏「贴 Key」 | 用户 Key → localStorage；排行/me/export/alerts 带 Header |
@@ -28,9 +28,9 @@
 - Scan：`/scan/{workbuddy,claude_code,codex,continue}`（本地目录）
 - Sync：`/sync/{litellm,cursor}`（未配置 → 503，不挡主站）
 - 排行：`/rankings`、`/rankings/{people,orgs,projects,agents}`
-- 自助：`/me`、`/whoami`、`/alerts/low-usage`
+- 自助：`/me`、`/whoami`、`/alerts`（试点规则）、`/alerts/low-usage`（仅低用量）
 - 交流区：`/forum/posts`、`/forum/posts/{id}/like`、`/forum/seed`
-- 导出：`/export/usage.csv|.json`（鉴权 + 审计）
+- 导出：`/export/usage.csv|.json`（鉴权 + 审计）；`grain=finops` 按账号、项目、模型、工具汇总
 - 管理：`/admin/clear`、`/admin/audit`、`/seed`
 - 探测文档：`/docs/probe.md` · 非目标：`/docs/NON_GOALS.md`
 - 本地探测脚本：`scripts/probe_local_tools.py`（假落盘 `fixtures/probe_home`）
@@ -50,7 +50,7 @@
 - 用户 RBAC：`USERS_FILE` → admin / member（member 强制本账号）
 - 浏览器只贴 **用户 Key**（如 `demo-alice-key`）；提供清除
 - DB：默认 SQLite；`DATABASE_URL` → Postgres（compose overlay）
-- 低消耗 Webhook：可选 `LOW_USAGE_WEBHOOK_URL` + `notify=true`（未配置则跳过）
+- 试点提醒：`LOW_USAGE_THRESHOLD_TOKENS`、`ALERT_SPEND_SPIKE_RATIO`、`ALERT_SPEND_SPIKE_MIN_USD`、`ALERT_SPEND_THRESHOLD_USD`、`ALERT_ACCOUNT_THRESHOLDS`；Webhook 仍是 `LOW_USAGE_WEBHOOK_URL` + `notify=true`
 
 ## Demo 验收三步
 

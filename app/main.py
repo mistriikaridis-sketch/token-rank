@@ -25,7 +25,7 @@ from app.auth import (
     require_write_api_key,
     setup_warnings,
 )
-from app.alerts import build_low_usage_alerts, maybe_post_webhook
+from app.alerts import build_low_usage_alerts, build_pilot_alerts, maybe_post_webhook
 from app.adapters.cursor_admin import extract_cursor_events, map_cursor_payload, map_cursor_payload_with_stats
 from app.adapters.claude_code import (
     extract_claude_code_payload,
@@ -69,7 +69,7 @@ from app.db import (
     list_forum_posts,
 )
 from app.ingest import map_records
-from app.pricing import estimate_cost, list_priced_models, load_pricing
+from app.pricing import estimate_cost, list_priced_models, load_pricing, price_tier
 from app.seed import seed
 from app.forum import (
     BODY_MAX,
@@ -99,7 +99,7 @@ def read_app_version() -> str:
         text = VERSION_FILE.read_text(encoding="utf-8").strip()
     except OSError:
         text = ""
-    return text or "0.20.0"
+    return text or "0.21.0"
 
 
 APP_VERSION = read_app_version()
@@ -158,8 +158,20 @@ class RankingRow(BaseModel):
     total_tokens: int
     estimated_cost_usd: float
     share_pct: float
+    account_id: Optional[str] = None
+    project_id: Optional[str] = None
     cost_basis: Optional[str] = None
     cost_basis_label: Optional[str] = None
+
+
+class DimensionSplit(BaseModel):
+    """One account × project cell. Rankings keep these beside any total."""
+
+    account_id: str
+    project_id: str
+    requests: int = 0
+    total_tokens: int = 0
+    estimated_cost_usd: float = 0.0
 
 
 class RankingsResponse(BaseModel):
@@ -178,6 +190,9 @@ class PersonRow(BaseModel):
     primary_project: Optional[str] = None
     team: Optional[str] = None
     account_id: Optional[str] = None
+    account_count: int = 0
+    project_count: int = 0
+    splits: list[DimensionSplit] = Field(default_factory=list)
     requests: int
     total_tokens: int
     estimated_cost_usd: float
@@ -204,6 +219,9 @@ class OrgRow(BaseModel):
     requests: int
     estimated_cost_usd: float
     share_pct: float
+    account_count: int = 0
+    project_count: int = 0
+    splits: list[DimensionSplit] = Field(default_factory=list)
     cost_basis: Optional[str] = None
     cost_basis_label: Optional[str] = None
 
@@ -213,6 +231,7 @@ class OrgRankingsResponse(BaseModel):
     generated_at: str
     totals: dict[str, Any]
     items: list[OrgRow]
+    filters: dict[str, Any] = {}
 
 
 class ProjectRow(BaseModel):
@@ -252,6 +271,8 @@ class AgentRow(BaseModel):
     total_tokens: int
     estimated_cost_usd: float
     share_pct: float
+    project_count: int = 0
+    projects: list[str] = Field(default_factory=list)
     cost_basis: Optional[str] = None
     cost_basis_label: Optional[str] = None
     unlabeled: bool = False
@@ -359,6 +380,46 @@ def _scoped_account(
 ) -> Optional[str]:
     """RBAC: member forced to own account_id; admin/anon use request."""
     return apply_account_scope(principal, account_id)
+
+
+def _dropdown_account(
+    principal: Optional[Principal],
+    scoped_account_id: Optional[str],
+) -> Optional[str]:
+    """Member filter lists stay on their account. Admin lists stay complete."""
+    if principal and principal.role == "member":
+        return scoped_account_id
+    return None
+
+
+def _previous_bounds(window: str) -> tuple[Optional[str], Optional[str], bool]:
+    """Equal-length window immediately before ``window``. ``all`` is not comparable."""
+    since, until = _parse_window(window)
+    if since is None:
+        return None, None, False
+    end = until or _utc_now()
+    delta = end - since
+    if delta.total_seconds() <= 0:
+        return None, None, False
+    return (since - delta).isoformat(), since.isoformat(), True
+
+
+def _as_splits(split_map: dict[tuple[str, str], dict[str, Any]]) -> list[DimensionSplit]:
+    ordered = sorted(
+        split_map.items(),
+        key=lambda kv: kv[1]["total_tokens"],
+        reverse=True,
+    )
+    return [
+        DimensionSplit(
+            account_id=acct,
+            project_id=pid,
+            requests=int(bucket["requests"]),
+            total_tokens=int(bucket["total_tokens"]),
+            estimated_cost_usd=round(float(bucket["cost"]), 6),
+        )
+        for (acct, pid), bucket in ordered
+    ]
 
 
 def _row_cost(model: str, prompt: int, completion: int, cost_usd: Any = None) -> float:
@@ -1059,7 +1120,10 @@ def sync_litellm(
 @app.get("/api/v1/rankings", response_model=RankingsResponse)
 def get_rankings(
     window: str = Query("7d", description="today|yesterday|7d|30d|90d|all"),
-    group_by: Literal["model", "team", "project"] = Query("model"),
+    group_by: Literal["model", "team", "project", "account", "account_project"] = Query(
+        "model",
+        description="account_project is account_id and project_id together, not a single total",
+    ),
     project_id: Optional[str] = Query(None),
     account_id: Optional[str] = Query(None),
     team: Optional[str] = Query(None),
@@ -1068,8 +1132,6 @@ def get_rankings(
 ) -> RankingsResponse:
     account_id = _scoped_account(principal, account_id)
     since, until = _parse_window(window)
-    col_map = {"model": "model", "team": "team", "project": "project_id"}
-    col = col_map[group_by]
     where, params = _where_ts(since, until)
     seed_clause, seed_val = _seed_filter(include_seed)
     where, params = _and_filters(
@@ -1082,18 +1144,40 @@ def get_rankings(
             (seed_clause, seed_val) if seed_clause else ("", None),
         ],
     )
-    null_label = UNLABELED_PROJECT if group_by == "project" else "unknown"
+    acct_expr = f"COALESCE(NULLIF(TRIM(account_id), ''), '{UNLABELED_ACCOUNT}')"
+    proj_expr = f"COALESCE(NULLIF(TRIM(project_id), ''), '{UNLABELED_PROJECT}')"
+    if group_by == "model":
+        name_expr = "COALESCE(NULLIF(TRIM(model), ''), 'unknown')"
+        group_sql = name_expr
+        dim_sql = "NULL AS account_id, NULL AS project_id"
+    elif group_by == "team":
+        name_expr = "COALESCE(NULLIF(TRIM(team), ''), 'unknown')"
+        group_sql = name_expr
+        dim_sql = "NULL AS account_id, NULL AS project_id"
+    elif group_by == "project":
+        name_expr = proj_expr
+        group_sql = name_expr
+        dim_sql = f"NULL AS account_id, {proj_expr} AS project_id"
+    elif group_by == "account":
+        name_expr = acct_expr
+        group_sql = name_expr
+        dim_sql = f"{acct_expr} AS account_id, NULL AS project_id"
+    else:
+        name_expr = f"{acct_expr} || ' · ' || {proj_expr}"
+        group_sql = f"{acct_expr}, {proj_expr}"
+        dim_sql = f"{acct_expr} AS account_id, {proj_expr} AS project_id"
 
     sql = f"""
         SELECT
-            COALESCE(NULLIF(TRIM({col}), ''), '{null_label}') AS name,
+            {name_expr} AS name,
+            {dim_sql},
             COUNT(*) AS requests,
             COALESCE(SUM(prompt_tokens), 0) AS prompt_tokens,
             COALESCE(SUM(completion_tokens), 0) AS completion_tokens,
             COALESCE(SUM(total_tokens), 0) AS total_tokens
         FROM usage_events
         {where}
-        GROUP BY COALESCE(NULLIF(TRIM({col}), ''), '{null_label}')
+        GROUP BY {group_sql}
         ORDER BY total_tokens DESC
     """
     with db() as conn:
@@ -1108,13 +1192,13 @@ def get_rankings(
     else:
         detail_sql = f"""
             SELECT
-                COALESCE(NULLIF(TRIM({col}), ''), '{null_label}') AS grp,
+                {name_expr} AS grp,
                 model,
                 COALESCE(SUM(prompt_tokens), 0) AS prompt_tokens,
                 COALESCE(SUM(completion_tokens), 0) AS completion_tokens
             FROM usage_events
             {where}
-            GROUP BY COALESCE(NULLIF(TRIM({col}), ''), '{null_label}'), model
+            GROUP BY {group_sql}, model
         """
         with db() as conn:
             detail_rows = conn.execute(detail_sql, params).fetchall()
@@ -1133,6 +1217,8 @@ def get_rankings(
         total_tok = int(r["total_tokens"])
         cost = round(cost_by_name.get(r["name"], 0.0), 6)
         share = (total_tok / grand_tokens * 100.0) if grand_tokens else 0.0
+        row_account = r["account_id"]
+        row_project = r["project_id"]
         items.append(
             RankingRow(
                 rank=idx,
@@ -1143,6 +1229,8 @@ def get_rankings(
                 total_tokens=total_tok,
                 estimated_cost_usd=cost,
                 share_pct=round(share, 2),
+                account_id=row_account or None,
+                project_id=row_project or None,
                 cost_basis="estimate",
                 cost_basis_label=cost_basis_label("estimate"),
             )
@@ -1152,6 +1240,13 @@ def get_rankings(
     for it in items:
         it.cost_basis = basis["primary"]
         it.cost_basis_label = basis["label"]
+    breakdown = {
+        "model": "model",
+        "team": "team",
+        "project": "project_id",
+        "account": "account_id",
+        "account_project": "account_id × project_id",
+    }[group_by]
     return RankingsResponse(
         window=window,
         group_by=group_by,
@@ -1161,6 +1256,7 @@ def get_rankings(
             "total_tokens": grand_tokens,
             "estimated_cost_usd": round(grand_cost, 6),
             "groups": len(items),
+            "breakdown": breakdown,
             "cost_basis": basis["primary"],
             "cost_basis_label": basis["label"],
             "cost_basis_note": basis["note"],
@@ -1226,9 +1322,13 @@ def get_people_rankings(
                  COALESCE(project_id, ''),
                  COALESCE(account_id, '')
     """
-    filter_where, filter_params = _and_filters(
-        "", [], [(seed_clause, seed_val)] if seed_clause else []
-    )
+    filter_extras: list[tuple[str, Any]] = []
+    dropdown_account = _dropdown_account(principal, account_id)
+    if dropdown_account:
+        filter_extras.append(("account_id = ?", dropdown_account))
+    if seed_clause:
+        filter_extras.append((seed_clause, seed_val))
+    filter_where, filter_params = _and_filters("", [], filter_extras)
     with db() as conn:
         detail = conn.execute(sql, params).fetchall()
         filter_rows = conn.execute(
@@ -1237,14 +1337,15 @@ def get_people_rankings(
                 COALESCE(NULLIF(TRIM(tool), ''), 'unknown') AS tool,
                 model,
                 COALESCE(team, '') AS team,
-                COALESCE(project_id, '') AS project_id
+                COALESCE(project_id, '') AS project_id,
+                COALESCE(account_id, '') AS account_id
             FROM usage_events
             {filter_where}
             """,
             filter_params,
         ).fetchall()
 
-    # Aggregate per participant
+    # Aggregate per participant, and keep every account × project cell.
     agg: dict[str, dict[str, Any]] = {}
     for r in detail:
         name = r["participant"]
@@ -1258,6 +1359,7 @@ def get_people_rankings(
                 "teams": Counter(),
                 "projects": Counter(),
                 "accounts": Counter(),
+                "split_map": {},
             }
         a = agg[name]
         tok = int(r["total_tokens"])
@@ -1266,7 +1368,7 @@ def get_people_rankings(
         a["total_tokens"] += tok
         # Prefer billed rows when every row in group has cost_usd; else blend
         if int(r["cost_usd_rows"] or 0) == int(r["requests"] or 0) and int(r["requests"] or 0) > 0:
-            a["cost"] += float(r["cost_usd_sum"] or 0)
+            delta = float(r["cost_usd_sum"] or 0)
         else:
             billed = float(r["cost_usd_sum"] or 0)
             # estimate only for rows without cost_usd — approximate by proportion
@@ -1276,9 +1378,19 @@ def get_people_rankings(
             if int(r["cost_usd_rows"] or 0) > 0 and int(r["requests"] or 0) > 0:
                 # use billed sum + estimate scaled for missing fraction
                 missing = 1.0 - (int(r["cost_usd_rows"]) / int(r["requests"]))
-                a["cost"] += billed + est * missing
+                delta = billed + est * missing
             else:
-                a["cost"] += est
+                delta = est
+        a["cost"] += delta
+        acct_key = (r["account_id"] or "").strip() or UNLABELED_ACCOUNT
+        proj_key = (r["project_id"] or "").strip() or UNLABELED_PROJECT
+        cell = a["split_map"].setdefault(
+            (acct_key, proj_key),
+            {"requests": 0, "total_tokens": 0, "cost": 0.0},
+        )
+        cell["requests"] += req
+        cell["total_tokens"] += tok
+        cell["cost"] += delta
         a["tools"][r["tool"]] += tok
         a["models"][r["model"]] += tok
         if r["team"]:
@@ -1306,6 +1418,7 @@ def get_people_rankings(
             v["accounts"].most_common(1)[0][0] if v["accounts"] else None
         )
         share = (v["total_tokens"] / grand_tokens * 100.0) if grand_tokens else 0.0
+        splits = _as_splits(v["split_map"])
         items.append(
             PersonRow(
                 rank=idx,
@@ -1315,6 +1428,9 @@ def get_people_rankings(
                 primary_project=primary_project,
                 team=primary_team,
                 account_id=primary_account,
+                account_count=len({row.account_id for row in splits}),
+                project_count=len({row.project_id for row in splits}),
+                splits=splits,
                 requests=v["requests"],
                 total_tokens=v["total_tokens"],
                 estimated_cost_usd=round(v["cost"], 6),
@@ -1344,7 +1460,9 @@ def get_people_rankings(
     models = sorted({r["model"] for r in filter_rows if r["model"]})
     teams = sorted({r["team"] for r in filter_rows if r["team"]})
     projects = sorted({r["project_id"] for r in filter_rows if r["project_id"]})
+    accounts = sorted({r["account_id"] for r in filter_rows if r["account_id"]})
     labels = tool_labels_map(tools)
+    split_rows = sum(len(it.splits) for it in items)
 
     return PeopleRankingsResponse(
         window=window,
@@ -1355,6 +1473,8 @@ def get_people_rankings(
             "total_tokens": grand_tokens,
             "estimated_cost_usd": round(grand_cost, 6),
             "participants": len(items),
+            "breakdown": "participant + account_id × project_id",
+            "split_rows": split_rows,
             "cost_basis": basis["primary"],
             "cost_basis_label": basis["label"],
             "cost_basis_note": basis["note"],
@@ -1367,6 +1487,7 @@ def get_people_rankings(
             "models": models,
             "teams": teams,
             "projects": projects,
+            "accounts": accounts,
         },
     )
 
@@ -1401,16 +1522,38 @@ def get_org_rankings(
             COALESCE(NULLIF(TRIM(team), ''), '未标注') AS team,
             {pexpr} AS participant,
             model,
+            COALESCE(NULLIF(TRIM(account_id), ''), '{UNLABELED_ACCOUNT}') AS account_id,
+            COALESCE(NULLIF(TRIM(project_id), ''), '{UNLABELED_PROJECT}') AS project_id,
             COALESCE(SUM(prompt_tokens), 0) AS prompt_tokens,
             COALESCE(SUM(completion_tokens), 0) AS completion_tokens,
             COALESCE(SUM(total_tokens), 0) AS total_tokens,
             COUNT(*) AS requests
         FROM usage_events
         {where}
-        GROUP BY COALESCE(NULLIF(TRIM(team), ''), '未标注'), {pexpr}, model
+        GROUP BY COALESCE(NULLIF(TRIM(team), ''), '未标注'), {pexpr}, model,
+                 COALESCE(NULLIF(TRIM(account_id), ''), '{UNLABELED_ACCOUNT}'),
+                 COALESCE(NULLIF(TRIM(project_id), ''), '{UNLABELED_PROJECT}')
     """
+    filter_extras: list[tuple[str, Any]] = []
+    dropdown_account = _dropdown_account(principal, account_id)
+    if dropdown_account:
+        filter_extras.append(("account_id = ?", dropdown_account))
+    if seed_clause:
+        filter_extras.append((seed_clause, seed_val))
+    filter_where, filter_params = _and_filters("", [], filter_extras)
     with db() as conn:
         rows = conn.execute(sql, params).fetchall()
+        filter_rows = conn.execute(
+            f"""
+            SELECT DISTINCT
+                COALESCE(NULLIF(TRIM(tool), ''), 'unknown') AS tool,
+                COALESCE(NULLIF(TRIM(account_id), ''), '') AS account_id,
+                COALESCE(NULLIF(TRIM(project_id), ''), '') AS project_id
+            FROM usage_events
+            {filter_where}
+            """,
+            filter_params,
+        ).fetchall()
 
     agg: dict[str, dict[str, Any]] = {}
     for r in rows:
@@ -1421,14 +1564,25 @@ def get_org_rankings(
                 "requests": 0,
                 "cost": 0.0,
                 "people": set(),
+                "split_map": {},
             }
         a = agg[team]
-        a["total_tokens"] += int(r["total_tokens"])
-        a["requests"] += int(r["requests"])
-        a["cost"] += estimate_cost(
+        tok = int(r["total_tokens"])
+        req = int(r["requests"])
+        delta = estimate_cost(
             r["model"], int(r["prompt_tokens"]), int(r["completion_tokens"])
         )
+        a["total_tokens"] += tok
+        a["requests"] += req
+        a["cost"] += delta
         a["people"].add(r["participant"])
+        cell = a["split_map"].setdefault(
+            (r["account_id"], r["project_id"]),
+            {"requests": 0, "total_tokens": 0, "cost": 0.0},
+        )
+        cell["requests"] += req
+        cell["total_tokens"] += tok
+        cell["cost"] += delta
 
     ordered = sorted(agg.items(), key=lambda kv: kv[1]["total_tokens"], reverse=True)
     grand_tokens = sum(v["total_tokens"] for _, v in ordered)
@@ -1441,6 +1595,7 @@ def get_org_rankings(
     for idx, (team, v) in enumerate(ordered, start=1):
         n_people = max(len(v["people"]), 1)
         share = (v["total_tokens"] / grand_tokens * 100.0) if grand_tokens else 0.0
+        splits = _as_splits(v["split_map"])
         items.append(
             OrgRow(
                 rank=idx,
@@ -1451,6 +1606,9 @@ def get_org_rankings(
                 requests=v["requests"],
                 estimated_cost_usd=round(v["cost"], 6),
                 share_pct=round(share, 2),
+                account_count=len({row.account_id for row in splits}),
+                project_count=len({row.project_id for row in splits}),
+                splits=splits,
             )
         )
 
@@ -1458,6 +1616,9 @@ def get_org_rankings(
     for it in items:
         it.cost_basis = basis["primary"]
         it.cost_basis_label = basis["label"]
+    tools = sorted({normalize_tool(r["tool"]) for r in filter_rows if r["tool"]})
+    accounts = sorted({r["account_id"] for r in filter_rows if r["account_id"]})
+    projects = sorted({r["project_id"] for r in filter_rows if r["project_id"]})
     return OrgRankingsResponse(
         window=window,
         generated_at=_utc_now().isoformat(),
@@ -1467,12 +1628,20 @@ def get_org_rankings(
             "total_tokens": grand_tokens,
             "estimated_cost_usd": round(grand_cost, 6),
             "requests": sum(v["requests"] for _, v in ordered),
+            "breakdown": "team + account_id × project_id",
+            "split_rows": sum(len(it.splits) for it in items),
             "cost_basis": basis["primary"],
             "cost_basis_label": basis["label"],
             "cost_basis_note": basis["note"],
             "cost_basis_detail": basis,
         },
         items=items,
+        filters={
+            "tools": tools,
+            "tool_labels": tool_labels_map(tools),
+            "accounts": accounts,
+            "projects": projects,
+        },
     )
 
 
@@ -1482,6 +1651,7 @@ def get_project_rankings(
     window: str = Query("7d"),
     tool: Optional[str] = Query(None),
     account_id: Optional[str] = Query(None),
+    project_id: Optional[str] = Query(None),
     team: Optional[str] = Query(None),
     participant: Optional[str] = Query(None),
     hide_unlabeled: bool = Query(
@@ -1499,6 +1669,8 @@ def get_project_rankings(
         extras.append(("tool = ?", normalize_tool(tool)))
     if account_id:
         extras.append(("account_id = ?", account_id))
+    if project_id:
+        extras.append(("project_id = ?", project_id))
     if team:
         extras.append(("team = ?", team))
     if participant:
@@ -1533,16 +1705,21 @@ def get_project_rankings(
             {pexpr},
             model
     """
-    filter_where, filter_params = _and_filters(
-        "", [], [(seed_clause, seed_val)] if seed_clause else []
-    )
+    filter_extras: list[tuple[str, Any]] = []
+    dropdown_account = _dropdown_account(principal, account_id)
+    if dropdown_account:
+        filter_extras.append(("account_id = ?", dropdown_account))
+    if seed_clause:
+        filter_extras.append((seed_clause, seed_val))
+    filter_where, filter_params = _and_filters("", [], filter_extras)
     with db() as conn:
         rows = conn.execute(sql, params).fetchall()
         filter_rows = conn.execute(
             f"""
             SELECT DISTINCT
                 COALESCE(NULLIF(TRIM(tool), ''), 'unknown') AS tool,
-                COALESCE(NULLIF(TRIM(account_id), ''), '') AS account_id
+                COALESCE(NULLIF(TRIM(account_id), ''), '') AS account_id,
+                COALESCE(NULLIF(TRIM(project_id), ''), '') AS project_id
             FROM usage_events
             {filter_where}
             """,
@@ -1556,6 +1733,8 @@ def get_project_rankings(
         unlab_extras.append(("tool = ?", normalize_tool(tool)))
     if account_id:
         unlab_extras.append(("account_id = ?", account_id))
+    if project_id:
+        unlab_extras.append(("project_id = ?", project_id))
     if team:
         unlab_extras.append(("team = ?", team))
     if participant:
@@ -1626,6 +1805,7 @@ def get_project_rankings(
 
     tools = sorted({normalize_tool(r["tool"]) for r in filter_rows if r["tool"]})
     accounts = sorted({r["account_id"] for r in filter_rows if r["account_id"]})
+    projects = sorted({r["project_id"] for r in filter_rows if r["project_id"]})
     labels = tool_labels_map(tools)
 
     return ProjectRankingsResponse(
@@ -1633,9 +1813,11 @@ def get_project_rankings(
         generated_at=_utc_now().isoformat(),
         totals={
             "projects": len(items),
+            "accounts": len({it.account_id for it in items if it.account_id}),
             "total_tokens": grand_tokens,
             "estimated_cost_usd": round(grand_cost, 6),
             "requests": sum(v["requests"] for _, v in ordered),
+            "breakdown": "account_id × project_id",
             "cost_basis": basis["primary"],
             "cost_basis_label": basis["label"],
             "cost_basis_note": basis["note"],
@@ -1649,6 +1831,7 @@ def get_project_rankings(
             "tools": tools,
             "tool_labels": labels,
             "accounts": accounts,
+            "projects": projects,
             "hide_unlabeled": hide_unlabeled,
         },
     )
@@ -1670,7 +1853,7 @@ def get_agent_rankings(
     include_seed: bool = Query(False, description="include source=seed demo rows"),
     principal: Optional[Principal] = Depends(optional_principal),
 ) -> AgentRankingsResponse:
-    """Rank by agent_id so each person can see how much each agent burns."""
+    """Rank by account_id × agent_id so the same agent on two accounts stays split."""
     account_id = _scoped_account(principal, account_id)
     since, until = _parse_window(window)
     where, params = _where_ts(since, until)
@@ -1698,6 +1881,7 @@ def get_agent_rankings(
             COALESCE(NULLIF(TRIM(agent_id), ''), '{UNLABELED_AGENT}') AS agent_id,
             COALESCE(NULLIF(TRIM(agent_name), ''), '') AS agent_name,
             COALESCE(NULLIF(TRIM(account_id), ''), '') AS account_id,
+            COALESCE(NULLIF(TRIM(project_id), ''), '') AS project_id,
             COALESCE(NULLIF(TRIM(team), ''), '') AS team,
             COALESCE(NULLIF(TRIM(tool), ''), 'unknown') AS tool,
             {pexpr} AS participant,
@@ -1714,12 +1898,16 @@ def get_agent_rankings(
             COALESCE(NULLIF(TRIM(agent_id), ''), '{UNLABELED_AGENT}'),
             COALESCE(NULLIF(TRIM(agent_name), ''), ''),
             COALESCE(NULLIF(TRIM(account_id), ''), ''),
+            COALESCE(NULLIF(TRIM(project_id), ''), ''),
             COALESCE(NULLIF(TRIM(team), ''), ''),
             COALESCE(NULLIF(TRIM(tool), ''), 'unknown'),
             {pexpr},
             model
     """
     filter_extras: list[tuple[str, Any]] = []
+    dropdown_account = _dropdown_account(principal, account_id)
+    if dropdown_account:
+        filter_extras.append(("account_id = ?", dropdown_account))
     if hide_unlabeled:
         filter_extras.append(("COALESCE(NULLIF(TRIM(agent_id), ''), '') != ?", ""))
     if seed_clause:
@@ -1752,6 +1940,7 @@ def get_agent_rankings(
             SELECT DISTINCT
                 COALESCE(NULLIF(TRIM(tool), ''), 'unknown') AS tool,
                 COALESCE(NULLIF(TRIM(account_id), ''), '') AS account_id,
+                COALESCE(NULLIF(TRIM(project_id), ''), '') AS project_id,
                 COALESCE(NULLIF(TRIM(team), ''), '') AS team
             FROM usage_events
             {filter_where}
@@ -1763,22 +1952,25 @@ def get_agent_rankings(
         ).fetchone()
     unlabeled_events = int(unlab_row["c"] or 0)
 
-    agg: dict[str, dict[str, Any]] = {}
+    agg: dict[tuple[str, str], dict[str, Any]] = {}
     for r in rows:
         aid = r["agent_id"]
-        if aid not in agg:
-            agg[aid] = {
+        acct_key = (r["account_id"] or "").strip() or UNLABELED_ACCOUNT
+        key = (acct_key, aid)
+        if key not in agg:
+            agg[key] = {
                 "total_tokens": 0,
                 "requests": 0,
                 "cost": 0.0,
                 "names": Counter(),
-                "accounts": Counter(),
                 "teams": Counter(),
                 "tools": Counter(),
                 "people": Counter(),
+                "projects": Counter(),
             }
-        a = agg[aid]
-        a["total_tokens"] += int(r["total_tokens"])
+        a = agg[key]
+        tok = int(r["total_tokens"])
+        a["total_tokens"] += tok
         a["requests"] += int(r["requests"])
         if int(r["cost_usd_rows"] or 0) == int(r["requests"] or 0) and int(r["requests"] or 0) > 0:
             a["cost"] += float(r["cost_usd_sum"] or 0)
@@ -1787,13 +1979,13 @@ def get_agent_rankings(
                 r["model"], int(r["prompt_tokens"]), int(r["completion_tokens"])
             )
         if r["agent_name"]:
-            a["names"][r["agent_name"]] += int(r["total_tokens"])
-        if r["account_id"]:
-            a["accounts"][r["account_id"]] += int(r["total_tokens"])
+            a["names"][r["agent_name"]] += tok
         if r["team"]:
-            a["teams"][r["team"]] += int(r["total_tokens"])
-        a["tools"][r["tool"]] += int(r["total_tokens"])
-        a["people"][r["participant"]] += int(r["total_tokens"])
+            a["teams"][r["team"]] += tok
+        if r["project_id"]:
+            a["projects"][r["project_id"]] += tok
+        a["tools"][r["tool"]] += tok
+        a["people"][r["participant"]] += tok
 
     ordered = sorted(agg.items(), key=lambda kv: kv[1]["total_tokens"], reverse=True)
     grand_tokens = sum(v["total_tokens"] for _, v in ordered)
@@ -1801,16 +1993,16 @@ def get_agent_rankings(
     basis = summarize_cost_basis(where, params)
 
     items: list[AgentRow] = []
-    for idx, (aid, v) in enumerate(ordered, start=1):
+    for idx, ((acct_key, aid), v) in enumerate(ordered, start=1):
         share = (v["total_tokens"] / grand_tokens * 100.0) if grand_tokens else 0.0
         aname = v["names"].most_common(1)[0][0] if v["names"] else None
-        acct = v["accounts"].most_common(1)[0][0] if v["accounts"] else None
         primary_team = v["teams"].most_common(1)[0][0] if v["teams"] else None
         primary_tool = (
             tool_display(v["tools"].most_common(1)[0][0]) if v["tools"] else None
         )
         primary_person = v["people"].most_common(1)[0][0] if v["people"] else None
         unlabeled = is_unlabeled_name(aid)
+        project_names = [name for name, _tok in v["projects"].most_common()]
         label = aname or aid
         items.append(
             AgentRow(
@@ -1818,7 +2010,7 @@ def get_agent_rankings(
                 agent_id=aid,
                 agent_name=aname,
                 label=label,
-                account_id=acct,
+                account_id=None if acct_key == UNLABELED_ACCOUNT else acct_key,
                 team=primary_team,
                 tool=primary_tool,
                 participant=primary_person,
@@ -1826,6 +2018,8 @@ def get_agent_rankings(
                 total_tokens=v["total_tokens"],
                 estimated_cost_usd=round(v["cost"], 6),
                 share_pct=round(share, 2),
+                project_count=len(project_names),
+                projects=project_names,
                 cost_basis=basis["primary"],
                 cost_basis_label=basis["label"],
                 unlabeled=unlabeled,
@@ -1835,6 +2029,7 @@ def get_agent_rankings(
     tools = sorted({normalize_tool(r["tool"]) for r in filter_rows if r["tool"]})
     accounts = sorted({r["account_id"] for r in filter_rows if r["account_id"]})
     teams = sorted({r["team"] for r in filter_rows if r["team"]})
+    projects = sorted({r["project_id"] for r in filter_rows if r["project_id"]})
     labels = tool_labels_map(tools)
 
     return AgentRankingsResponse(
@@ -1845,6 +2040,7 @@ def get_agent_rankings(
             "total_tokens": grand_tokens,
             "estimated_cost_usd": round(grand_cost, 6),
             "requests": sum(v["requests"] for _, v in ordered),
+            "breakdown": "account_id × agent_id",
             "cost_basis": basis["primary"],
             "cost_basis_label": basis["label"],
             "cost_basis_note": basis["note"],
@@ -1859,6 +2055,7 @@ def get_agent_rankings(
             "tool_labels": labels,
             "accounts": accounts,
             "teams": teams,
+            "projects": projects,
             "hide_unlabeled": hide_unlabeled,
         },
     )
@@ -1969,18 +2166,21 @@ def get_me(
             """,
             params,
         ).fetchall()
-        accounts = [
-            r["account_id"]
-            for r in conn.execute(
-                """
-                SELECT DISTINCT account_id FROM usage_events
-                WHERE COALESCE(NULLIF(TRIM(account_id), ''), '') != ''
-                  AND COALESCE(source, '') != 'seed'
-                ORDER BY account_id
-                """
-            ).fetchall()
-            if r["account_id"]
-        ]
+        if principal and principal.role == "member":
+            accounts = [account_id] if account_id else []
+        else:
+            accounts = [
+                r["account_id"]
+                for r in conn.execute(
+                    """
+                    SELECT DISTINCT account_id FROM usage_events
+                    WHERE COALESCE(NULLIF(TRIM(account_id), ''), '') != ''
+                      AND COALESCE(source, '') != 'seed'
+                    ORDER BY account_id
+                    """
+                ).fetchall()
+                if r["account_id"]
+            ]
 
     basis = summarize_cost_basis(where, params)
     total_tokens = int(total_row["total_tokens"] or 0)
@@ -2148,6 +2348,103 @@ def get_me(
 
 
 
+FINOPS_NOTE = (
+    "按账号、项目、模型、工具拆开，供内部 FinOps 复核。"
+    "未知模型保留原名；没有入库 cost_usd 时按价目表估算，"
+    "不在价目表里的模型用 default 档，estimate 为 true。这不是发票。"
+)
+FINOPS_COLUMNS = [
+    "account_id",
+    "project_id",
+    "model",
+    "tool",
+    "requests",
+    "prompt_tokens",
+    "completion_tokens",
+    "total_tokens",
+    "estimated_cost_usd",
+    "price_tier",
+    "estimate",
+    "cost_basis",
+]
+
+
+def _finops_items(where: str, params: list[Any]) -> list[dict[str, Any]]:
+    """Aggregate usage for review. One row per account × project × model × tool."""
+    sql = f"""
+        SELECT
+            COALESCE(NULLIF(TRIM(account_id), ''), '{UNLABELED_ACCOUNT}') AS account_id,
+            COALESCE(NULLIF(TRIM(project_id), ''), '{UNLABELED_PROJECT}') AS project_id,
+            COALESCE(NULLIF(TRIM(model), ''), '') AS model,
+            COALESCE(NULLIF(TRIM(tool), ''), 'unknown') AS tool,
+            COALESCE(SUM(prompt_tokens), 0) AS prompt_tokens,
+            COALESCE(SUM(completion_tokens), 0) AS completion_tokens,
+            COALESCE(SUM(total_tokens), 0) AS total_tokens,
+            COALESCE(SUM(cost_usd), 0) AS cost_usd_sum,
+            SUM(CASE WHEN cost_usd IS NOT NULL THEN 1 ELSE 0 END) AS cost_usd_rows,
+            COUNT(*) AS requests
+        FROM usage_events
+        {where}
+        GROUP BY
+            COALESCE(NULLIF(TRIM(account_id), ''), '{UNLABELED_ACCOUNT}'),
+            COALESCE(NULLIF(TRIM(project_id), ''), '{UNLABELED_PROJECT}'),
+            COALESCE(NULLIF(TRIM(model), ''), ''),
+            COALESCE(NULLIF(TRIM(tool), ''), 'unknown')
+        ORDER BY account_id, project_id, total_tokens DESC
+    """
+    with db() as conn:
+        rows = conn.execute(sql, params).fetchall()
+    items: list[dict[str, Any]] = []
+    for row in rows:
+        requests = int(row["requests"] or 0)
+        stored_rows = int(row["cost_usd_rows"] or 0)
+        model_name = row["model"] or ""
+        tier = price_tier(model_name) if model_name else "default"
+        if requests > 0 and stored_rows == requests:
+            cost = round(float(row["cost_usd_sum"] or 0), 6)
+            estimate = False
+            basis = "stored"
+        else:
+            cost = round(
+                estimate_cost(
+                    model_name,
+                    int(row["prompt_tokens"] or 0),
+                    int(row["completion_tokens"] or 0),
+                ),
+                6,
+            )
+            estimate = True
+            basis = "estimate"
+        items.append(
+            {
+                "account_id": row["account_id"],
+                "project_id": row["project_id"],
+                "model": model_name,
+                "tool": row["tool"],
+                "requests": requests,
+                "prompt_tokens": int(row["prompt_tokens"] or 0),
+                "completion_tokens": int(row["completion_tokens"] or 0),
+                "total_tokens": int(row["total_tokens"] or 0),
+                "estimated_cost_usd": cost,
+                "price_tier": tier,
+                "estimate": estimate,
+                "cost_basis": basis,
+            }
+        )
+    return items
+
+
+def _write_finops_csv(items: list[dict[str, Any]]) -> str:
+    buf = io.StringIO()
+    writer = csv.DictWriter(buf, fieldnames=FINOPS_COLUMNS, extrasaction="ignore")
+    writer.writeheader()
+    for item in items:
+        row = dict(item)
+        row["estimate"] = "true" if item["estimate"] else "false"
+        writer.writerow(row)
+    return buf.getvalue()
+
+
 @app.get("/api/v1/export/usage.csv")
 def export_usage_csv(
     window: str = Query("7d"),
@@ -2155,11 +2452,19 @@ def export_usage_csv(
     team: Optional[str] = Query(None),
     tool: Optional[str] = Query(None),
     project_id: Optional[str] = Query(None),
+    model: Optional[str] = Query(None),
+    grain: Literal["events", "finops"] = Query(
+        "events",
+        description="finops aggregates account_id × project_id × model × tool",
+    ),
     include_seed: bool = Query(False),
     limit: int = Query(10000, ge=1, le=100000),
     principal: Principal = Depends(require_principal),
 ) -> Response:
-    """Export usage rows as CSV. Auth required; members scoped to own account. Audited."""
+    """Export usage as CSV. Auth required; members scoped to own account. Audited.
+
+    grain=events is one row per event. grain=finops is the review table.
+    """
     account_id = _scoped_account(principal, account_id)
     since, until = _parse_window(window)
     where, params = _where_ts(since, until)
@@ -2173,9 +2478,41 @@ def export_usage_csv(
         extras.append(("tool = ?", normalize_tool(tool)))
     if project_id:
         extras.append(("project_id = ?", project_id))
+    if model:
+        extras.append(("model = ?", model))
     if seed_clause:
         extras.append((seed_clause, seed_val))
     where, params = _and_filters(where, params, extras)
+
+    filters = {
+        "window": window,
+        "account_id": account_id,
+        "team": team,
+        "tool": normalize_tool(tool) if tool else None,
+        "project_id": project_id,
+        "model": model,
+        "grain": grain,
+        "include_seed": include_seed,
+        "limit": limit,
+        "format": "csv",
+    }
+    if grain == "finops":
+        items = _finops_items(where, params)[:limit]
+        insert_audit(
+            actor_key_hint=principal.key_hint,
+            actor_name=principal.name,
+            actor_role=principal.role,
+            actor_account_id=principal.account_id,
+            action="export.usage.csv",
+            filters=filters,
+            row_count=len(items),
+        )
+        filename = f"finops_{window}_{account_id or 'all'}.csv".replace("/", "_")
+        return Response(
+            content=_write_finops_csv(items),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
 
     sql = f"""
         SELECT id, ts, model, prompt_tokens, completion_tokens, total_tokens,
@@ -2202,16 +2539,6 @@ def export_usage_csv(
     for r in rows:
         writer.writerow({c: r[c] for c in cols})
 
-    filters = {
-        "window": window,
-        "account_id": account_id,
-        "team": team,
-        "tool": normalize_tool(tool) if tool else None,
-        "project_id": project_id,
-        "include_seed": include_seed,
-        "limit": limit,
-        "format": "csv",
-    }
     insert_audit(
         actor_key_hint=principal.key_hint,
         actor_name=principal.name,
@@ -2236,11 +2563,16 @@ def export_usage_json(
     team: Optional[str] = Query(None),
     tool: Optional[str] = Query(None),
     project_id: Optional[str] = Query(None),
+    model: Optional[str] = Query(None),
+    grain: Literal["events", "finops"] = Query(
+        "events",
+        description="finops aggregates account_id × project_id × model × tool",
+    ),
     include_seed: bool = Query(False),
     limit: int = Query(10000, ge=1, le=100000),
     principal: Principal = Depends(require_principal),
 ) -> dict[str, Any]:
-    """Export usage rows as JSON. Auth required; members scoped; audited."""
+    """Export usage as JSON. Auth required; members scoped; audited."""
     account_id = _scoped_account(principal, account_id)
     since, until = _parse_window(window)
     where, params = _where_ts(since, until)
@@ -2254,33 +2586,70 @@ def export_usage_json(
         extras.append(("tool = ?", normalize_tool(tool)))
     if project_id:
         extras.append(("project_id = ?", project_id))
+    if model:
+        extras.append(("model = ?", model))
     if seed_clause:
         extras.append((seed_clause, seed_val))
     where, params = _and_filters(where, params, extras)
 
-    sql = f"""
-        SELECT id, ts, model, prompt_tokens, completion_tokens, total_tokens,
-               cache_read_tokens, cache_write_tokens, reasoning_tokens,
-               team, participant, tool, account_id, project_id,
-               agent_id, agent_name, request_id, source, cost_usd, cost_basis
-        FROM usage_events
-        {where}
-        ORDER BY ts DESC
-        LIMIT ?
-    """
-    with db() as conn:
-        rows = conn.execute(sql, params + [limit]).fetchall()
-    items = [dict(r) for r in rows]
     filters = {
         "window": window,
         "account_id": account_id,
         "team": team,
         "tool": normalize_tool(tool) if tool else None,
         "project_id": project_id,
+        "model": model,
+        "grain": grain,
         "include_seed": include_seed,
         "limit": limit,
         "format": "json",
     }
+    if grain == "finops":
+        items = _finops_items(where, params)[:limit]
+        row_count = len(items)
+        payload: dict[str, Any] = {
+            "generated_at": _utc_now().isoformat(),
+            "grain": "finops",
+            "dimensions": ["account_id", "project_id", "model", "tool"],
+            "note": FINOPS_NOTE,
+            "filters": filters,
+            "count": row_count,
+            "items": items,
+            "actor": {
+                "name": principal.name,
+                "role": principal.role,
+                "account_id": principal.account_id,
+                "key_hint": principal.key_hint,
+            },
+        }
+    else:
+        sql = f"""
+            SELECT id, ts, model, prompt_tokens, completion_tokens, total_tokens,
+                   cache_read_tokens, cache_write_tokens, reasoning_tokens,
+                   team, participant, tool, account_id, project_id,
+                   agent_id, agent_name, request_id, source, cost_usd, cost_basis
+            FROM usage_events
+            {where}
+            ORDER BY ts DESC
+            LIMIT ?
+        """
+        with db() as conn:
+            rows = conn.execute(sql, params + [limit]).fetchall()
+        items = [dict(r) for r in rows]
+        row_count = len(items)
+        payload = {
+            "generated_at": _utc_now().isoformat(),
+            "grain": "events",
+            "filters": filters,
+            "count": row_count,
+            "items": items,
+            "actor": {
+                "name": principal.name,
+                "role": principal.role,
+                "account_id": principal.account_id,
+                "key_hint": principal.key_hint,
+            },
+        }
     insert_audit(
         actor_key_hint=principal.key_hint,
         actor_name=principal.name,
@@ -2288,20 +2657,9 @@ def export_usage_json(
         actor_account_id=principal.account_id,
         action="export.usage.json",
         filters=filters,
-        row_count=len(items),
+        row_count=row_count,
     )
-    return {
-        "generated_at": _utc_now().isoformat(),
-        "filters": filters,
-        "count": len(items),
-        "items": items,
-        "actor": {
-            "name": principal.name,
-            "role": principal.role,
-            "account_id": principal.account_id,
-            "key_hint": principal.key_hint,
-        },
-    }
+    return payload
 
 
 @app.get("/api/v1/admin/audit")
@@ -2379,6 +2737,61 @@ def alerts_low_usage(
     # if they have a member key, scope=self.
     webhook = maybe_post_webhook(payload, notify=notify)
     payload["webhook"] = webhook
+    return payload
+
+
+@app.get("/api/v1/alerts")
+def alerts_pilot(
+    window: str = Query("7d"),
+    threshold_tokens: Optional[int] = Query(
+        None,
+        ge=0,
+        le=10_000_000_000,
+        description="Override LOW_USAGE_THRESHOLD_TOKENS for this request",
+    ),
+    spend_threshold_usd: Optional[float] = Query(
+        None,
+        ge=0,
+        description="Per-account spend ceiling in USD. Omit to use ALERT_SPEND_THRESHOLD_USD",
+    ),
+    spike_ratio: Optional[float] = Query(
+        None,
+        gt=0,
+        description="Override ALERT_SPEND_SPIKE_RATIO",
+    ),
+    spike_min_usd: Optional[float] = Query(
+        None,
+        ge=0,
+        description="Override ALERT_SPEND_SPIKE_MIN_USD",
+    ),
+    notify: bool = Query(
+        False,
+        description="If true and LOW_USAGE_WEBHOOK_URL is set, POST the alert payload",
+    ),
+    principal: Optional[Principal] = Depends(optional_principal),
+) -> dict[str, Any]:
+    """Pilot rules: idle, low usage, spend spike, and per-account spend.
+
+    Each account includes its project splits. Members only see their account.
+    """
+    since, until = _parse_window(window)
+    prev_since, prev_until, spike_ok = _previous_bounds(window)
+    payload = build_pilot_alerts(
+        principal=principal,
+        window=window,
+        since_iso=since.isoformat() if since else None,
+        until_iso=until.isoformat() if until else None,
+        previous_since_iso=prev_since,
+        previous_until_iso=prev_until,
+        spike_comparable=spike_ok,
+        threshold_tokens=threshold_tokens,
+        spend_threshold_usd=spend_threshold_usd,
+        spike_ratio=spike_ratio,
+        spike_min_usd=spike_min_usd,
+    )
+    payload["webhook"] = maybe_post_webhook(
+        payload, notify=notify, event_type="pilot_alerts"
+    )
     return payload
 
 

@@ -62,3 +62,5 @@ TOKEN_RANKINGS_API_KEY=换成你们自己的长随机串
 - 不做公网模型热度榜，也不去克隆公开排行网站。
 
 用量继续走你们已经在用的网关或工具，本服务只接收汇总后的用量。详见 [NON_GOALS.md](NON_GOALS.md)。
+
+内网试点按 [INSTALL.md](INSTALL.md) 的「企业试点上线清单」逐项做：Postgres、HTTPS 反向代理、换掉演示密钥、`RANKINGS_REQUIRE_AUTH=1`、本机采集。提醒和导出也不要把对话原文送出去。

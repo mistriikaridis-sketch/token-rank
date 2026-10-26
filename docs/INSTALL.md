@@ -150,6 +150,54 @@ server {
 }
 ```
 
+## 企业试点上线清单
+
+给要在公司内网正式试用的同事。自己在笔记本上看页面，从上面「一条命令先跑起来」做完即可，这一节可以先不打勾。
+
+做完再交给别人用。每一项都要能在浏览器或命令输出里核对。更细的说明就在上面各节，以及 [SECURITY.md](SECURITY.md)。
+
+- [ ] **换掉演示密钥。** 在仓库目录执行 `bash scripts/bootstrap_prod.sh`。没有 `--force` 时不会覆盖已经生成的密钥。不要再使用 `dev-token-rankings-change-me`、`CHANGE_ME`、`demo-admin-key`、`demo-alice-key`、`demo-dave-key`。用户名单用脚本生成的 `fixtures/users.prod.json`（或仓库外的文件），不要改 `fixtures/users.json`。
+- [ ] **排行必须登录。** `.env` 里 `RANKINGS_REQUIRE_AUTH=1`。重启后打开 `/health`，`setup.rankings_require_auth` 为 `true`，`setup.demo_keys_in_use` 为 `false`，网页顶部黄条消失。再跑 `SMOKE_REQUIRE_AUTH=1 bash scripts/customer_smoke.sh`。
+- [ ] **数据库用 Postgres。** 设置长随机的 `POSTGRES_PASSWORD`（不要用 `token` 当密码）。执行 `docker compose -f docker-compose.yml -f docker-compose.postgres.yml up -d --build`。`/health` 里数据库类型是 `postgres`。端口只留在 `127.0.0.1:5432`。自检：`bash scripts/verify_postgres.sh`。
+- [ ] **HTTPS 只做反向代理。** 用上面的 Caddy 或 nginx，把浏览器流量转到本机 `127.0.0.1:8000`。不要在这层转发模型请求，也不要做密钥池。证书用公司内网自己的。
+- [ ] **本机采集。** 每台开发机按 [collector/INSTALL.md](../collector/INSTALL.md) 安装（服务上的同一份是 `/docs/collector.md`）。覆盖 WorkBuddy、Claude Code、Codex、Continue、Cursor、ProCode。只上传 Token 数字。多账号、多项目靠日志里的邮箱和项目目录拆开，不要只报一个总数。
+- [ ] **确认拆开可见。** 打开 [项目榜](http://localhost:8000/projects)。每一行是「账号 × 项目」，顶部写着按账号 × 项目拆开。再用成员密钥请求别人的 `account_id`，应得到 403。个人榜同一人跨账号时，行下面有拆分，不是只有合计。
+- [ ] **提醒。** 打开 `/alerts`。规则是闲置、用量过低、费用突增、账号费用阈值。配置见下一节。成员密钥只评估自己的账号。
+- [ ] **FinOps 导出。** 用用户密钥（不要用写入密钥）下载：
+
+```bash
+curl -s -H "Authorization: Bearer 成员或管理员密钥" \
+  'http://localhost:8000/api/v1/export/usage.csv?window=30d&grain=finops' \
+  -o finops.csv
+```
+
+表头含 `account_id,project_id,model,tool`。JSON 把 `grain=finops` 加在 `/api/v1/export/usage.json` 上。未知模型保留原名；估价落到 default 档时 `estimate` 为 `true`。
+
+`.env` 和 `fixtures/users.prod.json` 不要提交，不要发到聊天里。
+
+### 提醒怎么配
+
+写在 `.env`，改完执行 `docker compose up -d --build`（用了 Postgres 叠加时带上那两个 `-f`）。
+
+| 变量 | 作用 | 不设置时 |
+|---|---|---|
+| `LOW_USAGE_THRESHOLD_TOKENS` | 低于该 Token 数算用量过低 | `10000` |
+| `ALERT_SPEND_SPIKE_RATIO` | 相对上一等长窗口的倍数 | `2` |
+| `ALERT_SPEND_SPIKE_MIN_USD` | 低于该金额不报突增 | `1` |
+| `ALERT_SPEND_THRESHOLD_USD` | 单个账号费用上限（美元） | 不启用，除非请求里带 `spend_threshold_usd` |
+| `ALERT_ACCOUNT_THRESHOLDS` | 按 `account_id` 覆盖 | 不覆盖 |
+| `LOW_USAGE_WEBHOOK_URL` | 点「推送」或 `notify=true` 时 POST | 不外发 |
+
+按账号覆盖的例子（一行）：
+
+```bash
+ALERT_ACCOUNT_THRESHOLDS={"acme-prod":{"min_tokens":5000,"spend_usd":20}}
+```
+
+`window=all` 没有上一窗，不评估费用突增。用量高只是提醒去拆项目，不等于这个人更会用。长期为零通常说明采集或工作流还没接上。
+
+页面 `/alerts` 会显示同一段中文说明。旧地址 `/api/v1/alerts/low-usage` 仍然只做低用量，试点请用 `GET /api/v1/alerts`。
+
 ## 下一步
 
 - 开发者本机采集（Token 数字，不含对话）：[collector/INSTALL.md](../collector/INSTALL.md)（服务上的地址是 `/docs/collector.md`）

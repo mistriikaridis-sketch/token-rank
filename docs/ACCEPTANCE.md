@@ -13,7 +13,7 @@ curl -s http://localhost:8000/health
 ```
 
 - [ ] 能打开，且 `"status"` 为 `"ok"`
-- [ ] `"version"` 是 `0.20.0`
+- [ ] `"version"` 是 `0.21.0`
 - [ ] 若仍是演示密钥，`"setup"."demo_keys_in_use"` 为 `true`，网页顶部有黄色提醒
 - [ ] 交付之后 `"setup"."demo_keys_in_use"` 为 `false`，且 `"setup"."rankings_require_auth"` 为 `true`
 
@@ -102,4 +102,4 @@ SMOKE_REQUIRE_AUTH=1 bash scripts/customer_smoke.sh
 - [ ] Postgres 若启用：密码来自 `POSTGRES_PASSWORD`，不是 `token`；5432 只监听 `127.0.0.1`
 - [ ] 没有把 `.env`、`fixtures/users.prod.json`、数据库文件或真实密钥提交到仓库
 
-说明见 [SECURITY.md](SECURITY.md)。
+说明见 [SECURITY.md](SECURITY.md)。内网试点再按 [INSTALL.md](INSTALL.md) 的「企业试点上线清单」核对 Postgres、HTTPS、密钥、登录、采集、账号×项目拆分、提醒和 FinOps 导出。

@@ -1,6 +1,6 @@
 # Token 消耗排行榜
 
-许可证：**MIT** · 版本 **0.20.0**
+许可证：**MIT** · 版本 **0.21.0**
 
 ## 客户 10 分钟跑通
 
@@ -38,7 +38,7 @@ bash scripts/customer_smoke.sh
 
 | 文档 | 内容 |
 |---|---|
-| [docs/INSTALL.md](docs/INSTALL.md) | 安装：Docker 一条命令、可选 Postgres、换掉全部演示密钥 |
+| [docs/INSTALL.md](docs/INSTALL.md) | 安装：Docker 一条命令、可选 Postgres、换掉全部演示密钥、企业试点上线清单 |
 | [docs/ACCEPTANCE.md](docs/ACCEPTANCE.md) | 验收：健康检查、导入一份示例、看到 /me 与 /agents、成员只能看自己的账号 |
 | [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | 打不开、401、403、榜是空的 |
 | [docs/SECURITY.md](docs/SECURITY.md) | 试用默认不强制登录；生产请设 `RANKINGS_REQUIRE_AUTH=1`；不要公开哪些东西 |
@@ -62,12 +62,12 @@ docker compose -f docker-compose.yml -f docker-compose.postgres.yml up -d --buil
 - **项目榜** `/projects`：按 **账号 × 项目** 拆开看，证明不是总量黑盒
 - **Agent 榜** `/agents`：按 **agent_id** 看团队里每个 agent 大概烧多少；可用账号下拉看「我的 agents」
 - **我的** `/me`：选账号看自己的 Agent / 项目 Top、工具分布、本周文案 / 分享图
-- **提醒** `/alerts`：低消耗告警（建设性文案）；member 只看自己
+- **提醒** `/alerts`：闲置、用量过低、费用突增、账号费用阈值；member 只看自己
 - **贴 Key**：顶栏把用户 API Key 存 localStorage，排行 /me /export /alerts /forum 自动带 Header（勿存 ingest Key）
 - **交流区** `/forum`：企业内部最小讨论（发帖 / 列表 / 点赞）；匿名只读；禁止贴 Key/对话原文
 - **ProCode** `/procode`：占位适配说明；`POST /api/v1/ingest/procode`
 
-许可证：**MIT** · 版本 **0.20.0**（客户文档见文首「客户 10 分钟跑通」）
+许可证：**MIT** · 版本 **0.21.0**（客户文档见文首「客户 10 分钟跑通」）
 
 ## 本地探测
 
@@ -99,13 +99,13 @@ python -m collector once --fixtures
 6. **采集不存对话原文**：WorkBuddy / Claude Code / Codex CLI / Continue / Cursor / ProCode 只抽 usage。Cursor 的 `state.vscdb` 只用 SQL 取 token 与模型名，不读对话、不读 cookie。ProCode / Canoryn 的加密聊天库不解密。`content` / `prompt` / `completion` / `response_item` 对话正文不入库。
 7. **写接口鉴权**：`TOKEN_RANKINGS_API_KEY` 保护 ingest / sync / scan / admin / seed。
 7b. **轻量 RBAC**：`USERS_FILE` / `USERS_JSON` 映射用户 API Key → `admin`（全站）或 `member`（仅自己的 `account_id`）。带 member Key 访问排行 /me / 导出时强制过滤；`RANKINGS_REQUIRE_AUTH=1` 时排行 GET 也必须带 Key。
-7c. **导出审计**：`GET /api/v1/export/usage.csv|.json` 需鉴权，写入 `audit_log`；`GET /api/v1/admin/audit` 仅 admin。
+7c. **导出审计**：`GET /api/v1/export/usage.csv|.json` 需鉴权，写入 `audit_log`；`GET /api/v1/admin/audit` 仅 admin。`grain=finops` 按账号、项目、模型、工具汇总，未知模型保留原名并用 default 档标估算。
 7d. **数据库**：默认 SQLite（一键 demo）；生产设 `DATABASE_URL=postgresql://…` 真切 Postgres（`usage_events` / `audit_log` / 幂等唯一索引齐全）。
 8. **成本口径可见**：`cost_basis` 区分 `estimate` / `cursor_charged` / `litellm_spend` / `invoice`；UI 徽章标注，混合时标明「含估算」。列表价覆盖国内外主流模型，未知模型仍入库，只是估价落到 default；页面写明这不是发票。
 9. **未标注可隐藏**：无 `project_id` / `agent_id` 归「未标注」，排行默认 `hide_unlabeled=true`。
 10. **个人自助**：`/me?account_id=` 看自己的 Agent / 项目 / 工具分布，可复制周报文案或生成分享图。
 11. **浏览器贴用户 Key**：`localStorage` 存 member/admin Key；请求自动带 `Authorization`；提供清除；**不要**把 `TOKEN_RANKINGS_API_KEY` 写进前端默认。
-12. **低消耗提醒**：`GET /api/v1/alerts/low-usage`；窗口内 tokens < 阈值则告警；叙事：消耗过低可能说明 AI 工作流尚未真正重构。可选 `LOW_USAGE_WEBHOOK_URL` + `notify=true`。
+12. **试点提醒**：`GET /api/v1/alerts`（闲置 / 用量过低 / 费用突增 / 账号费用阈值）；`GET /api/v1/alerts/low-usage` 仍只做低用量。叙事：用量高不等于会用，过低往往说明工作流还没接上。配置见 [docs/INSTALL.md](docs/INSTALL.md)。可选 `LOW_USAGE_WEBHOOK_URL` + `notify=true`。
 13. **交流区（最小）**：`/forum` 发帖需用户 Key；匿名只读；点赞；禁止密钥；非全功能社区。
 14. **真机探测**：见 [`docs/probe.md`](docs/probe.md)（亦可通过 `/docs/probe.md` 读取）；不要求本环境真装 Cursor / WorkBuddy。
 
@@ -188,16 +188,28 @@ curl -s -X POST 'http://localhost:8000/api/v1/seed?force=true' \
 - Member 自动只看自己的 `account_id`；清除按钮可删掉本地 Key
 - **禁止**把服务端 `TOKEN_RANKINGS_API_KEY`（ingest 用）写进前端默认值或提交到仓库前端代码
 
-## 低消耗提醒
+## 试点提醒
 
 ```bash
-# 公开/admin：评估全员；带 member Key：只看自己
-curl -s 'http://localhost:8000/api/v1/alerts/low-usage?window=7d&threshold_tokens=10000' \
+# 公开/admin：评估全员；带 member Key：只看自己。按账号返回项目拆分。
+curl -s 'http://localhost:8000/api/v1/alerts?window=7d&threshold_tokens=10000&spend_threshold_usd=50' \
   -H "Authorization: Bearer demo-alice-key" | jq .
 # 若配置了 LOW_USAGE_WEBHOOK_URL，加 &notify=true 才会 POST；未配置则跳过
+# 只看低用量：/api/v1/alerts/low-usage
 ```
 
-页面：`/alerts`。文案强调建设性复盘，而非羞辱排名。
+页面：`/alerts`。环境变量见 [docs/INSTALL.md](docs/INSTALL.md) 的企业试点上线清单。费用高不是技能高。
+
+FinOps 复核导出（需用户密钥，成员只能导出自己的账号）：
+
+```bash
+curl -s -H 'Authorization: Bearer demo-admin-key' \
+  'http://localhost:8000/api/v1/export/usage.csv?window=30d&grain=finops' -o finops.csv
+curl -s -H 'Authorization: Bearer demo-admin-key' \
+  'http://localhost:8000/api/v1/export/usage.json?window=30d&grain=finops' | jq '.dimensions,.note,.count'
+```
+
+不带 `grain` 时仍是逐条事件。内网部署清单（Postgres、HTTPS、换密钥、`RANKINGS_REQUIRE_AUTH`、采集）在 [docs/INSTALL.md](docs/INSTALL.md)。
 
 ## 真机探测
 
