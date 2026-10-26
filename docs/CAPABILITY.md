@@ -1,6 +1,6 @@
 # Token 消耗排行榜 · 能力总览
 
-客户验收请用 [ACCEPTANCE.md](ACCEPTANCE.md)（当前版本见仓库 `VERSION`，0.17 起）。下面是能力索引，不是购买方清单。
+客户验收请用 [ACCEPTANCE.md](ACCEPTANCE.md)（当前版本见仓库 `VERSION`，**0.18.0**）。下面是能力索引，不是购买方清单。
 
 面向 Mateo 的一页验收清单。代码：`/workspace/token-rankings` · 许可证 MIT · 本地：`http://localhost:8000`
 
@@ -40,7 +40,7 @@
 - 工具：LiteLLM、Cursor Admin、WorkBuddy、Claude Code、Codex、Continue（+ 通用 OpenAI usage）
 - 归一：tool 小写 slug、`(source, request_id)` 幂等、seed 默认隐藏
 - 维度：`account_id` / `project_id` / `agent_id`；未标注默认可隐藏
-- 成本：`estimate` / `cursor_charged` / `litellm_spend` / 混合；UI 标明估算 vs 账单
+- 成本：`estimate` / `cursor_charged` / `litellm_spend` / 混合；UI 标明估算 vs 账单。`pricing.json` 是 2025–2026 常见模型的列表价估算，页面仍写「估算」
 - 可信度：`/health` 含工具覆盖、agent_id 占比、近 1h 并发近似
 
 ## 安全与部署

@@ -13,9 +13,13 @@ Env:
   USERS_JSON               inline JSON array of user records
   USERS_FILE               path to JSON file (e.g. fixtures/users.json)
   RANKINGS_REQUIRE_AUTH    if 1/true, ranking GETs require a valid principal
+
+User records may carry plaintext ``api_key`` (demo roster) or ``api_key_sha256``
+(hex SHA-256 of the user key). Production bootstrap writes only the hash.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import secrets
@@ -85,6 +89,9 @@ MSG_AUTH_REQUIRED = "这个站已经要求登录后才能看排行。请先粘�
 MSG_ADMIN_REQUIRED = "这个操作只有管理员可以做。请换用管理员密钥。"
 MSG_MEMBER_NO_ACCOUNT = "你的身份没有绑定账号，暂时不能查看数据。请联系管理员检查用户名单。"
 MSG_ACCOUNT_FORBIDDEN = "你只能查看自己的账号，不能查看别人的数据。"
+MSG_MEMBER_WRITE_FORBIDDEN = (
+    "成员密钥不能写入用量，也不能代替别人的账号上报。请改用采集用的写入密钥。"
+)
 MSG_WRITE_KEY_MISSING = (
     "写入功能还没配置密钥。请设置环境变量 TOKEN_RANKINGS_API_KEY（见安装说明）。"
     "看排行不需要这个密钥，除非已经要求登录。"
@@ -101,6 +108,48 @@ def is_placeholder_secret(value: Optional[str]) -> bool:
     return any(fragment in key for fragment in _PLACEHOLDER_FRAGMENTS)
 
 
+def _sha256_hex(value: str) -> str:
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+def _looks_like_sha256(value: str) -> bool:
+    text = (value or "").strip().lower()
+    return len(text) == 64 and all(c in "0123456789abcdef" for c in text)
+
+
+# Hashes of shipped placeholders. A production file that only stores sha256
+# still trips the yellow banner if someone hashed a demo key.
+_DEMO_USER_KEY_SHA256 = frozenset(_sha256_hex(k) for k in _DEMO_USER_KEYS)
+_PLACEHOLDER_KEY_SHA256 = frozenset(
+    _sha256_hex(p)
+    for p in (
+        "change_me",
+        "changeme",
+        "change-me",
+        "CHANGE_ME",
+        "todo",
+        "secret",
+        "xxx",
+        "dev-token-rankings-change-me",
+        *tuple(_DEMO_SERVICE_KEYS),
+        *tuple(_DEMO_USER_KEYS),
+    )
+)
+
+
+def user_record_uses_demo_key(api_key: str, digest: str) -> bool:
+    """True when a roster row still carries a demo or placeholder credential."""
+    key = (api_key or "").strip()
+    if key and (key in _DEMO_USER_KEYS or key in _DEMO_SERVICE_KEYS or is_placeholder_secret(key)):
+        return True
+    digest_norm = (digest or "").strip().lower()
+    if not digest_norm:
+        return False
+    if not _looks_like_sha256(digest_norm):
+        return True
+    return digest_norm in _DEMO_USER_KEY_SHA256 or digest_norm in _PLACEHOLDER_KEY_SHA256
+
+
 def setup_warnings() -> dict[str, Any]:
     """Non-secret flags for the first-run banner. Does not echo key material."""
     service = get_configured_api_key()
@@ -113,8 +162,10 @@ def setup_warnings() -> dict[str, Any]:
     except HTTPException:
         directory = []
     for user in directory:
-        key = str(user.get("api_key") or "")
-        if key in _DEMO_USER_KEYS or is_placeholder_secret(key):
+        if user_record_uses_demo_key(
+            str(user.get("api_key") or ""),
+            str(user.get("api_key_sha256") or ""),
+        ):
             demo_user = True
             break
     warnings: list[str] = []
@@ -231,7 +282,8 @@ def load_user_directory() -> list[dict[str, Any]]:
         if not isinstance(item, dict):
             continue
         api_key = str(item.get("api_key") or item.get("key") or "").strip()
-        if not api_key:
+        digest = str(item.get("api_key_sha256") or "").strip().lower()
+        if not api_key and not digest:
             continue
         role_raw = str(item.get("role") or "member").strip().lower()
         role: Role = "admin" if role_raw == "admin" else "member"
@@ -245,6 +297,7 @@ def load_user_directory() -> list[dict[str, Any]]:
         out.append(
             {
                 "api_key": api_key,
+                "api_key_sha256": digest,
                 "role": role,
                 "account_id": account_id,
                 "name": name,
@@ -275,8 +328,16 @@ def resolve_principal(presented: Optional[str]) -> Optional[Principal]:
             kind="service",
         )
 
+    presented_hash = _sha256_hex(presented)
     for u in load_user_directory():
-        if _keys_match(presented, u["api_key"]):
+        raw = str(u.get("api_key") or "")
+        digest = str(u.get("api_key_sha256") or "")
+        matched = False
+        if raw and _keys_match(presented, raw):
+            matched = True
+        elif digest and _looks_like_sha256(digest) and _keys_match(presented_hash, digest):
+            matched = True
+        if matched:
             return Principal(
                 role=u["role"],
                 account_id=u.get("account_id"),
@@ -327,6 +388,14 @@ async def require_write_api_key(
             principal = None
         if principal and principal.role == "admin" and principal.kind == "user":
             return presented
+        if principal and principal.role == "member":
+            raise HTTPException(
+                status_code=403,
+                detail={
+                    "error": "member_write_forbidden",
+                    "message": MSG_MEMBER_WRITE_FORBIDDEN,
+                },
+            )
         raise HTTPException(
             status_code=401,
             detail={
@@ -468,7 +537,7 @@ def auth_status() -> dict[str, Any]:
                 "name": u["name"],
                 "role": u["role"],
                 "account_id": u.get("account_id"),
-                "key_hint": _key_hint(u["api_key"]),
+                "key_hint": _key_hint(u.get("api_key") or u.get("api_key_sha256") or ""),
             }
             for u in users
         ],

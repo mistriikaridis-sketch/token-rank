@@ -4,5 +4,6 @@ __pycache__/
 data/*.db
 data/*.db-*
 .env
+fixtures/users.prod.json
 *.egg-info/
 .DS_Store

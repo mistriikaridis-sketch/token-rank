@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Verify Postgres path: health backend=postgres, ingest idempotent, rankings, RBAC.
-# Prereq:
-#   docker compose -f docker-compose.yml -f docker-compose.postgres.yml up -d --build
+# Prereq (password is required; do not use "token"; port is 127.0.0.1 only):
+#   POSTGRES_PASSWORD='长随机密码' docker compose -f docker-compose.yml -f docker-compose.postgres.yml up -d --build
 set -euo pipefail
 BASE="${BASE_URL:-http://localhost:8000}"
 WRITE_KEY="${TOKEN_RANKINGS_API_KEY:-dev-token-rankings-change-me}"
