@@ -1,6 +1,59 @@
-# Token 消耗排行榜（MVP）
+# Token 消耗排行榜
 
-企业内 LLM **Token / 估算成本排行榜** 最小闭环。暗色 + 薄荷绿 UI：
+许可证：**MIT** · 版本 **0.17**
+
+## 客户 10 分钟跑通
+
+给不写代码的同事。装好 Docker 后，在本仓库目录执行：
+
+```bash
+docker compose up -d --build
+```
+
+浏览器打开 <http://localhost:8000>。
+
+页面顶部如果出现黄条，说明还在用**演示密钥**。自己试用可以先不管；交给别人用之前，按 [安全说明](docs/SECURITY.md) 全部换掉，并把生产环境的 `RANKINGS_REQUIRE_AUTH` 设为 `1`。
+
+导入一份自带示例（让榜上出现数据）：
+
+```bash
+export TOKEN_RANKINGS_API_KEY=dev-token-rankings-change-me
+curl -s -X POST http://localhost:8000/api/v1/ingest/litellm \
+  -H "Authorization: Bearer $TOKEN_RANKINGS_API_KEY" \
+  -H 'Content-Type: application/json' \
+  -d @fixtures/litellm_spend_logs.json
+```
+
+回到网页，在 **首次配置** 里粘贴用户密钥 `demo-alice-key`，账号选 `acme-prod`，然后看 [我的](http://localhost:8000/me) 和 [Agent](http://localhost:8000/agents)。
+
+确认跑通：
+
+```bash
+bash scripts/customer_smoke.sh
+```
+
+看到 `ALL CUSTOMER SMOKE CHECKS PASSED` 才算通过。失败时脚本以非 0 退出。若你已经把 `.env` 里的写入密钥换成了自己的值，先 `export TOKEN_RANKINGS_API_KEY=那一串` 再跑脚本。
+
+| 文档 | 内容 |
+|---|---|
+| [docs/INSTALL.md](docs/INSTALL.md) | 安装：Docker 一条命令、可选 Postgres、换掉全部演示密钥 |
+| [docs/ACCEPTANCE.md](docs/ACCEPTANCE.md) | 验收：健康检查、导入一份示例、看到 /me 与 /agents、成员只能看自己的账号 |
+| [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | 打不开、401、403、榜是空的 |
+| [docs/SECURITY.md](docs/SECURITY.md) | 试用默认不强制登录；生产请设 `RANKINGS_REQUIRE_AUTH=1`；不要公开哪些东西 |
+
+本产品只做企业内部用量排行。**不做**自研大模型网关，也**不做**公网热度榜。见 [docs/NON_GOALS.md](docs/NON_GOALS.md)。
+
+试用默认使用 SQLite。需要 Postgres 时：
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.postgres.yml up -d --build
+```
+
+---
+
+## 给实施同事
+
+企业内 LLM **Token / 估算成本排行榜**。暗色 + 薄荷绿 UI：
 
 - **个人榜** `/people`：按参与者排行（主力工具 / 主力模型 / Token / 估算成本）；可链到「我的 Agents」
 - **组织榜** `/orgs`：按部门排行（总量 / 人均 / 人数）；可按 **工具** 筛选
@@ -12,7 +65,7 @@
 - **交流区** `/forum`：企业内部最小讨论（发帖 / 列表 / 点赞）；匿名只读；禁止贴 Key/对话原文
 - **ProCode** `/procode`：占位适配说明；`POST /api/v1/ingest/procode`
 
-许可证：**MIT** · 版本 **0.16**
+许可证：**MIT** · 版本 **0.17**（客户文档见文首「客户 10 分钟跑通」）
 
 ## 本地探测
 
@@ -194,7 +247,7 @@ curl -s -H 'Authorization: Bearer demo-admin-key' \
 bash scripts/verify_rbac.sh
 ```
 
-生产建议：`RANKINGS_REQUIRE_AUTH=1`，并改掉演示 Key。静态页目前还不带用户 Key（内网看板仍可匿名看全量）；带 Key 的 API 客户端 / 下一刀 UI 登录会强制作用域。
+生产必须：`RANKINGS_REQUIRE_AUTH=1`，并改掉全部演示 Key（`.env` 的 `TOKEN_RANKINGS_API_KEY` 与 `fixtures/users.json`）。网页「首次配置」只把**用户** Key 存在本机浏览器；仍在使用演示 Key 时顶部会出黄条。匿名看全量只适合本机试用。详见 [docs/SECURITY.md](docs/SECURITY.md)。
 
 ## 数据库（SQLite demo / Postgres 生产）
 
@@ -406,7 +459,7 @@ curl -s 'http://localhost:8000/health' | jq '{version,rbac,database,tools_connec
 |---|---|---|
 | `TOKEN_RANKINGS_API_KEY` | compose 示例 `dev-token-rankings-change-me` | 写接口鉴权（service admin）；未配置则写接口 503 |
 | `USERS_FILE` / `USERS_JSON` | compose: `/app/fixtures/users.json` | 用户 Key → role + account_id |
-| `RANKINGS_REQUIRE_AUTH` | `0` | `1` 时排行 GET 也必须带 Key |
+| `RANKINGS_REQUIRE_AUTH` | `0`（试用） | **生产设为 `1`**：排行 GET 也必须带用户 Key |
 | `DATABASE_URL` | —（SQLite） | `postgresql://…` 时真切 Postgres；见 `docker-compose.postgres.yml` |
 | `SEED_ON_START` | `0` | 启动灌 demo（`source=seed`） |
 | `LITELLM_BASE_URL` / `LITELLM_MASTER_KEY` | — | LiteLLM sync |
@@ -435,6 +488,7 @@ app/adapters/continue_dev.py
 app/db.py                   # SQLite / Postgres 双后端 + audit_log + 幂等索引
 app/seed.py                 # source=seed 演示数据
 scripts/clear_db.py
+scripts/customer_smoke.sh   # 客户验收：health + 一份 fixture + 排行，失败则非 0
 scripts/verify_rbac.sh      # member 隔离 + 导出审计自检
 scripts/verify_postgres.sh  # Postgres 路径：ingest + 排行 + RBAC
 fixtures/users.json         # 演示 admin/alice/dave

@@ -3,6 +3,8 @@
 # Production / dual-backend verify:
 #   docker compose -f docker-compose.yml -f docker-compose.postgres.yml up -d --build
 #   bash scripts/verify_postgres.sh
+# The password below is a local demo only. Change POSTGRES_PASSWORD and DATABASE_URL
+# before any shared deploy. Do not publish port 5432 on the public internet.
 
 services:
   postgres:

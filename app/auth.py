@@ -60,6 +60,84 @@ def rankings_require_auth() -> bool:
     )
 
 
+# Shipped placeholders. Health and the UI warn while any of these are still active.
+# Do not add real customer secrets here.
+_DEMO_SERVICE_KEYS = frozenset({"dev-token-rankings-change-me"})
+_DEMO_USER_KEYS = frozenset({"demo-admin-key", "demo-alice-key", "demo-dave-key"})
+_PLACEHOLDER_FRAGMENTS = (
+    "change-me",
+    "change_me",
+    "changeme",
+    "replace-me",
+    "your-key",
+    "your_key",
+)
+
+MSG_INVALID_KEY = (
+    "密钥不正确。请核对后再试。"
+    "在页面上请粘贴管理员发给你的用户密钥，不要粘贴采集用的写入密钥。"
+)
+MSG_MISSING_KEY = (
+    "还没有提供密钥。请在网页「首次配置」里粘贴用户密钥，"
+    "或在请求头加上 Authorization: Bearer <用户密钥>。"
+)
+MSG_AUTH_REQUIRED = "这个站已经要求登录后才能看排行。请先粘贴用户密钥。"
+MSG_ADMIN_REQUIRED = "这个操作只有管理员可以做。请换用管理员密钥。"
+MSG_MEMBER_NO_ACCOUNT = "你的身份没有绑定账号，暂时不能查看数据。请联系管理员检查用户名单。"
+MSG_ACCOUNT_FORBIDDEN = "你只能查看自己的账号，不能查看别人的数据。"
+MSG_WRITE_KEY_MISSING = (
+    "写入功能还没配置密钥。请设置环境变量 TOKEN_RANKINGS_API_KEY（见安装说明）。"
+    "看排行不需要这个密钥，除非已经要求登录。"
+)
+
+
+def is_placeholder_secret(value: Optional[str]) -> bool:
+    """True for CHANGE_ME-style placeholders. Never treats a real secret as documentation."""
+    if not value:
+        return False
+    key = value.strip().lower()
+    if key in {"change_me", "changeme", "change-me", "todo", "secret", "xxx"}:
+        return True
+    return any(fragment in key for fragment in _PLACEHOLDER_FRAGMENTS)
+
+
+def setup_warnings() -> dict[str, Any]:
+    """Non-secret flags for the first-run banner. Does not echo key material."""
+    service = get_configured_api_key()
+    demo_service = bool(service) and (
+        service in _DEMO_SERVICE_KEYS or is_placeholder_secret(service)
+    )
+    demo_user = False
+    try:
+        directory = load_user_directory()
+    except HTTPException:
+        directory = []
+    for user in directory:
+        key = str(user.get("api_key") or "")
+        if key in _DEMO_USER_KEYS or is_placeholder_secret(key):
+            demo_user = True
+            break
+    warnings: list[str] = []
+    if demo_service:
+        warnings.append(
+            "写入密钥仍是演示值。请改成只有你们自己知道的一长串随机字符，"
+            "不要继续用 dev-token-rankings-change-me 或 CHANGE_ME。"
+        )
+    if demo_user:
+        warnings.append(
+            "用户密钥仍是演示值（例如 demo-alice-key）。正式使用前请在用户名单里全部换掉。"
+        )
+    if not rankings_require_auth():
+        warnings.append("排行榜目前不强制登录。生产环境请设置 RANKINGS_REQUIRE_AUTH=1。")
+    return {
+        "demo_keys_in_use": demo_service or demo_user,
+        "demo_service_key": demo_service,
+        "demo_user_keys": demo_user,
+        "rankings_require_auth": rankings_require_auth(),
+        "warnings": warnings,
+    }
+
+
 def extract_presented_key(
     authorization: Optional[str],
     x_api_key: Optional[str],
@@ -211,7 +289,7 @@ def resolve_principal(presented: Optional[str]) -> Optional[Principal]:
         status_code=401,
         detail={
             "error": "invalid_api_key",
-            "message": "Invalid API key",
+            "message": MSG_INVALID_KEY,
         },
         headers={"WWW-Authenticate": "Bearer"},
     )
@@ -228,11 +306,7 @@ async def require_write_api_key(
             status_code=503,
             detail={
                 "error": "api_key_not_configured",
-                "message": (
-                    "Write APIs require TOKEN_RANKINGS_API_KEY. "
-                    "Set it in the environment (see docker-compose.yml). "
-                    "Ranking GET endpoints remain public unless RANKINGS_REQUIRE_AUTH=1."
-                ),
+                "message": MSG_WRITE_KEY_MISSING,
             },
         )
     presented = extract_presented_key(authorization, x_api_key)
@@ -241,7 +315,7 @@ async def require_write_api_key(
             status_code=401,
             detail={
                 "error": "missing_api_key",
-                "message": "Provide Authorization: Bearer <key> or X-API-Key header",
+                "message": MSG_MISSING_KEY,
             },
             headers={"WWW-Authenticate": "Bearer"},
         )
@@ -257,7 +331,7 @@ async def require_write_api_key(
             status_code=401,
             detail={
                 "error": "invalid_api_key",
-                "message": "Invalid API key",
+                "message": MSG_INVALID_KEY,
             },
             headers={"WWW-Authenticate": "Bearer"},
         )
@@ -276,10 +350,7 @@ async def optional_principal(
             status_code=401,
             detail={
                 "error": "auth_required",
-                "message": (
-                    "RANKINGS_REQUIRE_AUTH is set; provide Authorization: Bearer "
-                    "<user or service key> or X-API-Key"
-                ),
+                "message": MSG_AUTH_REQUIRED,
             },
             headers={"WWW-Authenticate": "Bearer"},
         )
@@ -297,7 +368,7 @@ async def require_principal(
             status_code=401,
             detail={
                 "error": "missing_api_key",
-                "message": "Provide Authorization: Bearer <key> or X-API-Key header",
+                "message": MSG_MISSING_KEY,
             },
             headers={"WWW-Authenticate": "Bearer"},
         )
@@ -307,7 +378,7 @@ async def require_principal(
             status_code=401,
             detail={
                 "error": "invalid_api_key",
-                "message": "Invalid API key",
+                "message": MSG_INVALID_KEY,
             },
             headers={"WWW-Authenticate": "Bearer"},
         )
@@ -325,7 +396,7 @@ async def require_admin(
             status_code=401,
             detail={
                 "error": "missing_api_key",
-                "message": "Provide Authorization: Bearer <key> or X-API-Key header",
+                "message": MSG_MISSING_KEY,
             },
             headers={"WWW-Authenticate": "Bearer"},
         )
@@ -335,7 +406,7 @@ async def require_admin(
             status_code=403,
             detail={
                 "error": "admin_required",
-                "message": "This endpoint requires an admin API key",
+                "message": MSG_ADMIN_REQUIRED,
             },
         )
     return p
@@ -361,7 +432,7 @@ def apply_account_scope(
             status_code=403,
             detail={
                 "error": "member_missing_account",
-                "message": "Member principal has no account_id configured",
+                "message": MSG_MEMBER_NO_ACCOUNT,
             },
         )
     if requested_account_id and requested_account_id.strip() != own:
@@ -369,10 +440,7 @@ def apply_account_scope(
             status_code=403,
             detail={
                 "error": "account_forbidden",
-                "message": (
-                    f"Member can only access account_id={own}; "
-                    f"requested={requested_account_id.strip()}"
-                ),
+                "message": MSG_ACCOUNT_FORBIDDEN,
             },
         )
     return own

@@ -23,6 +23,7 @@ from app.auth import (
     require_admin,
     require_principal,
     require_write_api_key,
+    setup_warnings,
 )
 from app.alerts import build_low_usage_alerts, maybe_post_webhook
 from app.adapters.cursor_admin import extract_cursor_events, map_cursor_payload, map_cursor_payload_with_stats
@@ -90,11 +91,23 @@ from app.credibility import (
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 DOCS_DIR = Path(__file__).resolve().parent.parent / "docs"
+VERSION_FILE = Path(__file__).resolve().parent.parent / "VERSION"
+
+
+def read_app_version() -> str:
+    try:
+        text = VERSION_FILE.read_text(encoding="utf-8").strip()
+    except OSError:
+        text = ""
+    return text or "0.17.0"
+
+
+APP_VERSION = read_app_version()
 
 app = FastAPI(
     title="Token 消耗排行榜",
-    description="企业内 LLM Token / 成本排行榜 MVP",
-    version="0.16.0",
+    description="企业内 LLM Token / 成本排行榜。不做自研网关，不做公网热度榜。",
+    version=APP_VERSION,
 )
 
 
@@ -415,7 +428,8 @@ def health() -> dict[str, Any]:
     ]
     return {
         "status": "ok",
-        "version": "0.16.0",
+        "version": APP_VERSION,
+        "setup": setup_warnings(),
         "events": count_events(),
         "events_non_seed": count_events(exclude_seed=True),
         "priced_models": len(list_priced_models()),
@@ -2534,21 +2548,42 @@ def list_tools() -> dict[str, Any]:
 
 
 
+def _markdown_doc(name: str) -> FileResponse:
+    p = DOCS_DIR / name
+    if not p.is_file():
+        raise HTTPException(status_code=404, detail=f"docs/{name} missing")
+    return FileResponse(p, media_type="text/markdown; charset=utf-8")
+
+
+@app.get("/docs/INSTALL.md")
+def install_doc() -> FileResponse:
+    return _markdown_doc("INSTALL.md")
+
+
+@app.get("/docs/ACCEPTANCE.md")
+def acceptance_doc() -> FileResponse:
+    return _markdown_doc("ACCEPTANCE.md")
+
+
+@app.get("/docs/TROUBLESHOOTING.md")
+def troubleshooting_doc() -> FileResponse:
+    return _markdown_doc("TROUBLESHOOTING.md")
+
+
+@app.get("/docs/SECURITY.md")
+def security_doc() -> FileResponse:
+    return _markdown_doc("SECURITY.md")
+
+
 @app.get("/docs/probe.md")
 def probe_doc() -> FileResponse:
     """On-machine probe checklist (WorkBuddy / Cursor / ProCode)."""
-    p = DOCS_DIR / "probe.md"
-    if not p.is_file():
-        raise HTTPException(status_code=404, detail="docs/probe.md missing")
-    return FileResponse(p, media_type="text/markdown; charset=utf-8")
+    return _markdown_doc("probe.md")
 
 
 @app.get("/docs/NON_GOALS.md")
 def non_goals_doc() -> FileResponse:
-    p = DOCS_DIR / "NON_GOALS.md"
-    if not p.is_file():
-        raise HTTPException(status_code=404, detail="docs/NON_GOALS.md missing")
-    return FileResponse(p, media_type="text/markdown; charset=utf-8")
+    return _markdown_doc("NON_GOALS.md")
 
 
 @app.get("/")
