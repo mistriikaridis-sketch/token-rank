@@ -1,0 +1,5 @@
+{"type":"message","content":"NEVER_STORE_THIS_PROMPT_TEXT_XXXX","role":"user","timestamp":"2026-10-26T01:00:00Z"}
+{"type":"llm.usage","model":"claude-3-5-sonnet","usage":{"input_tokens":1200,"output_tokens":350,"cache_read":800},"cwd":"/Users/demo/work/demo-app","account":"alice@acme.com","team":"平台研发","timestamp":"2026-10-26T01:05:00Z","request_id":"wb-probe-001","agent_id":"wb-coder","agent_name":"编码特工"}
+{"event":"token_usage","model_name":"gpt-4o-mini","token_usage":{"prompt":640,"completion":180},"projectId":"demo-app","userEmail":"alice@acme.com","team":"平台研发","createdAt":"2026-10-26T01:20:00Z","callId":"wb-probe-002"}
+{"type":"llm.usage","model":"","usage":{"input_tokens":10,"output_tokens":5},"timestamp":"2026-10-26T01:25:00Z"}
+{"not":"usage","foo":1}

@@ -1,0 +1,144 @@
+{
+  "data": [
+    {
+      "request_id": "req-fixture-001",
+      "model": "gpt-4o-mini",
+      "model_group": "gpt-4o-mini",
+      "api_key": "hash-sk-alice-001",
+      "user": "alice@acme.com",
+      "end_user": "alice@acme.com",
+      "team_id": "平台研发",
+      "prompt_tokens": 1800,
+      "completion_tokens": 420,
+      "total_tokens": 2220,
+      "spend": 0.00045,
+      "request_tags": [
+        "tool:Cursor",
+        "project:chatbot-core",
+        "account:acme-prod",
+        "agent_id:agent-research",
+        "agent_name:调研助手"
+      ],
+      "startTime": "2026-10-25 02:15:00",
+      "endTime": "2026-10-25 02:15:03",
+      "metadata": {
+        "user_api_key_user_id": "alice@acme.com",
+        "user_api_key_team_id": "平台研发",
+        "project_id": "chatbot-core",
+        "account_id": "acme-prod",
+        "agent_id": "agent-research",
+        "agent_name": "调研助手"
+      }
+    },
+    {
+      "request_id": "req-fixture-001b",
+      "model": "gpt-4o",
+      "api_key": "hash-sk-alice-001",
+      "user": "alice@acme.com",
+      "end_user": "alice@acme.com",
+      "team_id": "平台研发",
+      "prompt_tokens": 2400,
+      "completion_tokens": 600,
+      "total_tokens": 3000,
+      "request_tags": [
+        "tool:Cursor",
+        "project:rag-search",
+        "account:acme-prod",
+        "agent:agent-coder",
+        "agent_name:编码特工"
+      ],
+      "startTime": "2026-10-25 02:45:00",
+      "metadata": {
+        "project_id": "rag-search",
+        "account_id": "acme-prod",
+        "agent_id": "agent-coder",
+        "agent_name": "编码特工"
+      }
+    },
+    {
+      "request_id": "req-fixture-001c",
+      "model": "claude-3-5-sonnet",
+      "api_key": "hash-sk-alice-001",
+      "user": "alice@acme.com",
+      "team_id": "平台研发",
+      "prompt_tokens": 1500,
+      "completion_tokens": 400,
+      "total_tokens": 1900,
+      "request_tags": [
+        "tool:Claude Code",
+        "project:eval-harness",
+        "agent_id:agent-eval"
+      ],
+      "project_id": "eval-harness",
+      "account_id": "acme-prod",
+      "startTime": "2026-10-25 03:10:00",
+      "metadata": {
+        "agent_id": "agent-eval",
+        "agent_name": "评测机器人"
+      }
+    },
+    {
+      "request_id": "req-fixture-002",
+      "model": "claude-3-5-sonnet",
+      "api_key": "hash-sk-bob-002",
+      "user": "bob@acme.com",
+      "end_user": "bob@acme.com",
+      "team_id": "增长运营",
+      "prompt_tokens": 3200,
+      "completion_tokens": 900,
+      "total_tokens": 4100,
+      "spend": 0.018,
+      "request_tags": [
+        "tool:Claude Code",
+        "project:growth-copilot",
+        "account:acme-prod",
+        "bot_id:growth-bot-01"
+      ],
+      "startTime": "2026-10-25 03:40:00",
+      "metadata": {
+        "project_id": "growth-copilot",
+        "account_id": "acme-prod",
+        "bot_id": "growth-bot-01",
+        "agent_name": "增长 Copilot"
+      }
+    },
+    {
+      "request_id": "req-fixture-003",
+      "model": "gpt-4o",
+      "api_key": "hash-sk-carol-003",
+      "user": "carol@acme.com",
+      "team_id": "数据智能",
+      "prompt_tokens": 900,
+      "completion_tokens": 300,
+      "total_tokens": 1200,
+      "request_tags": [
+        "app:内部助手",
+        "project:bi-assistant",
+        "agent_id:bi-analyst"
+      ],
+      "startTime": 1761360000,
+      "metadata": "{\"user_api_key_team_id\": \"数据智能\", \"tool\": \"内部助手\", \"project_id\": \"bi-assistant\", \"account_id\": \"acme-prod\", \"agent_id\": \"bi-analyst\", \"agent_name\": \"BI 分析 Agent\"}"
+    },
+    {
+      "request_id": "req-fixture-004",
+      "model": "deepseek-chat",
+      "user": "dave@acme.com",
+      "team_id": "平台研发",
+      "prompt_tokens": 500,
+      "completion_tokens": 200,
+      "total_tokens": 700,
+      "request_tags": [
+        "tool:Continue",
+        "project:chatbot-core",
+        "automationId:auto-nightly-01"
+      ],
+      "project_id": "chatbot-core",
+      "account_id": "acme-dev",
+      "startTime": "2026-10-24T18:00:00Z",
+      "metadata": {
+        "automationId": "auto-nightly-01",
+        "agent_name": "夜间批处理"
+      }
+    }
+  ]
+}

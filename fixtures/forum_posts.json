@@ -1,0 +1,36 @@
+[
+  {
+    "title": "消耗上去了，是不是说明工作流真重构了？",
+    "body": "我们组把评审纪要和用例起草交给 Agent 后，本周 Token 翻了三倍。对照排行榜叙事：消耗太低反而可能说明还没真正把活交给 AI。大家怎么看阈值？",
+    "author_name": "Alice",
+    "author_role": "member",
+    "author_account_id": "acme-prod",
+    "likes": 5,
+    "hours_ago": 5
+  },
+  {
+    "title": "多项目并行怎么在榜上拆开看",
+    "body": "一个人同时跑十个项目时，只看总量会很浅。项目榜按账号×项目拆开之后，才能看出并发结构。欢迎补充你们团队的 tag / project_id 约定。",
+    "author_name": "Demo Admin",
+    "author_role": "admin",
+    "likes": 3,
+    "hours_ago": 18
+  },
+  {
+    "title": "Cursor / WorkBuddy / Claude Code 口径对齐笔记",
+    "body": "本地工具和网关 SpendLogs 归一到同一 schema 后，跨工具对比才可信。记得 cache / reasoning 要拆桶，别把对话原文 ingest 进来。",
+    "author_name": "Dave",
+    "author_role": "member",
+    "author_account_id": "dave@acme.com",
+    "likes": 2,
+    "hours_ago": 36
+  },
+  {
+    "title": "提醒：交流区禁止贴 Key",
+    "body": "发帖前请自查：不要粘贴 sk-、Bearer Token、私钥或完整对话。需要排障请走私有渠道，这里只谈用量与工作流。",
+    "author_name": "Demo Admin",
+    "author_role": "admin",
+    "likes": 8,
+    "hours_ago": 48
+  }
+]

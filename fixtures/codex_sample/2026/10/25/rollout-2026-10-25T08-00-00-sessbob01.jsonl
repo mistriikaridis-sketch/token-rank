@@ -1,0 +1,4 @@
+{"timestamp":"2026-10-25T08:00:00.000Z","type":"session_meta","payload":{"id":"thread_bob_01","session_id":"sess_bob_01","cwd":"/Users/bob/work/rag-search","cli_version":"0.140.0"}}
+{"timestamp":"2026-10-25T08:00:01.000Z","type":"turn_context","payload":{"model":"o4-mini","cwd":"/Users/bob/work/rag-search"}}
+{"timestamp":"2026-10-25T08:00:02.000Z","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"SECRET ASSISTANT REPLY"}]}}
+{"timestamp":"2026-10-25T08:00:20.000Z","type":"event_msg","payload":{"type":"token_count","info":{"last_token_usage":{"input_tokens":4200,"cached_input_tokens":1000,"output_tokens":550,"total_tokens":4750},"total_token_usage":{"input_tokens":4200,"cached_input_tokens":1000,"output_tokens":550,"total_tokens":4750}}}}

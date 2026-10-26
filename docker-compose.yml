@@ -1,0 +1,62 @@
+services:
+  token-rankings:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - rankings-data:/data
+      # Optional: mount host WorkBuddy projects for POST /api/v1/scan/workbuddy
+      # - ${HOME}/.workbuddy/projects:/workbuddy/projects:ro
+      # Demo fake home for probe/scan closed-loop (no real apps required)
+      - ./fixtures/probe_home/.workbuddy/projects:/probe/workbuddy/projects:ro
+      - ./fixtures/probe_home/.cursor/exports:/probe/cursor/exports:ro
+      # - ${HOME}/.claude/projects:/claude/projects:ro
+      # - ${HOME}/.codex/sessions:/codex/sessions:ro
+      # - ${HOME}/.continue/dev_data:/continue/dev_data:ro
+    environment:
+      - DATA_DIR=/data
+      - PRICING_FILE=/app/pricing.json
+      - SEED_ON_START=0
+      - FORUM_SEED_ON_START=1
+      # Write APIs (ingest/sync/scan/admin/seed). Ranking GET stays public unless RANKINGS_REQUIRE_AUTH=1.
+      # Change this before any shared/production deploy.
+      - TOKEN_RANKINGS_API_KEY=dev-token-rankings-change-me
+      # Light RBAC demo users (admin / alice@acme-prod / dave)
+      - USERS_FILE=/app/fixtures/users.json
+      - RANKINGS_REQUIRE_AUTH=0
+      # Optional: POST low-usage alerts when UI/API calls ?notify=true
+      # - LOW_USAGE_WEBHOOK_URL=https://hooks.example.com/token-rankings/low-usage
+      # Default: SQLite under /data. For Postgres use the overlay:
+      #   docker compose -f docker-compose.yml -f docker-compose.postgres.yml up -d --build
+      # Or set DATABASE_URL yourself (postgresql://user:pass@host:5432/dbname).
+      # - DATABASE_URL=postgresql://token:token@postgres:5432/token_rankings
+      # LiteLLM 定时/手动 sync（取消注释并填真实值后启用 POST /api/v1/sync/litellm）
+      # - LITELLM_BASE_URL=http://litellm:4000
+      # - LITELLM_MASTER_KEY=sk-your-master-key
+      # - LITELLM_SYNC_DAYS=1
+      # Cursor Admin sync（Basic auth key；未设置时 POST /api/v1/sync/cursor → 503，不挡主站）
+      # - CURSOR_ADMIN_API_KEY=key_xxx
+      # - CURSOR_API_BASE=https://api.cursor.com
+      # WorkBuddy 本地扫描根目录（容器内路径；配合上面 volume）
+      # - WORKBUDDY_PROJECTS_DIR=/workbuddy/projects
+      # Demo: POST /api/v1/scan/workbuddy?root=/probe/workbuddy/projects
+      - WORKBUDDY_PROJECTS_DIR=/probe/workbuddy/projects
+      # Claude Code 本地扫描根目录（默认 ~/.claude/projects；配合 volume）
+      # - CLAUDE_PROJECTS_DIR=/claude/projects
+      # - CLAUDE_ACCOUNT_ID=you@company.com
+      # Codex CLI 本地扫描根目录（默认 ~/.codex/sessions；配合 volume）
+      # - CODEX_SESSIONS_DIR=/codex/sessions
+      # - CODEX_ACCOUNT_ID=you@company.com
+      # Continue 本地扫描根目录（默认 ~/.continue/dev_data；配合 volume）
+      # - CONTINUE_DATA_DIR=/continue/dev_data
+      # - CONTINUE_ACCOUNT_ID=you@company.com
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
+volumes:
+  rankings-data:

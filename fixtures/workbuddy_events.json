@@ -1,0 +1,49 @@
+{
+  "events": [
+    {
+      "type": "llm.usage",
+      "model": "claude-3-5-sonnet",
+      "usage": {
+        "input_tokens": 1100,
+        "output_tokens": 300,
+        "cache_read": 500,
+        "reasoning": 0
+      },
+      "cwd": "/tmp/demo/eval-harness",
+      "account": "dave@acme.com",
+      "team": "平台研发",
+      "timestamp": "2026-10-25T03:00:00Z",
+      "agent_id": "wb-eval-runner",
+      "agent_name": "评测跑批"
+    },
+    {
+      "type": "llm.usage",
+      "model": "qwen-plus",
+      "prompt_tokens": 700,
+      "completion_tokens": 180,
+      "cache_read_tokens": 0,
+      "reasoning_tokens": 90,
+      "project_id": "ops-bot",
+      "email": "eve@acme.com",
+      "team": "运维效能",
+      "timestamp": "2026-10-25T03:20:00Z",
+      "bot_id": "wb-ops-sentry",
+      "agent_name": "运维哨兵"
+    },
+    {
+      "type": "llm.usage",
+      "model": "claude-3-5-sonnet",
+      "usage": {
+        "input_tokens": 800,
+        "output_tokens": 220
+      },
+      "project_id": "eval-harness",
+      "account": "dave@acme.com",
+      "team": "平台研发",
+      "agent_id": "wb-refactor",
+      "agent_name": "重构特工",
+      "timestamp": "2026-10-25T03:30:00Z",
+      "request_id": "wb-req-003"
+    }
+  ]
+}

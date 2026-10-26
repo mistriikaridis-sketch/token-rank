@@ -1,0 +1,14 @@
+{
+  "gpt-4o": {"input_per_1m": 2.50, "output_per_1m": 10.00, "currency": "USD"},
+  "gpt-4o-mini": {"input_per_1m": 0.15, "output_per_1m": 0.60, "currency": "USD"},
+  "gpt-4-turbo": {"input_per_1m": 10.00, "output_per_1m": 30.00, "currency": "USD"},
+  "gpt-3.5-turbo": {"input_per_1m": 0.50, "output_per_1m": 1.50, "currency": "USD"},
+  "claude-3-5-sonnet": {"input_per_1m": 3.00, "output_per_1m": 15.00, "currency": "USD"},
+  "claude-3-5-haiku": {"input_per_1m": 0.80, "output_per_1m": 4.00, "currency": "USD"},
+  "claude-3-opus": {"input_per_1m": 15.00, "output_per_1m": 75.00, "currency": "USD"},
+  "gemini-1.5-pro": {"input_per_1m": 1.25, "output_per_1m": 5.00, "currency": "USD"},
+  "gemini-1.5-flash": {"input_per_1m": 0.075, "output_per_1m": 0.30, "currency": "USD"},
+  "deepseek-chat": {"input_per_1m": 0.14, "output_per_1m": 0.28, "currency": "USD"},
+  "qwen-plus": {"input_per_1m": 0.40, "output_per_1m": 1.20, "currency": "USD"},
+  "default": {"input_per_1m": 1.00, "output_per_1m": 3.00, "currency": "USD"}
+}

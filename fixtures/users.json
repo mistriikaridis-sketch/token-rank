@@ -1,0 +1,19 @@
+[
+  {
+    "api_key": "demo-admin-key",
+    "role": "admin",
+    "name": "Demo Admin"
+  },
+  {
+    "api_key": "demo-alice-key",
+    "role": "member",
+    "account_id": "acme-prod",
+    "name": "Alice"
+  },
+  {
+    "api_key": "demo-dave-key",
+    "role": "member",
+    "account_id": "dave@acme.com",
+    "name": "Dave"
+  }
+]

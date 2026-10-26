@@ -1,0 +1,82 @@
+{
+  "totalUsageEventsCount": 4,
+  "usageEvents": [
+    {
+      "timestamp": "1792894200000",
+      "userEmail": "alice@acme.com",
+      "userId": "user_alice_001",
+      "conversationId": "8f2e4a1b-6c3d-4e5f-9a7b-2d1c8e6f4a3b",
+      "model": "claude-4.5-sonnet",
+      "kind": "Usage-based",
+      "maxMode": true,
+      "isTokenBasedCall": true,
+      "tokenUsage": {
+        "inputTokens": 1260,
+        "outputTokens": 450,
+        "cacheWriteTokens": 6112,
+        "cacheReadTokens": 11964,
+        "totalCents": 20.18
+      },
+      "chargedCents": 21.36,
+      "cloudAgentId": "cloud-agent-alice-writer",
+      "agentName": "文档写作 Agent"
+    },
+    {
+      "timestamp": "1792896000000",
+      "userEmail": "alice@acme.com",
+      "conversationId": "8f2e4a1b-6c3d-4e5f-9a7b-2d1c8e6f4a3b",
+      "model": "claude-4.5-sonnet",
+      "kind": "Usage-based",
+      "isTokenBasedCall": true,
+      "tokenUsage": {
+        "inputTokens": 5805,
+        "outputTokens": 311,
+        "cacheWriteTokens": 2000,
+        "cacheReadTokens": 0,
+        "totalCents": 40.16
+      },
+      "chargedCents": 37.33,
+      "cloudAgentId": "cloud-agent-alice-writer",
+      "agentName": "文档写作 Agent"
+    },
+    {
+      "timestamp": "1792897500000",
+      "userEmail": "bob@acme.com",
+      "conversationId": "3b9d7c2e-1f4a-4b8c-a6d5-e9f0a2b4c6d8",
+      "model": "gpt-4o",
+      "kind": "Included in Business",
+      "isTokenBasedCall": true,
+      "tokenUsage": {
+        "inputTokens": 2200,
+        "outputTokens": 800,
+        "cacheWriteTokens": 0,
+        "cacheReadTokens": 1500,
+        "totalCents": 12.0
+      },
+      "chargedCents": 12.0,
+      "team": "增长运营",
+      "cloudAgentId": "cloud-agent-bob-growth",
+      "agent_name": "增长自动化"
+    },
+    {
+      "timestamp": "1792821600000",
+      "userEmail": "carol@acme.com",
+      "conversationId": "aa11bb22-cc33-dd44-ee55-ff6677889900",
+      "model": "claude-4-sonnet-thinking",
+      "kind": "Usage-based",
+      "isTokenBasedCall": true,
+      "tokenUsage": {
+        "inputTokens": 900,
+        "outputTokens": 400,
+        "cacheWriteTokens": 0,
+        "cacheReadTokens": 0,
+        "reasoningTokens": 1200,
+        "totalCents": 8.5
+      },
+      "chargedCents": 8.5,
+      "team": "数据智能",
+      "automationId": "auto-carol-thinker",
+      "agent_name": "深度思考 Agent"
+    }
+  ]
+}

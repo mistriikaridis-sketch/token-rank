@@ -1,0 +1,48 @@
+{
+  "events": [
+    {
+      "type": "assistant",
+      "cwd": "/Users/carol/work/eval-harness",
+      "timestamp": "2026-10-25T05:00:00.000Z",
+      "requestId": "req_push_1",
+      "account": "carol@acme.com",
+      "team": "数据智能",
+      "message": {
+        "id": "msg_push_01",
+        "role": "assistant",
+        "model": "claude-sonnet-4-5",
+        "content": "THIS CONTENT MUST BE STRIPPED AND NEVER STORED",
+        "usage": {
+          "input_tokens": 400,
+          "output_tokens": 150,
+          "cache_read_input_tokens": 2000,
+          "cache_creation_input_tokens": 100
+        }
+      }
+    },
+    {
+      "type": "assistant",
+      "cwd": "/Users/carol/work/eval-harness",
+      "timestamp": "2026-10-25T05:00:01.000Z",
+      "requestId": "req_push_1",
+      "account": "carol@acme.com",
+      "team": "数据智能",
+      "message": {
+        "id": "msg_push_01",
+        "role": "assistant",
+        "model": "claude-sonnet-4-5",
+        "content": "DUPLICATE STREAM LINE — same message.id",
+        "usage": {
+          "input_tokens": 400,
+          "output_tokens": 220,
+          "cache_read_input_tokens": 2000,
+          "cache_creation_input_tokens": 100
+        }
+      }
+    },
+    {
+      "type": "user",
+      "message": {"role": "user", "content": "ignore me"}
+    }
+  ]
+}

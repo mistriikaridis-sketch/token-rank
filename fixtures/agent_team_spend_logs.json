@@ -1,0 +1,96 @@
+{
+  "data": [
+    {
+      "request_id": "agent-team-001",
+      "model": "gpt-4o-mini",
+      "user": "alice@acme.com",
+      "team_id": "平台研发",
+      "prompt_tokens": 2000,
+      "completion_tokens": 500,
+      "total_tokens": 2500,
+      "spend": 0.0006,
+      "request_tags": [
+        "tool:Cursor",
+        "project:agent-lab",
+        "account:acme-prod",
+        "agent_id:agent-planner",
+        "agent_name:规划官"
+      ],
+      "startTime": "2026-10-25 04:00:00",
+      "metadata": {
+        "account_id": "acme-prod",
+        "project_id": "agent-lab",
+        "agent_id": "agent-planner",
+        "agent_name": "规划官"
+      }
+    },
+    {
+      "request_id": "agent-team-002",
+      "model": "claude-3-5-sonnet",
+      "user": "alice@acme.com",
+      "team_id": "平台研发",
+      "prompt_tokens": 5000,
+      "completion_tokens": 1200,
+      "total_tokens": 6200,
+      "spend": 0.028,
+      "request_tags": [
+        "tool:Cursor",
+        "project:agent-lab",
+        "account:acme-prod",
+        "agent_id:agent-implementer",
+        "agent_name:实现官"
+      ],
+      "startTime": "2026-10-25 04:10:00",
+      "metadata": {
+        "account_id": "acme-prod",
+        "project_id": "agent-lab",
+        "agent_id": "agent-implementer",
+        "agent_name": "实现官"
+      }
+    },
+    {
+      "request_id": "agent-team-003",
+      "model": "gpt-4o",
+      "user": "alice@acme.com",
+      "team_id": "平台研发",
+      "prompt_tokens": 1500,
+      "completion_tokens": 400,
+      "total_tokens": 1900,
+      "request_tags": [
+        "tool:Cursor",
+        "project:agent-lab",
+        "account:acme-prod",
+        "agent_id:agent-reviewer",
+        "agent_name:评审官"
+      ],
+      "startTime": "2026-10-25 04:20:00",
+      "metadata": {
+        "account_id": "acme-prod",
+        "project_id": "agent-lab",
+        "agent_id": "agent-reviewer",
+        "agent_name": "评审官"
+      }
+    },
+    {
+      "request_id": "agent-team-004",
+      "model": "deepseek-chat",
+      "user": "bob@acme.com",
+      "team_id": "增长运营",
+      "prompt_tokens": 900,
+      "completion_tokens": 200,
+      "total_tokens": 1100,
+      "request_tags": [
+        "tool:Claude Code",
+        "agent:agent-implementer",
+        "agent_name:实现官"
+      ],
+      "account_id": "acme-prod",
+      "project_id": "growth-copilot",
+      "startTime": "2026-10-25 05:00:00",
+      "metadata": {
+        "agent_id": "agent-implementer",
+        "agent_name": "实现官"
+      }
+    }
+  ]
+}

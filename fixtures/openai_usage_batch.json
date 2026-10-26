@@ -1,0 +1,39 @@
+[
+  {
+    "id": "chatcmpl-fixture-1",
+    "object": "chat.completion",
+    "model": "gpt-4o-mini",
+    "usage": {
+      "prompt_tokens": 640,
+      "completion_tokens": 160,
+      "total_tokens": 800
+    },
+    "metadata": {
+      "user": "erin@acme.com",
+      "team": "客户成功",
+      "account_id": "acme-prod",
+      "project_id": "cs-bot",
+      "tags": ["tool:Zapier", "project:cs-bot"]
+    }
+  },
+  {
+    "model": "qwen-plus",
+    "usage": {"prompt_tokens": 400, "completion_tokens": 100, "total_tokens": 500},
+    "user": "frank@acme.com",
+    "team": "增长运营",
+    "tool": "Dify",
+    "account_id": "acme-prod",
+    "project_id": "growth-copilot",
+    "timestamp": "2026-10-25T04:00:00+00:00"
+  },
+  {
+    "model": "gpt-4o-mini",
+    "usage": {"prompt_tokens": 300, "completion_tokens": 80, "total_tokens": 380},
+    "user": "alice@acme.com",
+    "team": "平台研发",
+    "tool": "Cursor",
+    "account_id": "acme-prod",
+    "project_id": "docs-gen",
+    "timestamp": "2026-10-25T04:30:00+00:00"
+  }
+]

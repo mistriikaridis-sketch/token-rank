@@ -1,0 +1,41 @@
+{
+  "events": [
+    {
+      "model": "gpt-4o-mini",
+      "prompt_tokens": 1100,
+      "completion_tokens": 260,
+      "account_id": "frank@acme.com",
+      "project_id": "procode-gateway",
+      "participant": "frank@acme.com",
+      "team": "平台研发",
+      "agent_id": "pc-router",
+      "agent_name": "ProCode 路由",
+      "request_id": "procode-fx-001",
+      "timestamp": "2026-10-26T04:00:00Z",
+      "source": "procode",
+      "tool": "procode",
+      "metadata": {"via": "litellm", "header": "x-tool=procode"}
+    },
+    {
+      "model": "claude-3-5-sonnet",
+      "input_tokens": 800,
+      "output_tokens": 190,
+      "account_id": "grace@acme.com",
+      "project_id": "procode-editor",
+      "email": "grace@acme.com",
+      "team": "增长运营",
+      "request_id": "procode-fx-002",
+      "timestamp": "2026-10-26T04:30:00Z"
+    },
+    {
+      "model": "deepseek-chat",
+      "usage": {"prompt_tokens": 450, "completion_tokens": 120},
+      "account": "frank@acme.com",
+      "project": "procode-gateway",
+      "bot_id": "pc-batch",
+      "agent_name": "批处理",
+      "request_id": "procode-fx-003",
+      "ts": "2026-10-26T05:00:00Z"
+    }
+  ]
+}

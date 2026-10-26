@@ -1,0 +1,2 @@
+{"type":"llm.usage","model":"qwen-plus","prompt_tokens":500,"completion_tokens":120,"cache_read_tokens":0,"reasoning_tokens":40,"project_id":"ops-bot","email":"eve@acme.com","team":"运维效能","timestamp":"2026-10-26T02:00:00Z","request_id":"wb-probe-003","bot_id":"wb-ops","agent_name":"运维哨兵"}
+{"type":"assistant","prompt":"long prompt that must be stripped","response":"long reply","model":"qwen-plus","usage":{"input_tokens":100,"output_tokens":50},"account_id":"eve@acme.com","timestamp":"2026-10-26T02:10:00Z","request_id":"wb-probe-004"}

@@ -1,0 +1,100 @@
+{
+  "events": [
+    {
+      "timestamp": "2026-10-25T06:00:00.000Z",
+      "type": "session_meta",
+      "payload": {
+        "id": "thread_push_01",
+        "session_id": "sess_push_01",
+        "cwd": "/Users/dave/work/billing-api",
+        "cli_version": "0.155.0"
+      }
+    },
+    {
+      "timestamp": "2026-10-25T06:00:01.000Z",
+      "type": "turn_context",
+      "payload": {
+        "model": "gpt-5-codex",
+        "cwd": "/Users/dave/work/billing-api"
+      }
+    },
+    {
+      "timestamp": "2026-10-25T06:00:02.000Z",
+      "type": "response_item",
+      "payload": {
+        "type": "message",
+        "role": "user",
+        "content": [
+          {
+            "type": "input_text",
+            "text": "SECRET USER PROMPT MUST NEVER BE STORED"
+          }
+        ]
+      }
+    },
+    {
+      "timestamp": "2026-10-25T06:00:05.000Z",
+      "type": "token_usage_record",
+      "payload": {
+        "session_id": "sess_push_01",
+        "response_id": "resp_push_aaa",
+        "usage": {
+          "input_tokens": 28739,
+          "cached_input_tokens": 28032,
+          "output_tokens": 11,
+          "reasoning_output_tokens": 0,
+          "total_tokens": 28750
+        },
+        "turn_token_usage": {
+          "input_tokens": 28739,
+          "cached_input_tokens": 28032,
+          "output_tokens": 11,
+          "total_tokens": 28750
+        }
+      },
+      "account": "dave@acme.com",
+      "team": "平台工程",
+      "participant": "Dave"
+    },
+    {
+      "timestamp": "2026-10-25T06:00:05.100Z",
+      "type": "event_msg",
+      "payload": {
+        "type": "token_count",
+        "info": {
+          "last_token_usage": {
+            "input_tokens": 28739,
+            "cached_input_tokens": 28032,
+            "output_tokens": 11,
+            "total_tokens": 28750
+          },
+          "total_token_usage": {
+            "input_tokens": 28739,
+            "cached_input_tokens": 28032,
+            "output_tokens": 11,
+            "total_tokens": 28750
+          }
+        }
+      }
+    },
+    {
+      "timestamp": "2026-10-25T06:05:00.000Z",
+      "type": "token_usage_record",
+      "payload": {
+        "session_id": "sess_push_01",
+        "response_id": "resp_push_bbb",
+        "usage": {
+          "input_tokens": 1200,
+          "cached_input_tokens": 400,
+          "output_tokens": 320,
+          "reasoning_output_tokens": 80,
+          "cache_write_input_tokens": 0,
+          "total_tokens": 1520
+        }
+      },
+      "account": "dave@acme.com",
+      "team": "平台工程",
+      "participant": "Dave"
+    }
+  ]
+}

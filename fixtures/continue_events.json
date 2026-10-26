@@ -1,0 +1,75 @@
+{
+  "events": [
+    {
+      "name": "tokensGenerated",
+      "schema": "0.2.0",
+      "level": "noCode",
+      "profileId": "profile-eng",
+      "data": {
+        "eventName": "tokensGenerated",
+        "schema": "0.2.0",
+        "timestamp": "2026-10-25T04:10:00.000Z",
+        "userId": "dave@acme.com",
+        "userAgent": "VS Code/1.94 (Continue/1.0.30)",
+        "selectedProfileId": "profile-eng",
+        "model": "gpt-4o-mini",
+        "provider": "openai",
+        "promptTokens": 1200,
+        "generatedTokens": 340
+      }
+    },
+    {
+      "eventName": "tokensGenerated",
+      "schema": "0.2.0",
+      "timestamp": "2026-10-25T04:12:00.000Z",
+      "userId": "dave@acme.com",
+      "userAgent": "VS Code/1.94 (Continue/1.0.30)",
+      "selectedProfileId": "profile-eng",
+      "model": "claude-3-5-sonnet-20241022",
+      "provider": "anthropic",
+      "promptTokens": 800,
+      "generatedTokens": 220,
+      "prompt": "THIS PROMPT MUST NEVER BE STORED",
+      "completion": "THIS COMPLETION MUST NEVER BE STORED",
+      "account_id": "dave@acme.com",
+      "team": "平台工程",
+      "project_id": "continue-playground",
+      "agent_id": "continue-chat",
+      "agent_name": "Continue Chat"
+    },
+    {
+      "name": "autocomplete",
+      "schema": "0.2.0",
+      "level": "noCode",
+      "data": {
+        "eventName": "autocomplete",
+        "timestamp": "2026-10-25T04:13:00.000Z",
+        "userId": "dave@acme.com",
+        "model": "starcoder2:3b",
+        "prompt": "ignore me"
+      }
+    },
+    {
+      "model": "ollama/qwen2.5-coder:7b",
+      "provider": "ollama",
+      "promptTokens": 400,
+      "generatedTokens": 90,
+      "timestamp": "2026-10-25T04:15:00.000Z",
+      "userId": "erin@acme.com",
+      "team": "数据智能",
+      "project_id": "local-assist",
+      "request_id": "continue-explicit-rid-1"
+    },
+    {
+      "model": "ollama/qwen2.5-coder:7b",
+      "provider": "ollama",
+      "promptTokens": 400,
+      "generatedTokens": 90,
+      "timestamp": "2026-10-25T04:15:00.000Z",
+      "userId": "erin@acme.com",
+      "team": "数据智能",
+      "project_id": "local-assist",
+      "request_id": "continue-explicit-rid-1"
+    }
+  ]
+}

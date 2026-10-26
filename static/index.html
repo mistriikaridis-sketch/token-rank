@@ -1,0 +1,1712 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Token 消耗排行榜</title>
+  <style>
+    :root {
+      --bg: #0d1110;
+      --bg-elevated: #121816;
+      --panel: #15201c;
+      --panel-2: #1a2822;
+      --border: #24352e;
+      --text: #e8f0ec;
+      --muted: #8aa398;
+      --mint: #6ee7b0;
+      --mint-dim: #3d8f6e;
+      --mint-soft: rgba(110, 231, 176, 0.12);
+      --mint-border: rgba(110, 231, 176, 0.45);
+      --card-green: #1b3329;
+      --gold: #f0c14b;
+      --silver: #c5ced8;
+      --bronze: #d4925a;
+      --danger: #f87171;
+      --row-alt: rgba(110, 231, 176, 0.04);
+      --row-hover: rgba(110, 231, 176, 0.08);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "PingFang SC", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    a { color: inherit; text-decoration: none; }
+
+    .topbar {
+      position: sticky; top: 0; z-index: 20;
+      background: rgba(13, 17, 16, 0.92);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border);
+    }
+    .topbar-inner {
+      max-width: 980px; margin: 0 auto;
+      padding: 0 16px;
+      display: flex; align-items: center; gap: 20px;
+      height: 52px;
+    }
+    .brand {
+      font-weight: 700; font-size: 1.05rem;
+      letter-spacing: 0.02em;
+      color: var(--text);
+      white-space: nowrap;
+    }
+    .brand span { color: var(--mint); }
+    .nav { display: flex; gap: 4px; flex: 1; overflow-x: auto; }
+    .nav a {
+      padding: 14px 14px 12px;
+      color: var(--muted);
+      font-size: 0.95rem;
+      border-bottom: 2px solid transparent;
+      white-space: nowrap;
+    }
+    .nav a.active {
+      color: var(--mint);
+      border-bottom-color: var(--mint);
+      font-weight: 600;
+    }
+    .nav a.disabled { opacity: 0.35; cursor: default; pointer-events: none; }
+    .top-right { color: var(--muted); font-size: 0.85rem; white-space: nowrap; }
+
+    .wrap { max-width: 980px; margin: 0 auto; padding: 18px 16px 72px; }
+
+    .overview {
+      background: linear-gradient(160deg, #1f3a30 0%, var(--card-green) 55%, #14241e 100%);
+      border: 1px solid rgba(110, 231, 176, 0.18);
+      border-radius: 16px;
+      padding: 18px 18px 16px;
+      margin-bottom: 18px;
+      position: relative;
+    }
+    .overview h2 {
+      margin: 0 0 14px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #cfe8db;
+    }
+    .overview-grid {
+      display: grid;
+      grid-template-columns: 1.4fr 1fr 1fr;
+      gap: 12px;
+    }
+    @media (max-width: 720px) {
+      .overview-grid { grid-template-columns: 1fr; }
+    }
+    .ov-label { color: #9fbfb0; font-size: 0.78rem; margin-bottom: 6px; }
+    .ov-value { font-size: 1.55rem; font-weight: 700; letter-spacing: 0.01em; }
+    .ov-value.mint { color: var(--mint); }
+    .ov-sub { color: #8fb09f; font-size: 0.75rem; margin-top: 4px; }
+
+    .hint-card {
+      background: var(--card-green);
+      border: 1px solid rgba(110, 231, 176, 0.16);
+      border-radius: 14px;
+      padding: 16px 18px;
+      margin-bottom: 16px;
+      color: #c5ddd0;
+      font-size: 0.92rem;
+      line-height: 1.5;
+    }
+    .hint-card strong { color: var(--mint); font-weight: 600; }
+
+    .pills {
+      display: flex; flex-wrap: wrap; gap: 8px;
+      margin: 4px 0 14px;
+    }
+    .pill {
+      appearance: none; border: 1px solid var(--border);
+      background: var(--bg-elevated);
+      color: var(--muted);
+      border-radius: 999px;
+      padding: 7px 14px;
+      font-size: 0.86rem;
+      cursor: pointer;
+    }
+    .pill.active {
+      color: var(--mint);
+      border-color: var(--mint-border);
+      background: var(--mint-soft);
+      font-weight: 600;
+    }
+
+    .toolbar {
+      display: flex; flex-wrap: wrap; gap: 10px;
+      align-items: center; justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .filters select, .filters input {
+      background: var(--panel);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 7px 10px;
+      font-size: 0.85rem;
+      min-width: 110px;
+    }
+    .filters input { min-width: 160px; }
+    .meta {
+      color: var(--muted);
+      font-size: 0.82rem;
+      display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+    table { width: 100%; border-collapse: collapse; }
+    th, td {
+      padding: 13px 12px;
+      text-align: left;
+      border-bottom: 1px solid rgba(36, 53, 46, 0.85);
+      vertical-align: middle;
+    }
+    th {
+      color: var(--muted);
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      background: rgba(0,0,0,0.18);
+      position: sticky; top: 52px;
+    }
+    tbody tr:nth-child(even) td { background: var(--row-alt); }
+    tbody tr:hover td { background: var(--row-hover); }
+    tr:last-child td { border-bottom: none; }
+
+    .rank-cell { width: 56px; }
+    .medal {
+      display: inline-flex; width: 28px; height: 28px;
+      align-items: center; justify-content: center;
+      border-radius: 50%; font-weight: 800; font-size: 0.8rem;
+      background: #1c2a24; color: var(--muted);
+    }
+    .medal.g { background: radial-gradient(circle at 35% 30%, #ffe08a, var(--gold)); color: #3a2800; }
+    .medal.s { background: radial-gradient(circle at 35% 30%, #fff, var(--silver)); color: #2a3038; }
+    .medal.b { background: radial-gradient(circle at 35% 30%, #f0c29a, var(--bronze)); color: #3a1e08; }
+
+    .person {
+      display: flex; align-items: center; gap: 10px;
+      font-weight: 600;
+    }
+    .avatar {
+      width: 32px; height: 32px; border-radius: 50%;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 0.78rem; font-weight: 700;
+      background: linear-gradient(145deg, #2a4a3c, #1a2e26);
+      border: 1px solid rgba(110, 231, 176, 0.25);
+      color: var(--mint);
+      flex-shrink: 0;
+    }
+    .chip {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      color: #c5d9ce;
+      font-size: 0.82rem;
+    }
+    .tok {
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      font-size: 1.02rem;
+    }
+    .cost {
+      color: var(--muted);
+      font-size: 0.78rem;
+      margin-top: 3px;
+      font-variant-numeric: tabular-nums;
+    }
+    .num { font-variant-numeric: tabular-nums; color: #d5e6dd; }
+    .muted { color: var(--muted); }
+    .empty, .error { padding: 36px 18px; text-align: center; color: var(--muted); }
+    .error { color: var(--danger); }
+    .footer {
+      margin-top: 14px; color: var(--muted); font-size: 0.78rem;
+      display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px;
+    }
+    .footer a { color: var(--mint); }
+    .page { display: none; }
+    .page.active { display: block; }
+
+    .basis-badge {
+      display: inline-block;
+      margin-left: 6px;
+      padding: 2px 7px;
+      border-radius: 999px;
+      font-size: 0.68rem;
+      font-weight: 600;
+      vertical-align: middle;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      background: rgba(255,255,255,0.03);
+    }
+    .basis-badge.estimate { color: #c4b5a0; border-color: rgba(212,180,120,0.35); }
+    .basis-badge.billed, .basis-badge.cursor_charged, .basis-badge.litellm_spend, .basis-badge.invoice {
+      color: var(--mint); border-color: var(--mint-border); background: var(--mint-soft);
+    }
+    .basis-badge.mixed { color: #f0c14b; border-color: rgba(240,193,75,0.4); }
+
+    .cred-strip {
+      display: flex; flex-wrap: wrap; gap: 10px;
+      margin: 0 0 14px;
+      padding: 10px 12px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+    .cred-strip strong { color: var(--mint); font-weight: 600; }
+
+    .toggle-row {
+      display: flex; align-items: center; gap: 8px;
+      color: var(--muted); font-size: 0.82rem;
+    }
+    .toggle-row input { accent-color: var(--mint); }
+
+    .share-card {
+      background: linear-gradient(160deg, #1f3a30 0%, var(--card-green) 55%, #14241e 100%);
+      border: 1px solid rgba(110, 231, 176, 0.22);
+      border-radius: 16px;
+      padding: 18px;
+      margin: 14px 0;
+      white-space: pre-wrap;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.86rem;
+      line-height: 1.55;
+      color: #d7ebe1;
+    }
+    .btn {
+      appearance: none;
+      border: 1px solid var(--mint-border);
+      background: var(--mint-soft);
+      color: var(--mint);
+      border-radius: 10px;
+      padding: 8px 14px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn:hover { filter: brightness(1.08); }
+    .btn.ghost {
+      background: transparent;
+      border-color: var(--border);
+      color: var(--muted);
+    }
+    .howto {
+      background: var(--panel);
+      border: 1px dashed var(--border);
+      border-radius: 12px;
+      padding: 12px 14px;
+      color: #b7cdc2;
+      font-size: 0.82rem;
+      line-height: 1.55;
+      white-space: pre-wrap;
+      margin-top: 10px;
+    }
+    .me-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 12px;
+    }
+    @media (max-width: 720px) {
+      .me-grid { grid-template-columns: 1fr; }
+    }
+    .me-panel h3 {
+      margin: 0 0 10px;
+      font-size: 0.9rem;
+      color: #cfe8db;
+      font-weight: 600;
+    }
+    .mini-row {
+      display: flex; justify-content: space-between; gap: 10px;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(36, 53, 46, 0.7);
+      font-size: 0.88rem;
+    }
+    .mini-row:last-child { border-bottom: none; }
+    .bar-wrap { margin-top: 6px; }
+    .bar {
+      height: 8px; border-radius: 999px;
+      background: rgba(255,255,255,0.06);
+      overflow: hidden;
+    }
+    .bar > i {
+      display: block; height: 100%;
+      background: linear-gradient(90deg, var(--mint-dim), var(--mint));
+      border-radius: 999px;
+    }
+
+    @media (max-width: 720px) {
+      th:nth-child(3), td:nth-child(3),
+      th:nth-child(4), td:nth-child(4) { /* keep all for now */ }
+      .hide-sm { display: none; }
+      th, td { padding: 11px 8px; font-size: 0.88rem; }
+      .ov-value { font-size: 1.3rem; }
+    }
+  
+    .top-right { display: flex; align-items: center; gap: 8px; }
+    .key-chip {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 0.78rem; color: var(--muted);
+      max-width: 280px;
+    }
+    .key-chip strong { color: var(--mint); font-weight: 600; }
+    .key-btn {
+      background: var(--mint-soft); border: 1px solid var(--mint-border);
+      color: var(--mint); border-radius: 8px; padding: 4px 10px;
+      font-size: 0.78rem; cursor: pointer;
+    }
+    .key-btn:hover { background: rgba(110,231,176,0.2); }
+    .key-btn.ghost {
+      background: transparent; border-color: var(--border); color: var(--muted);
+    }
+    .key-modal-backdrop {
+      display: none; position: fixed; inset: 0; z-index: 50;
+      background: rgba(0,0,0,0.55); align-items: center; justify-content: center;
+    }
+    .key-modal-backdrop.open { display: flex; }
+    .key-modal {
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: 14px; padding: 18px; width: min(420px, 92vw);
+      box-shadow: 0 16px 48px rgba(0,0,0,0.45);
+    }
+    .key-modal h3 { margin: 0 0 8px; font-size: 1rem; }
+    .key-modal p { margin: 0 0 12px; color: var(--muted); font-size: 0.85rem; line-height: 1.5; }
+    .key-modal input[type="password"], .key-modal input[type="text"] {
+      width: 100%; padding: 10px 12px; border-radius: 10px;
+      border: 1px solid var(--border); background: var(--bg);
+      color: var(--text); font-size: 0.95rem; margin-bottom: 10px;
+    }
+    .key-modal .row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .key-modal .hint {
+      margin-top: 10px; font-size: 0.78rem; color: var(--muted);
+      background: var(--mint-soft); border-radius: 8px; padding: 8px 10px;
+    }
+    .alert-card {
+      border: 1px solid rgba(248,113,113,0.35);
+      background: rgba(248,113,113,0.08);
+      border-radius: 14px; padding: 14px 16px; margin-bottom: 10px;
+    }
+    .alert-card.ok {
+      border-color: rgba(110,231,176,0.35);
+      background: rgba(110,231,176,0.08);
+    }
+    .alert-card h4 { margin: 0 0 6px; font-size: 0.95rem; }
+    .alert-card .msg { color: #cfe8db; font-size: 0.88rem; line-height: 1.55; }
+    .alert-card .meta-line { color: var(--muted); font-size: 0.8rem; margin-top: 8px; }
+    .narrative-box {
+      background: linear-gradient(160deg, #1f3a30 0%, var(--card-green) 100%);
+      border: 1px solid rgba(110,231,176,0.18);
+      border-radius: 14px; padding: 14px 16px; margin-bottom: 14px;
+      font-size: 0.9rem; line-height: 1.55; color: #cfe8db;
+    }
+
+
+    /* Forum */
+    .forum-compose {
+      background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+      padding: 16px; margin-bottom: 16px;
+    }
+    .forum-compose h3 { margin: 0 0 10px; font-size: 1rem; }
+    .forum-compose input[type=text], .forum-compose textarea {
+      width: 100%; box-sizing: border-box; margin-bottom: 10px;
+      padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border);
+      background: var(--bg); color: var(--text); font: inherit;
+    }
+    .forum-compose textarea { min-height: 110px; resize: vertical; }
+    .forum-compose .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .forum-compose .hint-inline { color: var(--muted); font-size: 0.8rem; flex: 1; }
+    .forum-post {
+      background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+      padding: 14px 16px; margin-bottom: 12px;
+    }
+    .forum-post h4 { margin: 0 0 8px; font-size: 1.02rem; }
+    .forum-post .body { color: #cfe8db; font-size: 0.9rem; line-height: 1.55; white-space: pre-wrap; }
+    .forum-post .meta-line {
+      display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+      margin-top: 10px; color: var(--muted); font-size: 0.8rem;
+    }
+    .like-btn {
+      background: rgba(110,231,176,0.08); border: 1px solid rgba(110,231,176,0.28);
+      color: var(--mint); border-radius: 999px; padding: 4px 12px; cursor: pointer; font: inherit;
+    }
+    .like-btn:hover { background: rgba(110,231,176,0.16); }
+    .forum-warn {
+      color: #fbbf24; font-size: 0.85rem; margin-top: 8px; display: none;
+    }
+    .forum-warn.show { display: block; }
+
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">Token <span>消耗排行榜</span></div>
+      <nav class="nav">
+        <a href="/people" data-page="people">个人榜</a>
+        <a href="/orgs" data-page="orgs">组织榜</a>
+        <a href="/projects" data-page="projects">项目榜</a>
+        <a href="/agents" data-page="agents">Agent 榜</a>
+        <a href="/me" data-page="me">我的</a>
+        <a href="/alerts" data-page="alerts">提醒</a>
+        <a href="/forum" data-page="forum">交流区</a>
+        <a href="/procode" data-page="procode">ProCode</a>
+      </nav>
+      <div class="top-right">
+        <div class="key-chip" id="keyChip"><span>未贴 Key · 公开榜</span></div>
+        <button type="button" class="key-btn" id="keyOpenBtn">贴 Key</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="cred-strip" id="credStrip">可信度指标加载中…</div>
+    <!-- People page -->
+    <section id="page-people" class="page">
+      <div class="overview">
+        <h2 id="ovTitle">今日概况</h2>
+        <div class="overview-grid">
+          <div>
+            <div class="ov-label" id="ovTokLabel">榜首消耗</div>
+            <div class="ov-value" id="ovTok">—</div>
+            <div class="ov-sub" id="ovTokSub">按参与者聚合</div>
+          </div>
+          <div>
+            <div class="ov-label">费用 <span class="basis-badge" id="ovBasis">—</span></div>
+            <div class="ov-value mint" id="ovCost">—</div>
+            <div class="ov-sub" id="ovCostSub">按内置 API 价目估算</div>
+          </div>
+          <div>
+            <div class="ov-label">榜首排名</div>
+            <div class="ov-value" id="ovRank">—</div>
+            <div class="ov-sub" id="ovRankSub">共 — 人上榜</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="pills" id="peoplePills">
+        <button type="button" class="pill active" data-window="today">今天</button>
+        <button type="button" class="pill" data-window="yesterday">昨天</button>
+        <button type="button" class="pill" data-window="7d">近7天</button>
+        <button type="button" class="pill" data-window="30d">近30天</button>
+      </div>
+
+      <div class="toolbar">
+        <div class="filters">
+          <select id="filterTool"><option value="">全部工具</option></select>
+          <select id="filterModel"><option value="">全部模型</option></select>
+          <select id="filterTeam"><option value="">全部部门</option></select>
+          <input id="filterQ" type="search" placeholder="在榜单里找人" />
+        </div>
+      </div>
+      <div class="meta">
+        <span id="peopleMeta">—</span>
+        <span id="peopleSync" class="muted"></span>
+      </div>
+      <div class="panel">
+        <div id="peopleTable"><div class="empty">加载中…</div></div>
+      </div>
+    </section>
+
+    <!-- Orgs page -->
+    <section id="page-orgs" class="page">
+      <div class="hint-card">
+        按<strong>组织 / 部门</strong>汇总 Token 用量与估算成本。人均 = 部门总量 ÷ 参与人数。
+        可对接现有网关的 team / 部门标签做归因。
+      </div>
+
+      <div class="pills" id="orgPills">
+        <button type="button" class="pill" data-window="today">今天</button>
+        <button type="button" class="pill" data-window="yesterday">昨天</button>
+        <button type="button" class="pill active" data-window="7d">近7天</button>
+        <button type="button" class="pill" data-window="30d">近30天</button>
+      </div>
+
+      <div class="toolbar">
+        <div class="filters">
+          <select id="orgFilterTool"><option value="">全部工具</option></select>
+        </div>
+      </div>
+      <div class="meta">
+        <span id="orgMeta">—</span>
+        <span id="orgSync" class="muted"></span>
+      </div>
+      <div class="panel">
+        <div id="orgTable"><div class="empty">加载中…</div></div>
+      </div>
+    </section>
+
+    <!-- Projects page: account × project -->
+    <section id="page-projects" class="page">
+      <div class="hint-card">
+        按<strong>账号 × 项目</strong>拆开看消耗，避免「只吐一个总量」的黑盒。
+        同一人跑多个项目时，每一行是一对 (account, project)。演示 seed 默认隐藏；数据默认私有，不公网导出。
+      </div>
+
+      <div class="pills" id="projectPills">
+        <button type="button" class="pill" data-window="today">今天</button>
+        <button type="button" class="pill" data-window="yesterday">昨天</button>
+        <button type="button" class="pill active" data-window="7d">近7天</button>
+        <button type="button" class="pill" data-window="30d">近30天</button>
+      </div>
+
+      <div class="toolbar">
+        <div class="filters">
+          <select id="projectFilterTool"><option value="">全部工具</option></select>
+          <select id="projectFilterAccount"><option value="">全部账号</option></select>
+          <label class="toggle-row"><input type="checkbox" id="projectHideUnlabeled" checked /> 隐藏未标注</label>
+        </div>
+      </div>
+      <div class="meta">
+        <span id="projectMeta">—</span>
+        <span id="projectBasis" class="basis-badge">—</span>
+        <span id="projectSync" class="muted"></span>
+      </div>
+      <div class="panel">
+        <div id="projectTable"><div class="empty">加载中…</div></div>
+      </div>
+    </section>
+
+    <!-- Agents page -->
+    <section id="page-agents" class="page">
+      <div class="hint-card">
+        按<strong>Agent</strong>看团队里每个 agent 大概烧多少 Token / 成本。
+        用上方账号下拉看「我的 agents」；也可从个人榜点「看 Agents」跳转。
+        数据来自 LiteLLM tags / Cursor <code>cloudAgentId</code> 等字段归一后的 <code>agent_id</code>。
+      </div>
+
+      <div class="pills" id="agentPills">
+        <button type="button" class="pill" data-window="today">今天</button>
+        <button type="button" class="pill" data-window="yesterday">昨天</button>
+        <button type="button" class="pill active" data-window="7d">近7天</button>
+        <button type="button" class="pill" data-window="30d">近30天</button>
+      </div>
+
+      <div class="toolbar">
+        <div class="filters">
+          <select id="agentFilterAccount"><option value="">全部账号（Demo）</option></select>
+          <select id="agentFilterTool"><option value="">全部工具</option></select>
+          <select id="agentFilterTeam"><option value="">全部部门</option></select>
+          <label class="toggle-row"><input type="checkbox" id="agentHideUnlabeled" checked /> 隐藏未标注</label>
+        </div>
+      </div>
+      <div class="meta">
+        <span id="agentMeta">—</span>
+        <span id="agentBasis" class="basis-badge">—</span>
+        <span id="agentSync" class="muted"></span>
+      </div>
+      <div class="panel">
+        <div id="agentTable"><div class="empty">加载中…</div></div>
+      </div>
+    </section>
+
+
+    <!-- Me page: personal self-service -->
+    <section id="page-me" class="page">
+      <div class="hint-card">
+        选一个<strong>账号</strong>，只看自己的 Agent / 项目消耗、本周合计与工具分布。
+        可复制「本周卡片」文案分享。上报时记得带 <code>agent_id</code>。
+      </div>
+
+      <div class="pills" id="mePills">
+        <button type="button" class="pill" data-window="today">今天</button>
+        <button type="button" class="pill" data-window="yesterday">昨天</button>
+        <button type="button" class="pill active" data-window="7d">近7天</button>
+        <button type="button" class="pill" data-window="30d">近30天</button>
+      </div>
+
+      <div class="toolbar">
+        <div class="filters">
+          <select id="meFilterAccount"><option value="">选择账号…</option></select>
+          <button type="button" class="btn" id="meCopyBtn">复制本周文案</button>
+          <button type="button" class="btn ghost" id="meDrawBtn">生成分享图</button>
+          <button type="button" class="btn ghost" id="meExportBtn">导出 CSV</button>
+        </div>
+      </div>
+
+      <div class="overview">
+        <h2>我的概况 <span class="basis-badge" id="meBasis">—</span></h2>
+        <div class="overview-grid">
+          <div>
+            <div class="ov-label">合计 Token</div>
+            <div class="ov-value" id="meTok">—</div>
+            <div class="ov-sub" id="meTokSub">选账号后加载</div>
+          </div>
+          <div>
+            <div class="ov-label">费用</div>
+            <div class="ov-value mint" id="meCost">—</div>
+            <div class="ov-sub" id="meCostSub">—</div>
+          </div>
+          <div>
+            <div class="ov-label">Agent / 项目</div>
+            <div class="ov-value" id="meCounts">—</div>
+            <div class="ov-sub" id="meCountsSub">已标注维度</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="share-card" id="meShareCard">选择账号后生成周报文案…</div>
+      <canvas id="meShareCanvas" width="720" height="420" style="display:none;max-width:100%;border-radius:14px;border:1px solid var(--border);margin-bottom:12px"></canvas>
+
+      <div class="me-grid">
+        <div class="panel me-panel" style="padding:14px">
+          <h3>Agent Top</h3>
+          <div id="meAgents"><div class="empty">—</div></div>
+        </div>
+        <div class="panel me-panel" style="padding:14px">
+          <h3>项目 Top</h3>
+          <div id="meProjects"><div class="empty">—</div></div>
+        </div>
+      </div>
+
+      <div class="panel me-panel" style="padding:14px;margin-top:12px">
+        <h3>工具分布</h3>
+        <div id="meTools"><div class="empty">—</div></div>
+      </div>
+
+      <div class="howto" id="meHowto">上报说明加载后显示…</div>
+    </section>
+
+
+    <!-- Alerts page -->
+    <section id="page-alerts" class="page">
+      <div class="narrative-box" id="alertsNarrative">
+        消耗过低可能说明 AI 工作流尚未真正重构——建设性提醒，不是排名羞辱。
+      </div>
+      <div class="hint-card">
+        简单规则：所选时间窗内，账号 <code>total_tokens</code> 低于阈值则进入告警列表。
+        Admin / 未贴 Key 看全员；贴上 <strong>member Key</strong> 后只看自己。
+        可选 Webhook：服务端配置 <code>LOW_USAGE_WEBHOOK_URL</code> 后，点「推送 Webhook」才会 POST。
+      </div>
+      <div class="pills" id="alertPills">
+        <button type="button" class="pill" data-window="today">今天</button>
+        <button type="button" class="pill active" data-window="7d">近7天</button>
+        <button type="button" class="pill" data-window="30d">近30天</button>
+      </div>
+      <div class="toolbar">
+        <div class="filters">
+          <label class="toggle-row">阈值 Tokens
+            <input id="alertThreshold" type="number" min="0" value="10000" style="width:120px;margin-left:8px;padding:6px 8px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text)" />
+          </label>
+          <button type="button" class="btn" id="alertReloadBtn">刷新</button>
+          <button type="button" class="btn ghost" id="alertNotifyBtn">推送 Webhook</button>
+          <button type="button" class="btn ghost" id="alertExportBtn">导出 CSV（需 Key）</button>
+        </div>
+      </div>
+      <div class="meta">
+        <span id="alertMeta">—</span>
+        <span id="alertSync" class="muted"></span>
+      </div>
+      <div id="alertList"><div class="empty">加载中…</div></div>
+      <div class="panel me-panel" style="padding:14px;margin-top:14px">
+        <h3>已达标账号</h3>
+        <div id="alertOkList"><div class="empty">—</div></div>
+      </div>
+    </section>
+
+
+    <!-- Forum page -->
+    <section id="page-forum" class="page">
+      <div class="narrative-box" id="forumDisclaimer">
+        企业内部讨论区（最小闭环）。匿名可浏览；贴上用户 Key 后可发帖。禁止粘贴 API Key / Token / 私钥 / 对话原文。
+      </div>
+      <div class="hint-card">
+        不是全功能社区：只有发帖、列表（时间倒序）、简单点赞。敏感密钥请勿上传——服务端也会拦截疑似 Key 内容。
+      </div>
+
+      <div class="forum-compose" id="forumCompose">
+        <h3>发帖</h3>
+        <input id="forumTitle" type="text" maxlength="120" placeholder="标题（最多 120 字）" />
+        <textarea id="forumBody" maxlength="2000" placeholder="正文（最多 2000 字）。谈用量与工作流即可，不要贴 Key。"></textarea>
+        <div class="row">
+          <button type="button" class="btn" id="forumSubmitBtn">发布</button>
+          <button type="button" class="btn ghost" id="forumReloadBtn">刷新列表</button>
+          <span class="hint-inline" id="forumAuthHint">未贴 Key · 仅可浏览；点顶栏「贴 Key」后发帖</span>
+        </div>
+        <div class="forum-warn" id="forumWarn"></div>
+      </div>
+
+      <div class="meta">
+        <span id="forumMeta">—</span>
+        <span id="forumSync" class="muted"></span>
+      </div>
+      <div id="forumList"><div class="empty">加载中…</div></div>
+    </section>
+
+    <div class="footer">
+
+    <section id="page-procode" class="page">
+      <div class="narrative-box">
+        <strong>ProCode / Canoryn · 占位适配</strong>
+        公开用量 schema 不足，本产品<strong>不做深适配</strong>。请经 LiteLLM / 网关标注
+        <code>tool=procode</code>（header 或 tags），再推统一 usage 到
+        <code>POST /api/v1/ingest/procode</code>。探测脚本会扫 <code>~/.canoryn*</code>、<code>~/.procode*</code>。
+        不做自研网关、不做公网热度榜 → <a href="/docs/NON_GOALS.md">NON_GOALS</a> ·
+        <a href="/docs/probe.md">probe.md</a>
+      </div>
+      <div class="stats" style="margin-top:12px">
+        <div class="stat"><div class="label">适配状态</div><div class="value" id="procodeStatus">—</div></div>
+        <div class="stat"><div class="label">库内 procode 事件</div><div class="value" id="procodeEvents">—</div></div>
+        <div class="stat"><div class="label">健康检查</div><div class="value" style="font-size:0.85rem"><a href="/health">/health</a></div></div>
+      </div>
+      <div class="panel" style="margin-top:14px">
+        <h3 style="margin:0 0 8px;font-size:1rem">推送示例</h3>
+        <pre style="white-space:pre-wrap;color:#cfe8db;font-size:0.8rem;margin:0">curl -X POST http://localhost:8000/api/v1/ingest/procode \
+  -H "Authorization: Bearer $TOKEN_RANKINGS_API_KEY" \
+  -H 'Content-Type: application/json' \
+  -d @fixtures/procode_events.json</pre>
+        <p class="muted" style="margin:10px 0 0">样例字段：model / prompt_tokens / completion_tokens / account_id / project_id / agent_id / request_id。含大段 prompt/content 的行会被拒绝入库。</p>
+        <button type="button" class="btn ghost" id="procodeReloadBtn" style="margin-top:10px">刷新状态</button>
+        <span class="muted" id="procodeMeta" style="margin-left:8px"></span>
+      </div>
+    </section>
+
+      <span id="footerCostNote">成本口径见各榜徽章 · <a href="/docs">API</a> · <a href="/health">健康检查</a></span>
+      <span id="generatedAt"></span>
+    </div>
+  </div>
+
+  <!-- API Key modal: user keys only — never prefill service ingest key -->
+  <div class="key-modal-backdrop" id="keyModal" role="dialog" aria-modal="true">
+    <div class="key-modal">
+      <h3>贴上用户 API Key</h3>
+      <p>Key 只存在本机浏览器 <code>localStorage</code>，请求排行 / 我的 / 导出 / 提醒时自动带上 Header。Member Key 会自动只看自己的账号。请勿把服务端 ingest Key（如 <code>TOKEN_RANKINGS_API_KEY</code>）写进前端默认值。</p>
+      <input id="keyInput" type="password" autocomplete="off" placeholder="例如 demo-alice-key" />
+      <div class="row">
+        <button type="button" class="key-btn" id="keySaveBtn">保存</button>
+        <button type="button" class="key-btn ghost" id="keyClearBtn">清除</button>
+        <button type="button" class="key-btn ghost" id="keyCancelBtn">关闭</button>
+      </div>
+      <div class="hint">Demo：<code>demo-alice-key</code>（Alice / acme-prod）· <code>demo-dave-key</code> · <code>demo-admin-key</code>（管理员）。服务 ingest Key 请只给采集脚本用。</div>
+    </div>
+  </div>
+
+
+  <script>
+    const KEY_STORAGE = "token_rankings_user_api_key";
+    // Never put TOKEN_RANKINGS_API_KEY / service ingest key here as a default.
+
+    const state = {
+      page: "people",
+      peopleWindow: "today",
+      orgWindow: "7d",
+      projectWindow: "7d",
+      agentWindow: "7d",
+      meWindow: "7d",
+      alertWindow: "7d",
+      hideUnlabeledProjects: true,
+      hideUnlabeledAgents: true,
+      whoami: null,
+    };
+
+    const fmtInt = (n) => new Intl.NumberFormat("zh-CN").format(Math.round(n || 0));
+    const fmtUsd = (n) => "$" + (Number(n) || 0).toLocaleString("en-US", {
+      minimumFractionDigits: 2, maximumFractionDigits: 2
+    });
+
+    function fmtTokens(n) {
+      n = Number(n) || 0;
+      const abs = Math.abs(n);
+      if (abs >= 1e8) return (n / 1e8).toFixed(2).replace(/\.00$/, "") + "亿";
+      if (abs >= 1e4) return (n / 1e4).toFixed(1).replace(/\.0$/, "") + "万";
+      return fmtInt(n);
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, c => (
+        {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]
+      ));
+    }
+
+    function avatarLetter(name) {
+      const s = String(name || "?").trim();
+      return s.slice(0, 1).toUpperCase();
+    }
+
+    function medalHtml(rank) {
+      if (rank === 1) return '<span class="medal g">1</span>';
+      if (rank === 2) return '<span class="medal s">2</span>';
+      if (rank === 3) return '<span class="medal b">3</span>';
+      return `<span class="medal">${rank}</span>`;
+    }
+
+    function basisBadge(basis, label) {
+      const b = basis || "estimate";
+      const lab = label || ({
+        estimate: "估算",
+        cursor_charged: "Cursor 账单",
+        litellm_spend: "LiteLLM spend",
+        invoice: "账单",
+        billed: "账单",
+        mixed: "混合（含估算）",
+      }[b] || b);
+      const cls = ["estimate","mixed","cursor_charged","litellm_spend","invoice","billed"].includes(b) ? b : "estimate";
+      return `<span class="basis-badge ${cls}">${escapeHtml(lab)}</span>`;
+    }
+
+    function getStoredKey() {
+      try { return (localStorage.getItem(KEY_STORAGE) || "").trim(); }
+      catch (_) { return ""; }
+    }
+
+    function setStoredKey(key) {
+      try {
+        if (key) localStorage.setItem(KEY_STORAGE, key);
+        else localStorage.removeItem(KEY_STORAGE);
+      } catch (_) { /* ignore quota */ }
+    }
+
+    function authHeaders() {
+      const key = getStoredKey();
+      if (!key) return {};
+      return { "Authorization": "Bearer " + key };
+    }
+
+    async function apiFetch(url, options) {
+      const opts = Object.assign({}, options || {});
+      const headers = Object.assign({}, authHeaders(), opts.headers || {});
+      opts.headers = headers;
+      return fetch(url, opts);
+    }
+
+    async function refreshWhoami() {
+      const chip = document.getElementById("keyChip");
+      const btn = document.getElementById("keyOpenBtn");
+      try {
+        const res = await apiFetch("/api/v1/whoami");
+        const data = await res.json();
+        state.whoami = data;
+        if (data.authenticated) {
+          const scope = data.role === "member"
+            ? (data.account_id || "本账号")
+            : (data.role === "admin" ? "全站" : "");
+          chip.innerHTML = `<strong>${escapeHtml(data.name || "用户")}</strong>`
+            + ` · ${escapeHtml(data.role || "")}`
+            + (scope ? ` · ${escapeHtml(scope)}` : "")
+            + (data.key_hint ? ` <span class="muted">${escapeHtml(data.key_hint)}</span>` : "");
+          btn.textContent = "换 Key";
+        } else if (getStoredKey()) {
+          chip.innerHTML = `<span style="color:var(--danger)">Key 无效</span>`;
+          btn.textContent = "重贴 Key";
+        } else {
+          chip.innerHTML = `<span>未贴 Key · 公开榜</span>`;
+          btn.textContent = "贴 Key";
+        }
+      } catch (err) {
+        chip.textContent = "鉴权状态未知";
+      }
+      updateForumAuthHint();
+      return state.whoami;
+    }
+
+    function openKeyModal() {
+      document.getElementById("keyModal").classList.add("open");
+      const input = document.getElementById("keyInput");
+      input.value = getStoredKey();
+      input.focus();
+    }
+    function closeKeyModal() {
+      document.getElementById("keyModal").classList.remove("open");
+    }
+    async function saveKeyFromModal() {
+      const key = document.getElementById("keyInput").value.trim();
+      setStoredKey(key);
+      closeKeyModal();
+      await refreshWhoami();
+      reloadActivePage();
+    }
+    async function clearKeyFromModal() {
+      setStoredKey("");
+      document.getElementById("keyInput").value = "";
+      closeKeyModal();
+      await refreshWhoami();
+      reloadActivePage();
+    }
+
+    function reloadActivePage() {
+      if (state.page === "orgs") loadOrgs();
+      else if (state.page === "projects") loadProjects();
+      else if (state.page === "agents") loadAgents();
+      else if (state.page === "me") loadMe();
+      else if (state.page === "alerts") loadAlerts();
+      else if (state.page === "forum") loadForum();
+      else if (state.page === "procode") loadProcode();
+      else loadPeople();
+    }
+
+    function detectPage() {
+      const path = location.pathname.replace(/\/+$/, "") || "/";
+      if (path === "/orgs") return "orgs";
+      if (path === "/projects") return "projects";
+      if (path === "/agents") return "agents";
+      if (path === "/me") return "me";
+      if (path === "/alerts") return "alerts";
+      if (path === "/forum") return "forum";
+      if (path === "/procode") return "procode";
+      return "people";
+    }
+
+    function setActiveNav() {
+      document.querySelectorAll(".nav a[data-page]").forEach(a => {
+        a.classList.toggle("active", a.dataset.page === state.page);
+      });
+      ["people","orgs","projects","agents","me","alerts","forum","procode"].forEach(p => {
+        const el = document.getElementById("page-" + p);
+        if (el) el.classList.toggle("active", state.page === p);
+      });
+    }
+
+    function bindPills(containerId, key) {
+      const el = document.getElementById(containerId);
+      if (!el) return;
+      el.addEventListener("click", (e) => {
+        const btn = e.target.closest(".pill");
+        if (!btn) return;
+        el.querySelectorAll(".pill").forEach(p => p.classList.remove("active"));
+        btn.classList.add("active");
+        state[key] = btn.dataset.window;
+        if (key === "peopleWindow") loadPeople();
+        else if (key === "orgWindow") loadOrgs();
+        else if (key === "projectWindow") loadProjects();
+        else if (key === "agentWindow") loadAgents();
+        else if (key === "alertWindow") loadAlerts();
+        else loadMe();
+      });
+    }
+
+    function fillSelect(sel, values, allLabel) {
+      const cur = sel.value;
+      sel.innerHTML = `<option value="">${allLabel}</option>` +
+        values.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join("");
+      if (values.includes(cur)) sel.value = cur;
+    }
+
+    function fillToolSelect(sel, tools, labels, allLabel) {
+      const cur = sel.value;
+      const labs = labels || {};
+      sel.innerHTML = `<option value="">${allLabel}</option>` +
+        (tools || []).map(v => {
+          const label = labs[v] || v;
+          return `<option value="${escapeHtml(v)}">${escapeHtml(label)}</option>`;
+        }).join("");
+      if ((tools || []).includes(cur)) sel.value = cur;
+    }
+
+    async function loadCredStrip() {
+      const el = document.getElementById("credStrip");
+      try {
+        const res = await apiFetch("/health");
+        if (!res.ok) throw new Error("health " + res.status);
+        const h = await res.json();
+        const basis = h.cost_basis || {};
+        el.innerHTML =
+          `已接入工具 <strong>${fmtInt(h.tools_connected || 0)}</strong>` +
+          (h.tools && h.tools.length ? `（${h.tools.map(escapeHtml).join(" · ")}）` : "") +
+          ` · agent_id 覆盖 <strong>${h.agent_id_coverage_pct ?? 0}%</strong>` +
+          ` · 活跃项目 <strong>${fmtInt(h.active_projects || 0)}</strong>` +
+          ` · 近1h 请求≈并发 <strong>${fmtInt(h.approx_concurrent_requests_1h || 0)}</strong>` +
+          ` · 成本口径 ${basisBadge(basis.primary, basis.label)}`;
+        const note = document.getElementById("footerCostNote");
+        if (note && basis.note) {
+          note.innerHTML = `${escapeHtml(basis.note)} · <a href="/docs">API</a> · <a href="/health">健康检查</a>`;
+        }
+      } catch (err) {
+        el.textContent = "可信度指标暂不可用";
+      }
+    }
+
+    async function loadPeople() {
+      const host = document.getElementById("peopleTable");
+      host.innerHTML = '<div class="empty">加载中…</div>';
+      const params = new URLSearchParams({ window: state.peopleWindow });
+      const tool = document.getElementById("filterTool").value;
+      const model = document.getElementById("filterModel").value;
+      const team = document.getElementById("filterTeam").value;
+      const q = document.getElementById("filterQ").value.trim();
+      if (tool) params.set("tool", tool);
+      if (model) params.set("model", model);
+      if (team) params.set("team", team);
+      if (q) params.set("q", q);
+
+      try {
+        const res = await apiFetch("/api/v1/rankings/people?" + params.toString());
+        if (!res.ok) throw new Error(await res.text());
+        const data = await res.json();
+
+        fillToolSelect(document.getElementById("filterTool"), data.filters.tools || [], data.filters.tool_labels || {}, "全部工具");
+        fillSelect(document.getElementById("filterModel"), data.filters.models || [], "全部模型");
+        fillSelect(document.getElementById("filterTeam"), data.filters.teams || [], "全部部门");
+
+        const ov = data.overview || {};
+        document.getElementById("ovTitle").textContent = ov.label || "时段概况";
+        document.getElementById("ovTok").textContent = fmtTokens(ov.my_tokens) + " Tokens";
+        document.getElementById("ovTokSub").textContent = ov.my_name ? ("榜首 · " + ov.my_name) : "按参与者聚合";
+        const basis = ov.cost_basis || "estimate";
+        const approx = (basis === "estimate" || basis === "mixed") ? "≈ " : "";
+        document.getElementById("ovCost").textContent = approx + fmtUsd(ov.my_cost_usd);
+        document.getElementById("ovCostSub").textContent = ov.cost_basis_note || "按内置 API 价目估算";
+        document.getElementById("ovBasis").className = "basis-badge " + basis;
+        document.getElementById("ovBasis").textContent = ov.cost_basis_label || "估算";
+        document.getElementById("ovRank").textContent = ov.my_rank != null ? ("#" + ov.my_rank) : "—";
+        document.getElementById("ovRankSub").textContent = `共 ${fmtInt(ov.participants || 0)} 人上榜`;
+
+        document.getElementById("peopleMeta").textContent =
+          `${fmtInt(data.totals.participants)} 人 · ${fmtTokens(data.totals.total_tokens)} Tokens · ${approx}${fmtUsd(data.totals.estimated_cost_usd)}`;
+        document.getElementById("peopleSync").textContent =
+          "更新于 " + new Date(data.generated_at).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" });
+        document.getElementById("generatedAt").textContent = document.getElementById("peopleSync").textContent;
+
+        if (!data.items.length) {
+          host.innerHTML = '<div class="empty">暂无数据。贴上用户 Key 后 member 只看自己；或先 ingest fixture。</div>';
+          return;
+        }
+        const rows = data.items.map(it => {
+          const acct = it.account_id;
+          const meHref = acct ? `/me?account_id=${encodeURIComponent(acct)}` : `/me`;
+          const agentsHref = acct ? `/agents?account_id=${encodeURIComponent(acct)}` : `/agents`;
+          return `<tr>
+            <td>${medalHtml(it.rank)}</td>
+            <td>
+              <div class="name-cell">
+                <div class="avatar">${escapeHtml(avatarLetter(it.participant))}</div>
+                <div>
+                  <div class="name">${escapeHtml(it.participant)}</div>
+                  <div class="sub">${escapeHtml(it.team || "—")}${acct ? " · " + escapeHtml(acct) : ""}</div>
+                </div>
+              </div>
+            </td>
+            <td class="hide-sm">${escapeHtml(it.primary_tool)}</td>
+            <td class="hide-sm">${escapeHtml(it.primary_model)}</td>
+            <td>
+              <div class="tok">${fmtTokens(it.total_tokens)}</div>
+              <div class="cost">${approx}${fmtUsd(it.estimated_cost_usd)} · ${it.share_pct}%</div>
+              <div class="sub"><a href="${meHref}">我的</a> · <a href="${agentsHref}">Agents</a></div>
+            </td>
+          </tr>`;
+        }).join("");
+        host.innerHTML = `<table>
+          <thead><tr>
+            <th>排名</th><th>参与者</th><th class="hide-sm">主力工具</th><th class="hide-sm">主力模型</th><th>Token / 成本</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>`;
+      } catch (err) {
+        host.innerHTML = `<div class="error">加载失败：${escapeHtml(String(err.message || err))}</div>`;
+      }
+    }
+
+    async function loadOrgs() {
+      const host = document.getElementById("orgTable");
+      host.innerHTML = '<div class="empty">加载中…</div>';
+      const params = new URLSearchParams({ window: state.orgWindow });
+      const tool = document.getElementById("orgFilterTool").value;
+      if (tool) params.set("tool", tool);
+      try {
+        const toolsRes = await apiFetch("/api/v1/rankings/people?window=all");
+        if (toolsRes.ok) {
+          const td = await toolsRes.json();
+          fillToolSelect(document.getElementById("orgFilterTool"), td.filters.tools || [], td.filters.tool_labels || {}, "全部工具");
+        }
+        const res = await apiFetch("/api/v1/rankings/orgs?" + params.toString());
+        if (!res.ok) throw new Error(await res.text());
+        const data = await res.json();
+        const basis = (data.totals && data.totals.cost_basis) || "estimate";
+        const approx = (basis === "estimate" || basis === "mixed") ? "≈ " : "";
+        document.getElementById("orgMeta").textContent =
+          `${fmtInt(data.totals.orgs)} 个组织 · ${fmtInt(data.totals.participants)} 人 · ${fmtTokens(data.totals.total_tokens)} Tokens`;
+        document.getElementById("orgSync").textContent =
+          "更新于 " + new Date(data.generated_at).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" });
+        if (!data.items.length) {
+          host.innerHTML = '<div class="empty">暂无组织数据</div>';
+          return;
+        }
+        const rows = data.items.map(it => `<tr>
+          <td>${medalHtml(it.rank)}</td>
+          <td><div class="name">${escapeHtml(it.team)}</div>
+            <div class="sub">${fmtInt(it.participants)} 人 · ${fmtInt(it.requests)} 次</div></td>
+          <td class="hide-sm">${fmtTokens(it.per_capita_tokens)}</td>
+          <td>
+            <div class="tok">${fmtTokens(it.total_tokens)}</div>
+            <div class="cost">${approx}${fmtUsd(it.estimated_cost_usd)} · ${it.share_pct}%</div>
+          </td>
+        </tr>`).join("");
+        host.innerHTML = `<table>
+          <thead><tr><th>排名</th><th>组织 / 部门</th><th class="hide-sm">人均</th><th>Token / 成本</th></tr></thead>
+          <tbody>${rows}</tbody></table>`;
+      } catch (err) {
+        host.innerHTML = `<div class="error">加载失败：${escapeHtml(String(err.message || err))}</div>`;
+      }
+    }
+
+    async function loadProjects() {
+      const host = document.getElementById("projectTable");
+      host.innerHTML = '<div class="empty">加载中…</div>';
+      const params = new URLSearchParams({ window: state.projectWindow });
+      const tool = document.getElementById("projectFilterTool").value;
+      const account = document.getElementById("projectFilterAccount").value;
+      const hide = document.getElementById("projectHideUnlabeled").checked;
+      if (tool) params.set("tool", tool);
+      if (account) params.set("account_id", account);
+      params.set("hide_unlabeled", hide ? "true" : "false");
+      try {
+        const res = await apiFetch("/api/v1/rankings/projects?" + params.toString());
+        if (!res.ok) throw new Error(await res.text());
+        const data = await res.json();
+        fillToolSelect(document.getElementById("projectFilterTool"), data.filters.tools || [], data.filters.tool_labels || {}, "全部工具");
+        fillSelect(document.getElementById("projectFilterAccount"), data.filters.accounts || [], "全部账号");
+        const basis = data.totals.cost_basis || "estimate";
+        const approx = (basis === "estimate" || basis === "mixed") ? "≈ " : "";
+        document.getElementById("projectMeta").textContent =
+          `${fmtInt(data.totals.projects)} 个项目 · ${fmtTokens(data.totals.total_tokens)} Tokens`;
+        document.getElementById("projectBasis").className = "basis-badge " + basis;
+        document.getElementById("projectBasis").textContent = data.totals.cost_basis_label || "估算";
+        document.getElementById("projectSync").textContent =
+          "更新于 " + new Date(data.generated_at).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" });
+        if (!data.items.length) {
+          host.innerHTML = '<div class="empty">暂无项目数据</div>';
+          return;
+        }
+        const rows = data.items.map(it => `<tr>
+          <td>${medalHtml(it.rank)}</td>
+          <td>
+            <div class="name">${escapeHtml(it.project_id)}</div>
+            <div class="sub">${escapeHtml(it.account_id || "—")}${it.unlabeled ? " · 未标注" : ""}</div>
+          </td>
+          <td class="hide-sm">${escapeHtml(it.tool || "—")}</td>
+          <td>
+            <div class="tok">${fmtTokens(it.total_tokens)}</div>
+            <div class="cost">${approx}${fmtUsd(it.estimated_cost_usd)} · ${it.share_pct}%</div>
+          </td>
+        </tr>`).join("");
+        host.innerHTML = `<table>
+          <thead><tr><th>排名</th><th>项目 · 账号</th><th class="hide-sm">工具</th><th>Token / 成本</th></tr></thead>
+          <tbody>${rows}</tbody></table>`;
+      } catch (err) {
+        host.innerHTML = `<div class="error">加载失败：${escapeHtml(String(err.message || err))}</div>`;
+      }
+    }
+
+    async function loadAgents() {
+      const host = document.getElementById("agentTable");
+      host.innerHTML = '<div class="empty">加载中…</div>';
+      const params = new URLSearchParams({ window: state.agentWindow });
+      const account = document.getElementById("agentFilterAccount").value;
+      const tool = document.getElementById("agentFilterTool").value;
+      const team = document.getElementById("agentFilterTeam").value;
+      const hide = document.getElementById("agentHideUnlabeled").checked;
+      if (account) params.set("account_id", account);
+      if (tool) params.set("tool", tool);
+      if (team) params.set("team", team);
+      params.set("hide_unlabeled", hide ? "true" : "false");
+      try {
+        const res = await apiFetch("/api/v1/rankings/agents?" + params.toString());
+        if (!res.ok) throw new Error(await res.text());
+        const data = await res.json();
+        fillSelect(document.getElementById("agentFilterAccount"), data.filters.accounts || [], "全部账号（Demo）");
+        fillToolSelect(document.getElementById("agentFilterTool"), data.filters.tools || [], data.filters.tool_labels || {}, "全部工具");
+        fillSelect(document.getElementById("agentFilterTeam"), data.filters.teams || [], "全部部门");
+        if (state._preAccount && (data.filters.accounts || []).includes(state._preAccount)) {
+          document.getElementById("agentFilterAccount").value = state._preAccount;
+        }
+        const basis = data.totals.cost_basis || "estimate";
+        const approx = (basis === "estimate" || basis === "mixed") ? "≈ " : "";
+        document.getElementById("agentMeta").textContent =
+          `${fmtInt(data.totals.agents)} 个 Agent · ${fmtTokens(data.totals.total_tokens)} Tokens`;
+        document.getElementById("agentBasis").className = "basis-badge " + basis;
+        document.getElementById("agentBasis").textContent = data.totals.cost_basis_label || "估算";
+        document.getElementById("agentSync").textContent =
+          "更新于 " + new Date(data.generated_at).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" });
+        if (!data.items.length) {
+          host.innerHTML = '<div class="empty">暂无 Agent 数据</div>';
+          return;
+        }
+        const rows = data.items.map(it => `<tr>
+          <td>${medalHtml(it.rank)}</td>
+          <td>
+            <div class="name">${escapeHtml(it.label || it.agent_id)}</div>
+            <div class="sub">${escapeHtml(it.account_id || "—")} · ${escapeHtml(it.agent_id)}</div>
+          </td>
+          <td>${escapeHtml(it.tool || "—")}</td>
+          <td class="hide-sm">${fmtInt(it.requests)}</td>
+          <td>
+            <div class="tok">${fmtTokens(it.total_tokens)}</div>
+            <div class="cost">${approx}${fmtUsd(it.estimated_cost_usd)} · ${it.share_pct}%</div>
+          </td>
+        </tr>`).join("");
+        host.innerHTML = `<table>
+          <thead><tr>
+            <th>排名</th><th>Agent</th><th>主力工具</th><th class="hide-sm">请求数</th><th>Token 用量</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>`;
+      } catch (err) {
+        host.innerHTML = `<div class="error">加载失败：${escapeHtml(String(err.message || err))}</div>`;
+      }
+    }
+
+    function renderMiniList(items, nameKey, emptyText) {
+      if (!items || !items.length) return `<div class="empty">${emptyText}</div>`;
+      return items.map(it => {
+        const name = it[nameKey] || it.label || it.agent_id || "—";
+        const ap = (!it.cost_basis || it.cost_basis === "estimate" || it.cost_basis === "mixed") ? "≈ " : "";
+        return `<div class="mini-row">
+          <div>
+            <div>${escapeHtml(name)}${it.unlabeled ? ' <span class="basis-badge">未标注</span>' : ""}</div>
+            <div class="cost">${fmtInt(it.requests || 0)} 次 · ${it.share_pct || 0}%</div>
+          </div>
+          <div style="text-align:right">
+            <div class="tok">${fmtTokens(it.total_tokens)}</div>
+            <div class="cost">${ap}${fmtUsd(it.estimated_cost_usd)}</div>
+          </div>
+        </div>`;
+      }).join("");
+    }
+
+    async function loadMe() {
+      const accountSel = document.getElementById("meFilterAccount");
+      const who = state.whoami;
+      const memberLocked = who && who.authenticated && who.role === "member" && who.account_id;
+
+      let account = accountSel.value || state._preMeAccount || "";
+      if (memberLocked) {
+        account = who.account_id;
+        fillSelect(accountSel, [account], "我的账号");
+        accountSel.value = account;
+        accountSel.disabled = true;
+      } else {
+        accountSel.disabled = false;
+        try {
+          const agentsRes = await apiFetch("/api/v1/rankings/agents?window=all&hide_unlabeled=false");
+          if (agentsRes.ok) {
+            const ad = await agentsRes.json();
+            const accounts = ad.filters.accounts || [];
+            fillSelect(accountSel, accounts, "选择账号…");
+            if (state._preMeAccount && accounts.includes(state._preMeAccount)) {
+              accountSel.value = state._preMeAccount;
+              account = state._preMeAccount;
+            } else if (account && accounts.includes(account)) {
+              accountSel.value = account;
+            } else if (!account && accounts.length) {
+              accountSel.value = accounts[0];
+              account = accounts[0];
+            }
+          }
+        } catch (_) { /* ignore */ }
+      }
+
+      if (!account && !(who && who.authenticated && who.role === "member")) {
+        document.getElementById("meShareCard").textContent = "请先选择账号，或贴上 member Key 自动锁定自己的账号";
+        document.getElementById("meAgents").innerHTML = '<div class="empty">请选择账号</div>';
+        document.getElementById("meProjects").innerHTML = '<div class="empty">请选择账号</div>';
+        document.getElementById("meTools").innerHTML = '<div class="empty">请选择账号</div>';
+        return;
+      }
+
+      try {
+        const params = new URLSearchParams({ window: state.meWindow });
+        if (account) params.set("account_id", account);
+        const res = await apiFetch("/api/v1/me?" + params.toString());
+        if (!res.ok) throw new Error(await res.text());
+        const data = await res.json();
+        account = data.account_id || account;
+        if (data.filters && data.filters.accounts && !memberLocked) {
+          fillSelect(accountSel, data.filters.accounts, "选择账号…");
+          accountSel.value = account;
+        }
+        const ov = data.overview || {};
+        const basis = ov.cost_basis || "estimate";
+        const basisLabel = ov.cost_basis_label || "估算";
+        const approx = (basis === "estimate" || basis === "mixed") ? "≈ " : "";
+        document.getElementById("meTok").textContent = fmtTokens(ov.total_tokens) + " Tokens";
+        document.getElementById("meTokSub").textContent = `账号 ${account} · ${fmtInt(ov.requests)} 次请求`;
+        document.getElementById("meCost").textContent = approx + fmtUsd(ov.estimated_cost_usd);
+        document.getElementById("meCostSub").textContent = ov.cost_basis_note || "";
+        document.getElementById("meBasis").className = "basis-badge " + basis;
+        document.getElementById("meBasis").textContent = basisLabel;
+        document.getElementById("meCounts").textContent = `${fmtInt(ov.agents)} / ${fmtInt(ov.projects)}`;
+        document.getElementById("meCountsSub").textContent = `${fmtInt(ov.tools)} 种工具`;
+        document.getElementById("meShareCard").textContent = data.share_text || "";
+        document.getElementById("meHowto").textContent = data.how_to_report_agent_id || "";
+        document.getElementById("meAgents").innerHTML = renderMiniList(data.agents, "label", "暂无 Agent");
+        document.getElementById("meProjects").innerHTML = renderMiniList(data.projects, "project_id", "暂无项目");
+        const tools = data.tools || [];
+        document.getElementById("meTools").innerHTML = tools.length ? tools.map(t => `
+          <div class="mini-row">
+            <div>${escapeHtml(t.label || t.tool)} · ${t.share_pct}%</div>
+            <div class="tok">${fmtTokens(t.total_tokens)}</div>
+          </div>
+          <div class="bar-wrap"><div class="bar"><i style="width:${Math.min(100, t.share_pct || 0)}%"></i></div></div>
+        `).join("") : '<div class="empty">暂无工具分布</div>';
+        document.getElementById("generatedAt").textContent =
+          "更新于 " + new Date(data.generated_at).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" });
+        state._lastMe = data;
+        document.getElementById("meShareCanvas").style.display = "none";
+
+        // soft low-usage hint on /me
+        try {
+          const thr = 10000;
+          const ar = await apiFetch(`/api/v1/alerts/low-usage?window=${encodeURIComponent(state.meWindow)}&threshold_tokens=${thr}`);
+          if (ar.ok) {
+            const ad = await ar.json();
+            if (ad.alert_count > 0 && ad.alerts && ad.alerts[0]) {
+              const a = ad.alerts[0];
+              if (a.account_id === account) {
+                const box = document.getElementById("meShareCard");
+                box.textContent = (data.share_text || "") + "\n\n⚠️ 低消耗提醒：" + (ad.narrative || a.message);
+              }
+            }
+          }
+        } catch (_) { /* ignore */ }
+      } catch (err) {
+        document.getElementById("meShareCard").textContent = "加载失败：" + (err.message || err);
+      }
+    }
+
+    async function loadAlerts(notify) {
+      const host = document.getElementById("alertList");
+      const okHost = document.getElementById("alertOkList");
+      host.innerHTML = '<div class="empty">加载中…</div>';
+      const thr = Number(document.getElementById("alertThreshold").value) || 0;
+      const params = new URLSearchParams({
+        window: state.alertWindow,
+        threshold_tokens: String(thr),
+      });
+      if (notify) params.set("notify", "true");
+      try {
+        const res = await apiFetch("/api/v1/alerts/low-usage?" + params.toString());
+        if (!res.ok) throw new Error(await res.text());
+        const data = await res.json();
+        document.getElementById("alertsNarrative").textContent = data.narrative || "";
+        const wh = data.webhook || {};
+        let whNote = "";
+        if (notify) {
+          if (wh.skipped && wh.reason === "webhook_not_configured") whNote = " · Webhook 未配置（已跳过）";
+          else if (wh.sent) whNote = ` · Webhook HTTP ${wh.status_code}`;
+          else if (wh.error) whNote = " · Webhook 失败：" + wh.error;
+        } else if (data.webhook_configured) {
+          whNote = " · Webhook 已配置（点「推送」才会 POST）";
+        }
+        document.getElementById("alertMeta").textContent =
+          `评估 ${fmtInt(data.accounts_evaluated)} 账号 · 告警 ${fmtInt(data.alert_count)} · 达标 ${fmtInt(data.ok_count)} · 范围 ${data.scope === "self" ? "仅自己" : "全员"} · 阈值 ${fmtTokens(data.threshold_tokens)}`;
+        document.getElementById("alertSync").textContent =
+          "更新于 " + new Date(data.generated_at).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" }) + whNote;
+
+        if (!data.alerts.length) {
+          host.innerHTML = '<div class="alert-card ok"><h4>暂无低消耗告警</h4><div class="msg">所选窗口内，评估账号均已达到或超过阈值。继续把关键工作流交给 AI 吧。</div></div>';
+        } else {
+          host.innerHTML = data.alerts.map(a => `
+            <div class="alert-card">
+              <h4>${escapeHtml(a.name || a.account_id)} · ${escapeHtml(a.account_id)}</h4>
+              <div class="msg">${escapeHtml(a.message)}</div>
+              <div class="meta-line">
+                本窗 ${fmtTokens(a.total_tokens)} Tokens（阈值 ${fmtTokens(a.threshold_tokens)}，差 ${fmtTokens(a.deficit_tokens)}）
+                · ${fmtInt(a.requests)} 次 · ${fmtInt(a.agents)} agents · ${fmtInt(a.projects)} 项目
+                · <a href="/me?account_id=${encodeURIComponent(a.account_id)}">去「我的」看拆分</a>
+              </div>
+            </div>`).join("");
+        }
+        okHost.innerHTML = (data.ok && data.ok.length)
+          ? data.ok.map(a => `<div class="mini-row"><div>${escapeHtml(a.name)} · ${escapeHtml(a.account_id)}</div><div class="tok">${fmtTokens(a.total_tokens)}</div></div>`).join("")
+          : '<div class="empty">无</div>';
+      } catch (err) {
+        host.innerHTML = `<div class="error">加载失败：${escapeHtml(String(err.message || err))}</div>`;
+      }
+    }
+
+    async function exportMeCsv() {
+      if (!getStoredKey()) {
+        openKeyModal();
+        alert("导出需要用户 API Key（member / admin），请先贴 Key。不要使用服务端 ingest Key 作为浏览器默认。");
+        return;
+      }
+      const who = state.whoami || {};
+      const account = (state._lastMe && state._lastMe.account_id)
+        || document.getElementById("meFilterAccount").value
+        || who.account_id
+        || "";
+      const params = new URLSearchParams({ window: state.meWindow || "7d", limit: "10000" });
+      if (account) params.set("account_id", account);
+      try {
+        const res = await apiFetch("/api/v1/export/usage.csv?" + params.toString());
+        if (!res.ok) throw new Error(await res.text());
+        const blob = await res.blob();
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = `usage_${account || "all"}.csv`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+      } catch (err) {
+        alert("导出失败：" + (err.message || err));
+      }
+    }
+
+    function copyMeShare() {
+      const text = document.getElementById("meShareCard").textContent || "";
+      if (!text || text.includes("选择账号")) return;
+      navigator.clipboard.writeText(text).then(() => {
+        const btn = document.getElementById("meCopyBtn");
+        const old = btn.textContent;
+        btn.textContent = "已复制";
+        setTimeout(() => { btn.textContent = old; }, 1200);
+      }).catch(() => alert("复制失败，请手动选择文案"));
+    }
+
+    function drawMeShare() {
+      const data = state._lastMe;
+      if (!data) return;
+      const canvas = document.getElementById("meShareCanvas");
+      const ctx = canvas.getContext("2d");
+      const w = canvas.width, h = canvas.height;
+      const grd = ctx.createLinearGradient(0, 0, w, h);
+      grd.addColorStop(0, "#1f3a30");
+      grd.addColorStop(0.55, "#1b3329");
+      grd.addColorStop(1, "#0d1110");
+      ctx.fillStyle = grd;
+      ctx.fillRect(0, 0, w, h);
+      ctx.strokeStyle = "rgba(110,231,176,0.35)";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(16, 16, w - 32, h - 32);
+      ctx.fillStyle = "#6ee7b0";
+      ctx.font = "bold 28px sans-serif";
+      ctx.fillText("Token 周报", 48, 70);
+      ctx.fillStyle = "#cfe8db";
+      ctx.font = "18px sans-serif";
+      ctx.fillText(`账号 ${data.account_id} · ${data.window}`, 48, 104);
+      const ov = data.overview || {};
+      ctx.fillStyle = "#e8f0ec";
+      ctx.font = "bold 44px sans-serif";
+      ctx.fillText(fmtTokens(ov.total_tokens) + " Tokens", 48, 180);
+      ctx.fillStyle = "#6ee7b0";
+      ctx.font = "bold 32px sans-serif";
+      const approx = (ov.cost_basis === "estimate" || ov.cost_basis === "mixed") ? "≈ " : "";
+      ctx.fillText(approx + fmtUsd(ov.estimated_cost_usd) + " · " + (ov.cost_basis_label || "估算"), 48, 230);
+      const topA = (data.agents || []).find(a => !a.unlabeled) || (data.agents || [])[0];
+      const topP = (data.projects || []).find(p => !p.unlabeled) || (data.projects || [])[0];
+      ctx.fillStyle = "#9fbfb0";
+      ctx.font = "16px sans-serif";
+      ctx.fillText("Top Agent: " + ((topA && (topA.label || topA.agent_id)) || "—"), 48, 290);
+      ctx.fillText("Top 项目: " + ((topP && topP.project_id) || "—"), 48, 320);
+      const tools = (data.tools || []).slice(0, 3).map(t => `${t.label} ${t.share_pct}%`).join(" · ");
+      ctx.fillText("工具: " + (tools || "—"), 48, 350);
+      ctx.fillStyle = "#6ee7b0";
+      ctx.font = "14px sans-serif";
+      ctx.fillText("Token 消耗排行榜 · 企业内部", 48, 390);
+      canvas.style.display = "block";
+    }
+
+
+    function updateForumAuthHint() {
+      const el = document.getElementById("forumAuthHint");
+      if (!el) return;
+      const key = getStoredKey();
+      if (!key) {
+        el.textContent = "未贴 Key · 仅可浏览；点顶栏「贴 Key」后发帖（demo-alice-key / demo-admin-key）";
+      } else if (state.whoami && state.whoami.name) {
+        el.textContent = `以 ${state.whoami.name}（${state.whoami.role}）发帖 · Key ${state.whoami.key_hint || ""}`;
+      } else {
+        el.textContent = "已贴 Key · 可发帖";
+      }
+    }
+
+    function showForumWarn(msg) {
+      const w = document.getElementById("forumWarn");
+      if (!w) return;
+      if (!msg) { w.classList.remove("show"); w.textContent = ""; return; }
+      w.textContent = msg;
+      w.classList.add("show");
+    }
+
+    
+    async function loadProcode() {
+      const statusEl = document.getElementById("procodeStatus");
+      const eventsEl = document.getElementById("procodeEvents");
+      const meta = document.getElementById("procodeMeta");
+      try {
+        const res = await apiFetch("/health");
+        const data = await res.json();
+        const adapters = data.adapters || [];
+        const pc = adapters.find(a => a.id === "procode") || {};
+        statusEl.textContent = pc.status || "placeholder";
+        const tools = data.tools || [];
+        const hasPc = Array.isArray(tools) ? tools.includes("procode") : !!tools.procode;
+        eventsEl.textContent = hasPc ? "有（见排行 tool=procode）" : "暂无";
+        meta.textContent = "version " + (data.version || "") + " · adapters=" + adapters.length + " · 见 /docs/probe.md";
+      } catch (e) {
+        statusEl.textContent = "error";
+        meta.textContent = String(e);
+      }
+    }
+
+async function loadForum() {
+      const host = document.getElementById("forumList");
+      updateForumAuthHint();
+      showForumWarn("");
+      try {
+        const res = await apiFetch("/api/v1/forum/posts?limit=50");
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const data = await res.json();
+        if (data.disclaimer) {
+          document.getElementById("forumDisclaimer").textContent = data.disclaimer;
+        }
+        document.getElementById("forumMeta").textContent =
+          `${data.totals.posts} 帖 · 展示 ${data.totals.returned} 条（时间倒序）`;
+        document.getElementById("forumSync").textContent =
+          "标题≤" + (data.title_max || 120) + " · 正文≤" + (data.body_max || 2000);
+        document.getElementById("generatedAt").textContent = new Date().toLocaleString("zh-CN");
+        const items = data.items || [];
+        if (!items.length) {
+          host.innerHTML = '<div class="empty">还没有帖子。贴上用户 Key 后发第一条吧。</div>';
+          return;
+        }
+        host.innerHTML = items.map(p => `
+          <article class="forum-post" data-id="${p.id}">
+            <h4>${escapeHtml(p.title)}</h4>
+            <div class="body">${escapeHtml(p.body)}</div>
+            <div class="meta-line">
+              <span>${escapeHtml(p.author_name || "匿名")}${p.author_role ? " · " + escapeHtml(p.author_role) : ""}${p.author_account_id ? " · " + escapeHtml(p.author_account_id) : ""}</span>
+              <span>${escapeHtml(p.created_at || "")}</span>
+              <button type="button" class="like-btn" data-like="${p.id}">▲ ${fmtInt(p.likes || 0)}</button>
+            </div>
+          </article>
+        `).join("");
+        host.querySelectorAll("[data-like]").forEach(btn => {
+          btn.addEventListener("click", () => likeForumPost(btn.dataset.like));
+        });
+      } catch (e) {
+        host.innerHTML = `<div class="empty">加载失败：${escapeHtml(e.message || e)}</div>`;
+      }
+    }
+
+    async function submitForumPost() {
+      showForumWarn("");
+      if (!getStoredKey()) {
+        showForumWarn("请先点顶栏「贴 Key」再发帖（例如 demo-alice-key）。");
+        openKeyModal();
+        return;
+      }
+      const title = document.getElementById("forumTitle").value.trim();
+      const body = document.getElementById("forumBody").value.trim();
+      if (!title || !body) {
+        showForumWarn("标题和正文都要填。");
+        return;
+      }
+      try {
+        const res = await apiFetch("/api/v1/forum/posts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...authHeaders() },
+          body: JSON.stringify({ title, body }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          const msg = (data.detail && (data.detail.message || data.detail.error)) || ("HTTP " + res.status);
+          showForumWarn(typeof msg === "string" ? msg : JSON.stringify(msg));
+          return;
+        }
+        document.getElementById("forumTitle").value = "";
+        document.getElementById("forumBody").value = "";
+        showForumWarn("");
+        await loadForum();
+      } catch (e) {
+        showForumWarn(e.message || String(e));
+      }
+    }
+
+    async function likeForumPost(id) {
+      try {
+        const res = await apiFetch("/api/v1/forum/posts/" + id + "/like", { method: "POST" });
+        if (!res.ok) return;
+        await loadForum();
+      } catch (_) { /* ignore */ }
+    }
+
+    async function boot() {
+      state.page = detectPage();
+      const qs = new URLSearchParams(location.search);
+      const preAccount = qs.get("account_id");
+      if (preAccount && state.page === "agents") state._preAccount = preAccount;
+      if (preAccount && state.page === "me") state._preMeAccount = preAccount;
+      setActiveNav();
+      bindPills("peoplePills", "peopleWindow");
+      bindPills("orgPills", "orgWindow");
+      bindPills("projectPills", "projectWindow");
+      bindPills("agentPills", "agentWindow");
+      bindPills("mePills", "meWindow");
+      bindPills("alertPills", "alertWindow");
+
+      document.getElementById("keyOpenBtn").addEventListener("click", openKeyModal);
+      document.getElementById("keySaveBtn").addEventListener("click", saveKeyFromModal);
+      document.getElementById("keyClearBtn").addEventListener("click", clearKeyFromModal);
+      document.getElementById("keyCancelBtn").addEventListener("click", closeKeyModal);
+      document.getElementById("keyModal").addEventListener("click", (e) => {
+        if (e.target.id === "keyModal") closeKeyModal();
+      });
+      document.getElementById("keyInput").addEventListener("keydown", (e) => {
+        if (e.key === "Enter") saveKeyFromModal();
+      });
+
+      ["filterTool", "filterModel", "filterTeam"].forEach(id => {
+        document.getElementById(id).addEventListener("change", loadPeople);
+      });
+      document.getElementById("orgFilterTool").addEventListener("change", loadOrgs);
+      ["projectFilterTool", "projectFilterAccount"].forEach(id => {
+        document.getElementById(id).addEventListener("change", loadProjects);
+      });
+      document.getElementById("projectHideUnlabeled").addEventListener("change", loadProjects);
+      ["agentFilterAccount", "agentFilterTool", "agentFilterTeam"].forEach(id => {
+        document.getElementById(id).addEventListener("change", loadAgents);
+      });
+      document.getElementById("agentHideUnlabeled").addEventListener("change", loadAgents);
+      document.getElementById("meFilterAccount").addEventListener("change", loadMe);
+      document.getElementById("meCopyBtn").addEventListener("click", copyMeShare);
+      document.getElementById("meDrawBtn").addEventListener("click", drawMeShare);
+      document.getElementById("meExportBtn").addEventListener("click", exportMeCsv);
+      document.getElementById("alertReloadBtn").addEventListener("click", () => loadAlerts(false));
+      document.getElementById("alertNotifyBtn").addEventListener("click", () => loadAlerts(true));
+      document.getElementById("alertExportBtn").addEventListener("click", exportMeCsv);
+      document.getElementById("alertThreshold").addEventListener("change", () => loadAlerts(false));
+      let qTimer;
+      document.getElementById("filterQ").addEventListener("input", () => {
+        clearTimeout(qTimer);
+        qTimer = setTimeout(loadPeople, 250);
+      });
+
+
+      document.getElementById("forumSubmitBtn").addEventListener("click", submitForumPost);
+      document.getElementById("forumReloadBtn").addEventListener("click", loadForum);
+      const _pcb = document.getElementById("procodeReloadBtn");
+      if (_pcb && !_pcb.dataset.bound) { _pcb.dataset.bound = "1"; _pcb.addEventListener("click", loadProcode); }
+
+      await refreshWhoami();
+      loadCredStrip();
+
+      if (state.page === "orgs") loadOrgs();
+      else if (state.page === "projects") loadProjects();
+      else if (state.page === "agents") {
+        if (state._preAccount) {
+          document.getElementById("agentFilterAccount").innerHTML =
+            `<option value="${escapeHtml(state._preAccount)}">${escapeHtml(state._preAccount)}</option>`;
+          document.getElementById("agentFilterAccount").value = state._preAccount;
+        }
+        loadAgents();
+      } else if (state.page === "me") {
+        loadMe();
+      } else if (state.page === "alerts") {
+        loadAlerts(false);
+      } else if (state.page === "forum") {
+        loadForum();
+      } else loadPeople();
+    }
+
+    boot();
+  </script>
+</body>
+</html>

@@ -1,0 +1,199 @@
+{
+  "generated_at": "2026-10-26T01:18:58.435149+00:00",
+  "home": "/workspace/token-rankings/fixtures/probe_home",
+  "tools": {
+    "workbuddy": {
+      "tool": "workbuddy",
+      "status": "found",
+      "candidates": [
+        {
+          "path": "/workspace/token-rankings/fixtures/probe_home/.workbuddy/projects",
+          "exists": true,
+          "is_dir": true,
+          "is_file": false,
+          "jsonl_files": 2,
+          "jsonl_lines": 7,
+          "sample_files": [
+            "/workspace/token-rankings/fixtures/probe_home/.workbuddy/projects/demo-app/session-a.jsonl",
+            "/workspace/token-rankings/fixtures/probe_home/.workbuddy/projects/ops-bot/session-b.jsonl"
+          ]
+        },
+        {
+          "path": "/workspace/token-rankings/fixtures/probe_home/.workbody/projects",
+          "exists": false,
+          "is_dir": false,
+          "is_file": false
+        },
+        {
+          "path": "/workspace/token-rankings/fixtures/probe_home/Library/Application Support/WorkBuddy/projects",
+          "exists": false,
+          "is_dir": false,
+          "is_file": false
+        }
+      ],
+      "scanned_root": "/workspace/token-rankings/fixtures/probe_home/.workbuddy/projects",
+      "mapped_rows": 3,
+      "parse_stats": {
+        "lines_total": 7,
+        "files_scanned": 2,
+        "parsed_ok": 3,
+        "skipped_json_error": 0,
+        "skipped_not_usage": 1,
+        "skipped_missing_model": 1,
+        "skipped_missing_tokens": 0,
+        "skipped_forbidden_content": 2,
+        "skipped_other": 0,
+        "notes": [],
+        "skipped_total": 4,
+        "success_rate_pct": 42.86
+      },
+      "content_leak_keys": [],
+      "sample_mapped": [
+        {
+          "model": "claude-3-5-sonnet",
+          "prompt_tokens": 1200,
+          "completion_tokens": 350,
+          "account_id": "alice@acme.com",
+          "project_id": "demo-app",
+          "agent_id": "wb-coder",
+          "request_id": "wb-probe-001"
+        },
+        {
+          "model": "gpt-4o-mini",
+          "prompt_tokens": 640,
+          "completion_tokens": 180,
+          "account_id": "alice@acme.com",
+          "project_id": "demo-app",
+          "agent_id": null,
+          "request_id": "wb-probe-002"
+        },
+        {
+          "model": "qwen-plus",
+          "prompt_tokens": 500,
+          "completion_tokens": 120,
+          "account_id": "eve@acme.com",
+          "project_id": "ops-bot",
+          "agent_id": "wb-ops",
+          "request_id": "wb-probe-003"
+        }
+      ]
+    },
+    "cursor": {
+      "tool": "cursor",
+      "status": "parsed_exports",
+      "candidates": [
+        {
+          "path": "/workspace/token-rankings/fixtures/probe_home/.cursor/exports",
+          "exists": true,
+          "is_dir": true,
+          "is_file": false,
+          "json_files": 1,
+          "jsonl_files": 0,
+          "jsonl_lines": 0,
+          "sample_files": [],
+          "sample_json": [
+            "/workspace/token-rankings/fixtures/probe_home/.cursor/exports/filtered-usage-events.json"
+          ]
+        },
+        {
+          "path": "/workspace/token-rankings/fixtures/probe_home/.cursor",
+          "exists": true,
+          "is_dir": true,
+          "is_file": false,
+          "json_files": 1,
+          "jsonl_files": 0,
+          "jsonl_lines": 0,
+          "sample_files": [],
+          "sample_json": [
+            "/workspace/token-rankings/fixtures/probe_home/.cursor/exports/filtered-usage-events.json"
+          ]
+        },
+        {
+          "path": "/workspace/token-rankings/fixtures/probe_home/Library/Application Support/Cursor",
+          "exists": false,
+          "is_dir": false,
+          "is_file": false
+        }
+      ],
+      "note": "生产推荐 Cursor Admin API；本地 exports 仅作离线对照。",
+      "mapped_rows": 2,
+      "parse_stats": {
+        "lines_total": 3,
+        "files_scanned": 0,
+        "parsed_ok": 2,
+        "skipped_json_error": 0,
+        "skipped_not_usage": 0,
+        "skipped_missing_model": 1,
+        "skipped_missing_tokens": 0,
+        "skipped_forbidden_content": 0,
+        "skipped_other": 0,
+        "notes": [],
+        "skipped_total": 1,
+        "success_rate_pct": 66.67
+      },
+      "sample_mapped": [
+        {
+          "model": "claude-4.5-sonnet",
+          "account_id": "alice@acme.com",
+          "project_id": "conv:probe",
+          "request_id": "cursor-probe-001",
+          "cost_basis": "cursor_charged"
+        },
+        {
+          "model": "gpt-4o",
+          "account_id": "bob@acme.com",
+          "project_id": "conv:probe",
+          "request_id": "cursor-probe-002",
+          "cost_basis": "cursor_charged"
+        }
+      ],
+      "export_files": [
+        "/workspace/token-rankings/fixtures/probe_home/.cursor/exports/filtered-usage-events.json"
+      ]
+    },
+    "procode": {
+      "tool": "procode",
+      "status": "paths_present_no_schema",
+      "aliases": [
+        "procode",
+        "canoryn"
+      ],
+      "candidates": [
+        {
+          "path": "/workspace/token-rankings/fixtures/probe_home/.canoryn",
+          "exists": true,
+          "is_dir": true,
+          "is_file": false,
+          "jsonl_files": 0,
+          "jsonl_lines": 0,
+          "sample_files": [],
+          "json_files": 1
+        },
+        {
+          "path": "/workspace/token-rankings/fixtures/probe_home/.procode",
+          "exists": true,
+          "is_dir": true,
+          "is_file": false,
+          "jsonl_files": 0,
+          "jsonl_lines": 0,
+          "sample_files": [],
+          "json_files": 1
+        },
+        {
+          "path": "/workspace/token-rankings/fixtures/probe_home/.procode/logs",
+          "exists": true,
+          "is_dir": true,
+          "is_file": false
+        }
+      ],
+      "notes": "公开用量 schema 不足。请用 POST /api/v1/ingest/procode 推送统一 usage，或经 LiteLLM tags/header 标注 tool=procode。"
+    }
+  },
+  "summary": {
+    "workbuddy": "found",
+    "cursor": "parsed_exports",
+    "procode": "paths_present_no_schema",
+    "workbuddy_success_rate_pct": 42.86,
+    "cursor_success_rate_pct": 66.67
+  }
+}

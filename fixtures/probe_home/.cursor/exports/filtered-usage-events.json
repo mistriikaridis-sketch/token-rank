@@ -1,0 +1,44 @@
+{
+  "totalUsageEventsCount": 3,
+  "usageEvents": [
+    {
+      "timestampMs": 1792900800000,
+      "owningUser": "alice@acme.com",
+      "conversationId": "probe-conv-aaaa-bbbb-cccc",
+      "model": "claude-4.5-sonnet",
+      "kind": "Usage-based",
+      "isTokenBasedCall": true,
+      "tokenUsage": {
+        "inputTokens": 900,
+        "outputTokens": 200,
+        "cacheReadTokens": 1000,
+        "cacheWriteTokens": 100
+      },
+      "chargedCents": 5.5,
+      "eventId": "cursor-probe-001",
+      "cloudAgentId": "cloud-agent-probe",
+      "agentName": "探针 Agent"
+    },
+    {
+      "timestamp": "1792901400000",
+      "userEmail": "bob@acme.com",
+      "conversation_id": "probe-conv-dddd-eeee",
+      "model": "gpt-4o",
+      "token_usage": {
+        "input_tokens": 400,
+        "output_tokens": 100,
+        "cache_read_tokens": 0
+      },
+      "charged_cents": 3.2,
+      "id": "cursor-probe-002",
+      "team": "增长运营"
+    },
+    {
+      "timestamp": "1792902000000",
+      "userEmail": "carol@acme.com",
+      "model": "",
+      "tokenUsage": {"inputTokens": 1, "outputTokens": 1},
+      "eventId": "cursor-probe-bad-model"
+    }
+  ]
+}

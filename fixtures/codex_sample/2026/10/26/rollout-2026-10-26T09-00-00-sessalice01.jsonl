@@ -1,0 +1,4 @@
+{"timestamp":"2026-10-26T09:00:00.000Z","type":"session_meta","payload":{"id":"thread_alice_01","session_id":"sess_alice_01","cwd":"/Users/alice/work/chatbot-core","cli_version":"0.155.0","parent_thread_id":null}}
+{"timestamp":"2026-10-26T09:00:01.000Z","type":"turn_context","payload":{"model":"gpt-5-codex","cwd":"/Users/alice/work/chatbot-core"}}
+{"timestamp":"2026-10-26T09:00:02.000Z","type":"token_usage_record","payload":{"session_id":"sess_alice_01","response_id":"resp_alice_001","usage":{"input_tokens":25558,"cached_input_tokens":4864,"output_tokens":131,"reasoning_output_tokens":65,"total_tokens":25689}}}
+{"timestamp":"2026-10-26T09:05:00.000Z","type":"token_usage_record","payload":{"session_id":"sess_alice_01","response_id":"resp_alice_003","usage":{"input_tokens":1500,"cached_input_tokens":900,"output_tokens":200,"total_tokens":1700}}}

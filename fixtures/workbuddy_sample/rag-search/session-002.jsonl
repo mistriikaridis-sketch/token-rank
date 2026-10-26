@@ -1,0 +1,2 @@
+{"event":"usage","model":"gpt-4o","usage":{"prompt_tokens":3200,"completion_tokens":900,"cache_read":800,"reasoning":400},"project_path":"/Users/bob/code/rag-search","user":"bob@acme.com","team":"增长运营","timestamp":"2026-10-25T02:10:00Z"}
+{"type":"llm.usage","model":"deepseek-chat","input_tokens":500,"output_tokens":120,"cwd":"/Users/bob/code/rag-search","account_id":"bob@acme.com","team":"增长运营","ts":"2026-10-24T20:00:00Z"}
