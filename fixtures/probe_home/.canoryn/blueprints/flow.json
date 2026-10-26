@@ -1,0 +1,7 @@
+{
+  "model": "gpt-4o",
+  "prompt_tokens": 3,
+  "completion_tokens": 1,
+  "request_id": "probe-blueprint-must-skip",
+  "account_id": "frank@acme.com"
+}

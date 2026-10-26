@@ -161,6 +161,7 @@ server {
 - [ ] **数据库用 Postgres。** 设置长随机的 `POSTGRES_PASSWORD`（不要用 `token` 当密码）。执行 `docker compose -f docker-compose.yml -f docker-compose.postgres.yml up -d --build`。`/health` 里数据库类型是 `postgres`。端口只留在 `127.0.0.1:5432`。自检：`bash scripts/verify_postgres.sh`。
 - [ ] **HTTPS 只做反向代理。** 用上面的 Caddy 或 nginx，把浏览器流量转到本机 `127.0.0.1:8000`。不要在这层转发模型请求，也不要做密钥池。证书用公司内网自己的。
 - [ ] **本机采集。** 每台开发机按 [collector/INSTALL.md](../collector/INSTALL.md) 安装（服务上的同一份是 `/docs/collector.md`）。覆盖 WorkBuddy、Claude Code、Codex、Continue、Cursor、ProCode。只上传 Token 数字。多账号、多项目靠日志里的邮箱和项目目录拆开，不要只报一个总数。
+- [ ] **真机采集验收。** 在装了开发工具的电脑上按 [ACCEPTANCE.md](ACCEPTANCE.md) 的「真机采集验收」打勾：排行榜地址、六个工具的 preview/once、账号 × 项目、提醒与 FinOps 导出、隐私、第二次 once、Cursor 的 `~/.cursor/exports` 回退。ProCode 仍是 placeholder，不解密聊天库。
 - [ ] **确认拆开可见。** 打开 [项目榜](http://localhost:8000/projects)。每一行是「账号 × 项目」，顶部写着按账号 × 项目拆开。再用成员密钥请求别人的 `account_id`，应得到 403。个人榜同一人跨账号时，行下面有拆分，不是只有合计。
 - [ ] **提醒。** 打开 `/alerts`。规则是闲置、用量过低、费用突增、账号费用阈值。配置见下一节。成员密钥只评估自己的账号。
 - [ ] **FinOps 导出。** 用用户密钥（不要用写入密钥）下载：

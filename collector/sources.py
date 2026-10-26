@@ -10,7 +10,12 @@ from app.adapters.claude_code import scan_claude_code_dir
 from app.adapters.codex import scan_codex_dir
 from app.adapters.continue_dev import scan_continue_dir
 from app.adapters.cursor_admin import scan_cursor_dir
-from app.adapters.procode import scan_procode_dir
+from app.adapters.procode import (
+    PROCODE_HOME_RELATIVE,
+    diagnostics_for_roots,
+    empty_procode_diagnostics,
+    scan_procode_dir,
+)
 from app.adapters.workbuddy import scan_workbuddy_dir
 from app.tools import normalize_tool
 
@@ -54,20 +59,7 @@ DEFAULT_RELATIVE = {
         "Library/Application Support/Cursor",
         "AppData/Roaming/Cursor",
     ),
-    "procode": (
-        ".procode",
-        ".canoryn",
-        ".config/procode",
-        ".config/canoryn",
-        ".local/share/procode",
-        ".local/share/canoryn",
-        "Library/Application Support/ProCode",
-        "Library/Application Support/Canoryn",
-        "AppData/Roaming/ProCode",
-        "AppData/Roaming/Canoryn",
-        "AppData/Local/ProCode",
-        "AppData/Local/Canoryn",
-    ),
+    "procode": PROCODE_HOME_RELATIVE,
 }
 
 FIXTURE_RELATIVE = {
@@ -94,6 +86,7 @@ class ToolScan:
     roots: list[str] = field(default_factory=list)
     missing_roots: list[str] = field(default_factory=list)
     rows: list[dict[str, Any]] = field(default_factory=list)
+    diagnostics: dict[str, Any] = field(default_factory=dict)
 
     @property
     def found(self) -> bool:
@@ -139,13 +132,41 @@ def _platform_roots(tool: str) -> list[Path]:
             found.append(Path(local) / "Cursor")
     elif tool == "procode":
         if xdg:
-            found.extend([Path(xdg) / "procode", Path(xdg) / "canoryn"])
+            found.extend(
+                [
+                    Path(xdg) / "procode",
+                    Path(xdg) / "canoryn",
+                    Path(xdg) / "ProCode",
+                    Path(xdg) / "Canoryn",
+                ]
+            )
         if xdg_data:
-            found.extend([Path(xdg_data) / "procode", Path(xdg_data) / "canoryn"])
+            found.extend(
+                [
+                    Path(xdg_data) / "procode",
+                    Path(xdg_data) / "canoryn",
+                    Path(xdg_data) / "ProCode",
+                    Path(xdg_data) / "Canoryn",
+                ]
+            )
         if appdata:
-            found.extend([Path(appdata) / "ProCode", Path(appdata) / "Canoryn"])
+            found.extend(
+                [
+                    Path(appdata) / "ProCode",
+                    Path(appdata) / "Canoryn",
+                    Path(appdata) / "procode",
+                    Path(appdata) / "canoryn",
+                ]
+            )
         if local:
-            found.extend([Path(local) / "ProCode", Path(local) / "Canoryn"])
+            found.extend(
+                [
+                    Path(local) / "ProCode",
+                    Path(local) / "Canoryn",
+                    Path(local) / "procode",
+                    Path(local) / "canoryn",
+                ]
+            )
     return found
 
 
@@ -241,11 +262,15 @@ def scan_tool(
     for root in found:
         rows.extend(scanner(root))
     rows = [apply_identity(row, cfg) for row in _dedupe_rows(rows)]
+    diagnostics: dict[str, Any] = {}
+    if tool == "procode":
+        diagnostics = diagnostics_for_roots([str(p) for p in found]) if found else empty_procode_diagnostics()
     return ToolScan(
         tool=tool,
         roots=[str(p) for p in found],
         missing_roots=[str(p) for p in missing],
         rows=rows,
+        diagnostics=diagnostics,
     )
 
 

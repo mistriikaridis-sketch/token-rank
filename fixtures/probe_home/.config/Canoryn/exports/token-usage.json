@@ -1,0 +1,13 @@
+{
+  "usageEvents": [
+    {
+      "modelName": "企业内部-canoryn-导出",
+      "inputTokens": 21,
+      "outputTokens": 5,
+      "userEmail": "frank@acme.com",
+      "requestId": "probe-canoryn-export-1",
+      "createdAt": "2026-10-26T07:00:00Z",
+      "cwd": "/Users/bob/work/probe-bot"
+    }
+  ]
+}

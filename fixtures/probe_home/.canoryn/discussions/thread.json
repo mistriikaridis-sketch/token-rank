@@ -1,0 +1,8 @@
+{
+  "model": "gpt-4o-mini",
+  "prompt_tokens": 4,
+  "completion_tokens": 1,
+  "account_id": "frank@acme.com",
+  "request_id": "probe-discussion-must-skip",
+  "content": "short note"
+}

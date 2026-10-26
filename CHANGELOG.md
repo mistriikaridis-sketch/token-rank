@@ -1,5 +1,11 @@
 # 变更记录
 
+## 0.21.1
+
+- ProCode / Canoryn 仍不解密、不打开 sqlite、不读钥匙串、不启动 `canoryn`。公开文档没有本机用量接口，健康检查继续标 `placeholder`，并写明 `blocked`。
+- 多认几处常见目录和导出文件名（含 `token-usage.json`、`usageEvents`、驼峰 token 字段）。`discussions/` 与 `blueprints/` 跳过。预览写明读了多少行、有多少数据库文件没打开。
+- 增加真机采集验收清单：安装、六个工具的 preview/once、账号 × 项目、提醒、FinOps 导出、隐私、第二次 once、Cursor 0/0 时改放 `~/.cursor/exports`。
+
 ## 0.21.0
 
 - 排行按账号和项目拆开：个人榜、部门榜带账号 × 项目明细；Agent 榜按账号 × 助手分行；`/api/v1/rankings?group_by=account_project` 同时返回两个维度。筛选和空状态写明当前账号、项目。

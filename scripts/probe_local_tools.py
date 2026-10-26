@@ -23,7 +23,12 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from app.adapters.cursor_admin import map_cursor_payload_with_stats  # noqa: E402
-from app.adapters.procode import map_procode_payload  # noqa: E402
+from app.adapters.procode import (  # noqa: E402
+    ADAPTER_META as PROCODE_ADAPTER_META,
+    PROCODE_HOME_RELATIVE,
+    diagnostics_for_roots,
+    scan_procode_dir,
+)
 from app.adapters.workbuddy import scan_workbuddy_dir_with_stats  # noqa: E402
 
 
@@ -184,17 +189,8 @@ def probe_cursor(home: Path) -> dict[str, Any]:
 
 
 def probe_procode(home: Path) -> dict[str, Any]:
-    """Scan ~/.canoryn* ~/.procode* — usually empty; document placeholder status."""
-    patterns = [
-        ".canoryn",
-        ".canoryn*",
-        ".procode",
-        ".procode*",
-        "Library/Application Support/Canoryn",
-        "Library/Application Support/ProCode",
-    ]
-    found = []
-    # direct children matching prefixes
+    """Scan usage-export dirs. Never opens encrypted SQLite or launches canoryn."""
+    candidates: list[Path] = [home / rel for rel in PROCODE_HOME_RELATIVE]
     try:
         for child in home.iterdir():
             name = child.name.lower()
@@ -202,34 +198,79 @@ def probe_procode(home: Path) -> dict[str, Any]:
                 "canoryn",
                 "procode",
             ):
-                info = _exists_info(child)
-                if child.is_dir():
-                    info.update(_count_jsonl(child))
-                    info["json_files"] = len(list(child.rglob("*.json"))[:50])
-                found.append(info)
-    except OSError as exc:
-        found.append({"error": str(exc)})
+                candidates.append(child)
+    except OSError:
+        pass
 
-    # explicit candidates even if missing
-    for rel in (".canoryn", ".procode", ".procode/logs"):
-        p = home / rel
-        if not any(f.get("path") == str(p) for f in found if isinstance(f, dict)):
-            found.append(_exists_info(p))
+    found: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    scanned: list[str] = []
+    rows: list[dict[str, Any]] = []
+    for path in candidates:
+        key = str(path)
+        if key in seen:
+            continue
+        seen.add(key)
+        info = _exists_info(path)
+        if info["exists"] and info["is_dir"]:
+            info.update(_count_jsonl(path))
+            scanned.append(key)
+            rows.extend(scan_procode_dir(path))
+        found.append(info)
 
-    # optional fixture-style ingest dry-run if README-only
-    result = {
+    deduped: list[dict[str, Any]] = []
+    seen_ids: set[str] = set()
+    for row in rows:
+        rid = str(row.get("request_id") or "")
+        if rid and rid in seen_ids:
+            continue
+        if rid:
+            seen_ids.add(rid)
+        deduped.append(row)
+    rows = deduped
+
+    diagnostics = diagnostics_for_roots(scanned) if scanned else {
+        "adapter_status": "placeholder",
+        "blocked": list(PROCODE_ADAPTER_META["blocked"]),
+        "note_zh": PROCODE_ADAPTER_META["notes"],
+        "parsed_rows": 0,
+    }
+    leaked = [
+        k
+        for row in rows
+        for k in row
+        if str(k).lower() in ("content", "prompt", "message", "messages", "response", "transcript")
+    ]
+    mapped = len({row.get("request_id") for row in rows})
+    if any(row.get("request_id") for row in rows):
+        status = "parsed_exports"
+    elif any(isinstance(c, dict) and c.get("exists") for c in found):
+        status = "paths_present_no_schema"
+    else:
+        status = "placeholder"
+    return {
         "tool": "procode",
-        "status": "placeholder",
+        "status": status,
+        "adapter_status": "placeholder",
         "aliases": ["procode", "canoryn"],
         "candidates": found,
-        "notes": (
-            "公开用量 schema 不足。请用 POST /api/v1/ingest/procode 推送统一 usage，"
-            "或经 LiteLLM tags/header 标注 tool=procode。"
-        ),
+        "mapped_rows": len(rows),
+        "distinct_request_ids": mapped,
+        "parse_stats": diagnostics.get("parse") or {},
+        "diagnostics": diagnostics,
+        "content_leak_keys": leaked,
+        "sample_mapped": [
+            {
+                "model": row.get("model"),
+                "account_id": row.get("account_id"),
+                "project_id": row.get("project_id"),
+                "request_id": row.get("request_id"),
+            }
+            for row in rows[:8]
+        ],
+        "notes": PROCODE_ADAPTER_META["notes"],
+        "blocked": list(PROCODE_ADAPTER_META["blocked"]),
     }
-    if any(isinstance(c, dict) and c.get("exists") for c in found):
-        result["status"] = "paths_present_no_schema"
-    return result
 
 
 def build_report(home: Path) -> dict[str, Any]:
@@ -248,8 +289,14 @@ def build_report(home: Path) -> dict[str, Any]:
             "workbuddy": wb.get("status"),
             "cursor": cur.get("status"),
             "procode": pc.get("status"),
+            "procode_adapter_status": "placeholder",
             "workbuddy_success_rate_pct": (wb.get("parse_stats") or {}).get("success_rate_pct"),
             "cursor_success_rate_pct": (cur.get("parse_stats") or {}).get("success_rate_pct"),
+            "procode_success_rate_pct": (
+                (pc.get("parse_stats") or {}).get("success_rate_pct")
+                if (pc.get("parse_stats") or {}).get("lines_total")
+                else None
+            ),
         },
     }
 
@@ -273,7 +320,9 @@ def to_markdown(report: dict[str, Any]) -> str:
     lines.append(
         f"| Cursor | `{s.get('cursor')}` | {s.get('cursor_success_rate_pct')}% |"
     )
-    lines.append(f"| ProCode | `{s.get('procode')}` | n/a（占位） |")
+    rate = s.get("procode_success_rate_pct")
+    rate_cell = "n/a（占位，无 usage 文件）" if rate is None else f"{rate}%（适配仍是 placeholder）"
+    lines.append(f"| ProCode | `{s.get('procode')}` | {rate_cell} |")
     lines.append("")
 
     for key, title in (
@@ -304,6 +353,18 @@ def to_markdown(report: dict[str, Any]) -> str:
             lines.append(f"- content leak check: FAIL {block['content_leak_keys']}")
         if block.get("notes"):
             lines.append(f"- notes: {block['notes']}")
+        diag = block.get("diagnostics") or {}
+        if diag.get("adapter_status"):
+            lines.append(f"- adapter_status: `{diag['adapter_status']}`（健康检查仍是这一档）")
+        if diag.get("unopened_db_seen"):
+            names = ", ".join(diag.get("unopened_db_basenames") or [])
+            lines.append(f"- 未打开的数据库/打包文件: **{diag['unopened_db_seen']}**（{names}）")
+        if diag.get("discussions_skipped") or diag.get("blueprints_skipped"):
+            lines.append(
+                f"- 跳过 discussions={diag.get('discussions_skipped')} "
+                f"blueprints={diag.get('blueprints_skipped')} "
+                f"凭证文件名={diag.get('files_skipped_credential_name')}"
+            )
         lines.append("")
         lines.append("候选路径：")
         for c in block.get("candidates") or []:
@@ -320,7 +381,10 @@ def to_markdown(report: dict[str, Any]) -> str:
     lines.append("")
     lines.append("1. WorkBuddy：`POST /api/v1/scan/workbuddy?root=...`（需 write API Key）")
     lines.append("2. Cursor：本机 `python -m collector`（state.vscdb 只抽 token；或 `~/.cursor/exports`），或 Admin sync / `POST /api/v1/ingest/cursor`")
-    lines.append("3. ProCode：usage json/jsonl → `python -m collector`，或统一 schema → `POST /api/v1/ingest/procode`；不解密聊天库")
+    lines.append(
+        "3. ProCode：usage json/jsonl → `python -m collector`，或统一 schema → `POST /api/v1/ingest/procode`。"
+        "不解密聊天库，不打开 sqlite，不读钥匙串，不启动 canoryn。健康检查里的状态保持 placeholder。"
+    )
     lines.append("")
     return "\n".join(lines) + "\n"
 

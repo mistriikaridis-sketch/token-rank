@@ -843,11 +843,13 @@
     <section id="page-procode" class="page">
       <div class="narrative-box">
         <strong>ProCode / Canoryn · 占位适配</strong>
-        公开用量 schema 不足，本产品<strong>不做深适配</strong>。请经 LiteLLM / 网关标注
-        <code>tool=procode</code>（header 或 tags），再推统一 usage 到
-        <code>POST /api/v1/ingest/procode</code>。探测脚本会扫 <code>~/.canoryn*</code>、<code>~/.procode*</code>。
+        公开文档没有本机用量接口。聊天和记忆在加密 SQLite，这里<strong>不解密、不打开数据库、不读钥匙串、不启动 canoryn</strong>。
+        今天能收的是 usage 形状的 json/jsonl（放到 <code>~/.procode</code>、<code>~/.canoryn</code> 或各系统应用数据目录，再跑本机采集），
+        或把同一份字段推到 <code>POST /api/v1/ingest/procode</code>。
+        状态保持 <code>placeholder</code>，直到 schema 公开。
         不做自研网关、不做公网热度榜 → <a href="/docs/NON_GOALS.md">不做的事</a> ·
-        <a href="/docs/INSTALL.md">安装说明</a>
+        <a href="/docs/probe.md">探测说明</a> ·
+        <a href="/docs/collector.md">本机采集</a>
       </div>
       <div class="stats" style="margin-top:12px">
         <div class="stat"><div class="label">适配状态</div><div class="value" id="procodeStatus">—</div></div>
@@ -860,7 +862,8 @@
   -H "Authorization: Bearer $TOKEN_RANKINGS_API_KEY" \
   -H 'Content-Type: application/json' \
   -d @fixtures/procode_events.json</pre>
-        <p class="muted" style="margin:10px 0 0">样例字段：model / prompt_tokens / completion_tokens / account_id / project_id / agent_id / request_id。含大段 prompt/content 的行会被拒绝入库。</p>
+        <p class="muted" style="margin:10px 0 0">样例字段：model / prompt_tokens / completion_tokens / account_id / project_id / agent_id / request_id。驼峰写法（inputTokens、userEmail、usageEvents）也可以。含大段 prompt/content 的行会被拒绝。未知模型保留原名，估价用 default 档。</p>
+        <p class="muted" id="procodeNotes" style="margin:10px 0 0"></p>
         <button type="button" class="btn ghost" id="procodeReloadBtn" style="margin-top:10px">刷新状态</button>
         <span class="muted" id="procodeMeta" style="margin-left:8px"></span>
       </div>
@@ -1828,7 +1831,10 @@
         const tools = data.tools || [];
         const hasPc = Array.isArray(tools) ? tools.includes("procode") : !!tools.procode;
         eventsEl.textContent = hasPc ? "有（见排行 tool=procode）" : "暂无";
-        meta.textContent = "version " + (data.version || "") + " · adapters=" + adapters.length + " · 见 /docs/probe.md";
+        const blocked = Array.isArray(pc.blocked) ? pc.blocked.join(", ") : "";
+        const notesEl = document.getElementById("procodeNotes");
+        if (notesEl) notesEl.textContent = pc.notes || "";
+        meta.textContent = "version " + (data.version || "") + (blocked ? " · blocked " + blocked : "") + " · 见 /docs/probe.md";
       } catch (e) {
         statusEl.textContent = "error";
         meta.textContent = String(e);

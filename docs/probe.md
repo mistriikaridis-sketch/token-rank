@@ -106,18 +106,29 @@ curl -s -X POST http://localhost:8000/api/v1/ingest/cursor \
 
 ## ProCode / Canoryn（聊天库仍不解密）
 
-公开聊天 schema **不足**。Canoryn 的对话在加密 SQLite，密钥在系统钥匙串里。探测脚本会扫 `~/.canoryn*`、`~/.procode*` 并写入报告；页面说明见 **`/procode`**。健康检查 `adapters[]` 里 ProCode 状态仍为 **`placeholder`**。
+Canoryn 的公开文档写明：对话和记忆是加密 SQLite，密钥在 macOS 钥匙串，`canoryn` 命令会连接正在运行的 App。**没有**公开的本机用量 API。探测和采集都不解密、不打开 sqlite、不读钥匙串、不启动 `canoryn`。健康检查 `adapters[]` 里 ProCode 的 `status` 仍为 **`placeholder`**，`blocked` 为 `encrypted_sqlite`、`keychain`、`canoryn_cli`。页面说明见 **`/procode`**。
 
-本机采集器会读这些目录（以及各系统应用数据目录）里的 **usage json/jsonl**，不打开 sqlite，也不调用 `canoryn` 命令。样例：`fixtures/procode_events.json`、`fixtures/procode_sample/`。
+今天能解析的是 usage 形状的 json/jsonl。目录见 `app/adapters/procode.py` 的 `PROCODE_HOME_RELATIVE`（含 Linux/macOS/Windows 的常见大小写，以及 XDG / APPDATA）。Linux 和 Windows 上的这些目录是给操作者**放置导出**的，不是 Canoryn 的安装位置。Canoryn 应用本身在 macOS。
 
-**闭环**：目录里放 usage 文件后 `python -m collector once`，或经 LiteLLM / 网关打 `tool=procode` → `POST /api/v1/ingest/procode`。这不是一条新的模型网关。
+明确跳过、且不打开的内容：
+
+- `*.sqlite`、`*.sqlite3`、`*.db`、`*.cryn`、`*.crynpack`（只在 diagnostics 里计数）
+- `discussions/`（仓库评论导出）
+- `blueprints/`（工作流 JSON，可能含提示词）
+- 文件名像凭证的 json（`api_key`、`secret`、`keychain`、`access_token` 等）
+
+认这些导出形状：顶层或 `usage` / `usageEvents` 里的 `model` / `modelName`，`prompt_tokens` / `inputTokens`，`userEmail`，`projectPath` 或 `cwd`（只留最后一级目录名）。未知模型保留原名，估价用 `default` 档。
+
+样例：`fixtures/procode_events.json`、`fixtures/procode_sample/`（含 `exports/token-usage.json` 和必须跳过的 sqlite / discussions / blueprints）、`fixtures/probe_home/`。
+
+**闭环**：目录里放 usage 文件后 `python -m collector once --tool procode`（`--tool canoryn` 相同），或把同一份字段 `POST /api/v1/ingest/procode`。这不是一条新的模型网关。真机打勾见 [ACCEPTANCE.md](ACCEPTANCE.md) 的「真机采集验收」。
 
 ---
 
 ## 探测结论怎么回流
 
 1. 记下实际路径、脱敏字段表、与 fixture 的 diff。
-2. 改 `app/adapters/workbuddy.py` / `cursor_admin.py` 别名（ProCode 仍走统一 schema）。
+2. 改 `app/adapters/workbuddy.py` / `cursor_admin.py` 别名（ProCode 仍只收 usage json/jsonl，不解密）。
 3. 更新 `fixtures/`（禁止提交真实对话）。
 4. 回归：`probe_local_tools.py` + 重复 ingest → `skipped`；个人/项目/Agent 榜能拆开。
 

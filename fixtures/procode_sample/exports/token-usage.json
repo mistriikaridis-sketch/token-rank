@@ -1,0 +1,14 @@
+{
+  "usageEvents": [
+    {
+      "modelName": "企业内部-procode-导出",
+      "inputTokens": 12,
+      "outputTokens": 3,
+      "cacheReadTokens": 2,
+      "userEmail": "frank@acme.com",
+      "requestId": "procode-sample-005",
+      "createdAt": "2026-10-26T06:00:00Z",
+      "projectPath": "/Users/alice/work/export-bot"
+    }
+  ]
+}

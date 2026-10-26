@@ -1,37 +1,37 @@
 {
-  "generated_at": "2026-10-26T01:18:58.435149+00:00",
-  "home": "/workspace/token-rankings/fixtures/probe_home",
+  "generated_at": "2026-10-26T10:01:36.218651+00:00",
+  "home": "/workspace/fixtures/probe_home",
   "tools": {
     "workbuddy": {
       "tool": "workbuddy",
       "status": "found",
       "candidates": [
         {
-          "path": "/workspace/token-rankings/fixtures/probe_home/.workbuddy/projects",
+          "path": "/workspace/fixtures/probe_home/.workbuddy/projects",
           "exists": true,
           "is_dir": true,
           "is_file": false,
           "jsonl_files": 2,
           "jsonl_lines": 7,
           "sample_files": [
-            "/workspace/token-rankings/fixtures/probe_home/.workbuddy/projects/demo-app/session-a.jsonl",
-            "/workspace/token-rankings/fixtures/probe_home/.workbuddy/projects/ops-bot/session-b.jsonl"
+            "/workspace/fixtures/probe_home/.workbuddy/projects/demo-app/session-a.jsonl",
+            "/workspace/fixtures/probe_home/.workbuddy/projects/ops-bot/session-b.jsonl"
           ]
         },
         {
-          "path": "/workspace/token-rankings/fixtures/probe_home/.workbody/projects",
+          "path": "/workspace/fixtures/probe_home/.workbody/projects",
           "exists": false,
           "is_dir": false,
           "is_file": false
         },
         {
-          "path": "/workspace/token-rankings/fixtures/probe_home/Library/Application Support/WorkBuddy/projects",
+          "path": "/workspace/fixtures/probe_home/Library/Application Support/WorkBuddy/projects",
           "exists": false,
           "is_dir": false,
           "is_file": false
         }
       ],
-      "scanned_root": "/workspace/token-rankings/fixtures/probe_home/.workbuddy/projects",
+      "scanned_root": "/workspace/fixtures/probe_home/.workbuddy/projects",
       "mapped_rows": 3,
       "parse_stats": {
         "lines_total": 7,
@@ -83,7 +83,7 @@
       "status": "parsed_exports",
       "candidates": [
         {
-          "path": "/workspace/token-rankings/fixtures/probe_home/.cursor/exports",
+          "path": "/workspace/fixtures/probe_home/.cursor/exports",
           "exists": true,
           "is_dir": true,
           "is_file": false,
@@ -92,11 +92,11 @@
           "jsonl_lines": 0,
           "sample_files": [],
           "sample_json": [
-            "/workspace/token-rankings/fixtures/probe_home/.cursor/exports/filtered-usage-events.json"
+            "/workspace/fixtures/probe_home/.cursor/exports/filtered-usage-events.json"
           ]
         },
         {
-          "path": "/workspace/token-rankings/fixtures/probe_home/.cursor",
+          "path": "/workspace/fixtures/probe_home/.cursor",
           "exists": true,
           "is_dir": true,
           "is_file": false,
@@ -105,11 +105,11 @@
           "jsonl_lines": 0,
           "sample_files": [],
           "sample_json": [
-            "/workspace/token-rankings/fixtures/probe_home/.cursor/exports/filtered-usage-events.json"
+            "/workspace/fixtures/probe_home/.cursor/exports/filtered-usage-events.json"
           ]
         },
         {
-          "path": "/workspace/token-rankings/fixtures/probe_home/Library/Application Support/Cursor",
+          "path": "/workspace/fixtures/probe_home/Library/Application Support/Cursor",
           "exists": false,
           "is_dir": false,
           "is_file": false
@@ -148,52 +148,247 @@
         }
       ],
       "export_files": [
-        "/workspace/token-rankings/fixtures/probe_home/.cursor/exports/filtered-usage-events.json"
+        "/workspace/fixtures/probe_home/.cursor/exports/filtered-usage-events.json"
       ]
     },
     "procode": {
       "tool": "procode",
-      "status": "paths_present_no_schema",
+      "status": "parsed_exports",
+      "adapter_status": "placeholder",
       "aliases": [
         "procode",
         "canoryn"
       ],
       "candidates": [
         {
-          "path": "/workspace/token-rankings/fixtures/probe_home/.canoryn",
+          "path": "/workspace/fixtures/probe_home/.procode",
           "exists": true,
           "is_dir": true,
           "is_file": false,
           "jsonl_files": 0,
           "jsonl_lines": 0,
-          "sample_files": [],
-          "json_files": 1
+          "sample_files": []
         },
         {
-          "path": "/workspace/token-rankings/fixtures/probe_home/.procode",
+          "path": "/workspace/fixtures/probe_home/.canoryn",
           "exists": true,
           "is_dir": true,
           "is_file": false,
           "jsonl_files": 0,
           "jsonl_lines": 0,
-          "sample_files": [],
-          "json_files": 1
+          "sample_files": []
         },
         {
-          "path": "/workspace/token-rankings/fixtures/probe_home/.procode/logs",
+          "path": "/workspace/fixtures/probe_home/.config/procode",
+          "exists": false,
+          "is_dir": false,
+          "is_file": false
+        },
+        {
+          "path": "/workspace/fixtures/probe_home/.config/canoryn",
+          "exists": false,
+          "is_dir": false,
+          "is_file": false
+        },
+        {
+          "path": "/workspace/fixtures/probe_home/.config/ProCode",
+          "exists": false,
+          "is_dir": false,
+          "is_file": false
+        },
+        {
+          "path": "/workspace/fixtures/probe_home/.config/Canoryn",
           "exists": true,
           "is_dir": true,
+          "is_file": false,
+          "jsonl_files": 0,
+          "jsonl_lines": 0,
+          "sample_files": []
+        },
+        {
+          "path": "/workspace/fixtures/probe_home/.local/share/procode",
+          "exists": true,
+          "is_dir": true,
+          "is_file": false,
+          "jsonl_files": 1,
+          "jsonl_lines": 1,
+          "sample_files": [
+            "/workspace/fixtures/probe_home/.local/share/procode/usage/events.jsonl"
+          ]
+        },
+        {
+          "path": "/workspace/fixtures/probe_home/.local/share/canoryn",
+          "exists": false,
+          "is_dir": false,
+          "is_file": false
+        },
+        {
+          "path": "/workspace/fixtures/probe_home/.local/share/ProCode",
+          "exists": false,
+          "is_dir": false,
+          "is_file": false
+        },
+        {
+          "path": "/workspace/fixtures/probe_home/.local/share/Canoryn",
+          "exists": false,
+          "is_dir": false,
+          "is_file": false
+        },
+        {
+          "path": "/workspace/fixtures/probe_home/Library/Application Support/ProCode",
+          "exists": false,
+          "is_dir": false,
+          "is_file": false
+        },
+        {
+          "path": "/workspace/fixtures/probe_home/Library/Application Support/Canoryn",
+          "exists": false,
+          "is_dir": false,
+          "is_file": false
+        },
+        {
+          "path": "/workspace/fixtures/probe_home/Library/Application Support/procode",
+          "exists": false,
+          "is_dir": false,
+          "is_file": false
+        },
+        {
+          "path": "/workspace/fixtures/probe_home/Library/Application Support/canoryn",
+          "exists": false,
+          "is_dir": false,
+          "is_file": false
+        },
+        {
+          "path": "/workspace/fixtures/probe_home/AppData/Roaming/ProCode",
+          "exists": false,
+          "is_dir": false,
+          "is_file": false
+        },
+        {
+          "path": "/workspace/fixtures/probe_home/AppData/Roaming/Canoryn",
+          "exists": false,
+          "is_dir": false,
+          "is_file": false
+        },
+        {
+          "path": "/workspace/fixtures/probe_home/AppData/Roaming/procode",
+          "exists": false,
+          "is_dir": false,
+          "is_file": false
+        },
+        {
+          "path": "/workspace/fixtures/probe_home/AppData/Roaming/canoryn",
+          "exists": false,
+          "is_dir": false,
+          "is_file": false
+        },
+        {
+          "path": "/workspace/fixtures/probe_home/AppData/Local/ProCode",
+          "exists": false,
+          "is_dir": false,
+          "is_file": false
+        },
+        {
+          "path": "/workspace/fixtures/probe_home/AppData/Local/Canoryn",
+          "exists": false,
+          "is_dir": false,
+          "is_file": false
+        },
+        {
+          "path": "/workspace/fixtures/probe_home/AppData/Local/procode",
+          "exists": false,
+          "is_dir": false,
+          "is_file": false
+        },
+        {
+          "path": "/workspace/fixtures/probe_home/AppData/Local/canoryn",
+          "exists": false,
+          "is_dir": false,
           "is_file": false
         }
       ],
-      "notes": "公开用量 schema 不足。请用 POST /api/v1/ingest/procode 推送统一 usage，或经 LiteLLM tags/header 标注 tool=procode。"
+      "mapped_rows": 2,
+      "distinct_request_ids": 2,
+      "parse_stats": {
+        "lines_total": 2,
+        "files_scanned": 2,
+        "parsed_ok": 2,
+        "skipped_json_error": 0,
+        "skipped_not_usage": 0,
+        "skipped_missing_model": 0,
+        "skipped_missing_tokens": 0,
+        "skipped_forbidden_content": 0,
+        "skipped_other": 0,
+        "notes": [],
+        "skipped_total": 0,
+        "success_rate_pct": 100.0
+      },
+      "diagnostics": {
+        "adapter_status": "placeholder",
+        "collects": "usage_json",
+        "blocked": [
+          "encrypted_sqlite",
+          "keychain",
+          "canoryn_cli"
+        ],
+        "blocked_zh": "不解密聊天库，不打开 sqlite，不读钥匙串，不启动 canoryn。公开用量 schema 出来之前，适配状态保持 placeholder。",
+        "works_today_zh": "今天只读 usage 形状的 json/jsonl（含 token-usage、usageEvents、驼峰 token 字段），或 POST /api/v1/ingest/procode。discussions 与 blueprints 不是用量。Linux / Windows 上的目录是给操作者放导出文件的；Canoryn 应用本身在 macOS。",
+        "note_zh": "从 usage json/jsonl 读到 2 行。discussions 与 blueprints 已跳过，那些不是用量。不解密聊天库，不打开 sqlite，不读钥匙串，不启动 canoryn。公开用量 schema 出来之前，适配状态保持 placeholder。",
+        "files_read": 2,
+        "files_skipped_credential_name": 1,
+        "files_skipped_oversize": 0,
+        "unopened_db_seen": 1,
+        "unopened_db_basenames": [
+          "canoryn.sqlite"
+        ],
+        "discussions_skipped": 1,
+        "blueprints_skipped": 1,
+        "parsed_rows": 2,
+        "parse": {
+          "lines_total": 2,
+          "files_scanned": 2,
+          "parsed_ok": 2,
+          "skipped_json_error": 0,
+          "skipped_not_usage": 0,
+          "skipped_missing_model": 0,
+          "skipped_missing_tokens": 0,
+          "skipped_forbidden_content": 0,
+          "skipped_other": 0,
+          "notes": [],
+          "skipped_total": 0,
+          "success_rate_pct": 100.0
+        }
+      },
+      "content_leak_keys": [],
+      "sample_mapped": [
+        {
+          "model": "企业内部-canoryn-导出",
+          "account_id": "frank@acme.com",
+          "project_id": "probe-bot",
+          "request_id": "probe-canoryn-export-1"
+        },
+        {
+          "model": "glm-4-plus",
+          "account_id": "grace@acme.com",
+          "project_id": "linux-share",
+          "request_id": "probe-procode-xdg-1"
+        }
+      ],
+      "notes": "状态仍是 placeholder。Canoryn 没有公开的本机用量接口：聊天和记忆在加密 SQLite，本适配器不解密、不打开数据库、不读钥匙串、不启动 canoryn。今天只收 usage json/jsonl（~/.procode、~/.canoryn、各系统应用数据目录，或 PROCODE_DATA_DIR），以及 POST /api/v1/ingest/procode。蓝图和 discussions 不入库。未知模型保留原名，估价用 default 档。",
+      "blocked": [
+        "encrypted_sqlite",
+        "keychain",
+        "canoryn_cli"
+      ]
     }
   },
   "summary": {
     "workbuddy": "found",
     "cursor": "parsed_exports",
-    "procode": "paths_present_no_schema",
+    "procode": "parsed_exports",
+    "procode_adapter_status": "placeholder",
     "workbuddy_success_rate_pct": 42.86,
-    "cursor_success_rate_pct": 66.67
+    "cursor_success_rate_pct": 66.67,
+    "procode_success_rate_pct": 100.0
   }
 }
