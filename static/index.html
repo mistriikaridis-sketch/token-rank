@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Token 消耗排行榜</title>
+  <link rel="stylesheet" href="/static/product.css" />
   <style>
     :root {
       --bg: #12100c;
@@ -497,6 +498,8 @@
         <a href="/projects" data-page="projects">项目榜</a>
         <a href="/agents" data-page="agents">Agent 榜</a>
         <a href="/me" data-page="me">我的</a>
+        <a href="/onboard" data-page="onboard">接入</a>
+        <a href="/settings" data-page="settings">设置</a>
         <a href="/alerts" data-page="alerts">提醒</a>
         <a href="/forum" data-page="forum">交流区</a>
       </nav>
@@ -703,23 +706,28 @@
       </div>
 
       <div class="pills" id="mePills">
-        <button type="button" class="pill" data-window="today">今天</button>
-        <button type="button" class="pill" data-window="yesterday">昨天</button>
-        <button type="button" class="pill active" data-window="7d">近7天</button>
+        <button type="button" class="pill active" data-window="today">今日</button>
+        <button type="button" class="pill" data-window="yesterday">昨日</button>
+        <button type="button" class="pill" data-window="3d">近3天</button>
+        <button type="button" class="pill" data-window="7d">近7天</button>
         <button type="button" class="pill" data-window="30d">近30天</button>
+        <button type="button" class="pill" data-window="90d">近90天</button>
+        <button type="button" class="pill" data-window="all">全部</button>
       </div>
 
       <div class="toolbar">
         <div class="filters">
           <select id="meFilterAccount"><option value="">选择账号…</option></select>
-          <button type="button" class="btn" id="meCopyBtn">复制本周文案</button>
+          <button type="button" class="btn" id="meCopyBtn">复制说明</button>
           <button type="button" class="btn ghost" id="meDrawBtn">生成分享图</button>
           <button type="button" class="btn ghost" id="meExportBtn">导出 FinOps CSV</button>
         </div>
       </div>
 
+      <div id="meDash"><div class="empty">正在加载我的用量…</div></div>
+
       <div class="overview">
-        <h2>我的概况 <span class="basis-badge" id="meBasis">—</span></h2>
+        <h2>助手与项目（全站时间窗） <span class="basis-badge" id="meBasis">—</span></h2>
         <div class="overview-grid">
           <div>
             <div class="ov-label">合计 Token</div>
@@ -765,8 +773,154 @@
     </section>
 
 
+    <section id="page-onboard" class="page">
+      <h2 class="page-title">如何接入</h2>
+      <p class="lead">三步把这台电脑的 Token 用量送到你们自己的排行榜。这是企业内部的榜，不是公开城市榜。</p>
+      <div class="secret-warn">勿转发。命令里含个人上报密钥。别人拿到后，可以往你的账号写入用量。</div>
+      <div class="step-card">
+        <h3>1. 选择你的系统</h3>
+        <div class="os-switch">
+          <button type="button" class="pill active" id="osUnixBtn">macOS / Linux</button>
+          <button type="button" class="pill" id="osWinBtn">Windows</button>
+        </div>
+      </div>
+      <div class="step-card">
+        <h3>2. 复制命令，在仓库根目录运行</h3>
+        <p>命令会写入本机配置，先预览再上报。采集器只报 Token 数字，不上传代码和对话。</p>
+        <label class="field">账号
+          <input id="onboardAccount" placeholder="成员密钥会自动带上；管理员请填写，例如 acme-prod" />
+        </label>
+        <button type="button" class="btn ghost" id="onboardReloadBtn">按这个账号生成命令</button>
+        <div class="copy-block">
+          <pre id="installCommand">先在右上角粘贴用户密钥，再生成命令。</pre>
+          <button type="button" class="btn" data-copy="installCommand">复制</button>
+        </div>
+        <p class="muted" id="installHint"></p>
+        <div class="copy-block">
+          <pre id="installCurl"></pre>
+          <button type="button" class="btn ghost" data-copy="installCurl">复制一行安装</button>
+        </div>
+      </div>
+      <div class="step-card">
+        <h3>3. 再检查连接</h3>
+        <button type="button" class="btn" id="checkConnBtn">再检查连接</button>
+        <div id="connStatus" class="conn-status">还没检查。</div>
+      </div>
+      <div class="step-card">
+        <h3>不想自己动手？让 AI 帮你</h3>
+        <p>交给 Cursor 或 Claude。请它只运行采集命令。脚本只上报 Token 计数，不读代码和聊天内容。</p>
+        <div class="copy-block">
+          <pre id="aiInstallPrompt">粘贴用户密钥后，这里会出现可复制的提示词。</pre>
+          <button type="button" class="btn" data-copy="aiInstallPrompt">复制</button>
+        </div>
+      </div>
+      <p><a href="/privacy">哪些数据会上传</a> · <a href="/settings">可见范围和设备</a> · <a href="/docs/collector.md">采集说明</a></p>
+    </section>
+
+    <section id="page-privacy" class="page">
+      <h2 class="page-title">会上报什么</h2>
+      <p class="lead">采集器只拿 Token 数字。代码、对话、文件、密钥、截图都不采集。</p>
+      <div class="step-card">
+        <table class="privacy-table">
+          <thead><tr><th>内容</th><th>归类</th><th>说明</th></tr></thead>
+          <tbody id="privacyBody">
+            <tr><td>Token 计数、模型名、工具、时间、账号、项目目录名</td><td class="tag-up">会上传</td><td>只有数字和名称</td></tr>
+            <tr><td>本机日志、state.vscdb、定时任务、collector.env</td><td class="tag-local">仅本地</td><td>不离开这台电脑</td></tr>
+            <tr><td>代码、对话、文件正文、截图、密钥、Cookie</td><td class="tag-never">永不采集</td><td>ProCode 不解密、不打开 sqlite、不读钥匙串、不启动 canoryn</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="step-card">
+        <h3>先看会上报什么（不发送）</h3>
+        <p id="dryRunNote">在你的电脑上运行 preview。服务器不会读你的家目录。</p>
+        <div class="copy-block">
+          <pre id="dryRunCommand">python -m collector preview
+python -m collector once --dry-run</pre>
+          <button type="button" class="btn" data-copy="dryRunCommand">复制</button>
+        </div>
+        <h3>字段样子</h3>
+        <pre class="mono" id="privacySample">{ "model": "example-model", "prompt_tokens": 0, "total_tokens": 0 }</pre>
+      </div>
+      <div class="step-card">
+        <h3>让 AI 做安全审计</h3>
+        <p>把下面这段交给 Cursor 或 Claude。让它看目录、定时任务和出站地址，不要读对话，也不要把密钥贴回来。</p>
+        <div class="copy-block">
+          <pre id="aiAuditPrompt">加载后显示审计提示词。</pre>
+          <button type="button" class="btn" data-copy="aiAuditPrompt">复制</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="page-settings" class="page">
+      <h2 class="page-title">企业里谁能看见我</h2>
+      <p class="lead">这里代替公开主页和城市榜。可选全公司、本部门或仅自己。组织标签只是备注。</p>
+      <label class="field">账号
+        <input id="settingsAccount" placeholder="成员密钥会自动带上" />
+      </label>
+      <button type="button" class="btn ghost" id="settingsReloadBtn">读取这个账号</button>
+      <div class="set-card">
+        <h3>可见范围</h3>
+        <div class="radio-row">
+          <label><input type="radio" name="visibility" value="company" checked /> 全公司</label>
+          <label><input type="radio" name="visibility" value="department" /> 本部门</label>
+          <label><input type="radio" name="visibility" value="self" /> 仅自己</label>
+        </div>
+        <p class="muted" id="prefsNote">管理员仍能看到全部，用来核对费用。</p>
+        <label class="field">组织标签（可选，不是城市）
+          <input id="orgTag" maxlength="64" placeholder="例如 上海办公室，不会做公开城市榜" />
+        </label>
+        <label class="field">部门名称（选「本部门」时用来对照）
+          <input id="deptName" maxlength="64" placeholder="留空则用用量里最多的部门" />
+        </label>
+        <label class="toggle-row"><input type="checkbox" id="showRank" checked /> 在「我的」里显示企业内排名</label>
+      </div>
+      <div class="set-card">
+        <h3>时区</h3>
+        <p class="muted">默认按北京时间切「今天」。可以再选一个时区做对照，不会另做一张榜。</p>
+        <label class="field">日界
+          <select id="primaryTz"></select>
+        </label>
+        <label class="field">对照时区
+          <select id="compareTz"></select>
+        </label>
+        <button type="button" class="btn" id="prefsSaveBtn">保存可见范围</button>
+        <p id="prefsMsg"></p>
+      </div>
+      <div class="set-card">
+        <h3>设备管理</h3>
+        <p class="muted" id="deviceNote">每一种工具一条。隐藏后仍计数；停用后这种工具的新上报不再累加。</p>
+        <div id="deviceList"><div class="empty">加载中…</div></div>
+      </div>
+      <div class="set-card">
+        <h3>工具没统计上？</h3>
+        <p>复制提示词，让 AI 看本机目录和定时任务。下面的表单只收日志结构（目录在不在、preview 几行），不要贴对话。</p>
+        <div class="copy-block">
+          <pre id="aiDiagPrompt">打开本页后会填上审计提示词。</pre>
+          <button type="button" class="btn" data-copy="aiDiagPrompt">复制诊断提示词</button>
+        </div>
+        <label class="field">工具名
+          <input id="diagTool" placeholder="例如 Cursor" />
+        </label>
+        <label class="field">你想说的
+          <input id="diagNote" placeholder="榜上是 0，但本机明明用过" />
+        </label>
+        <label class="field">日志结构（不要贴内容）
+          <textarea id="diagStructure" rows="5" placeholder="目录：~/.cursor 存在&#10;preview 行数：0&#10;计划任务：没有&#10;出站：只有公司排行榜地址"></textarea>
+        </label>
+        <button type="button" class="btn" id="diagSendBtn">提交结构说明</button>
+        <p id="diagMsg"></p>
+        <div id="feedbackList"></div>
+      </div>
+      <div class="set-card">
+        <h3>预估费用怎么算</h3>
+        <div id="formulaBox"><p class="formula">预估费用 = 输入 × 输入单价 + 输出 × 输出单价 + 缓存读 × 缓存读单价 + 缓存写 × 缓存写单价。列表价估算，不是实扣账单。</p></div>
+      </div>
+      <p><a href="/onboard">如何接入</a> · <a href="/privacy">数据字典</a></p>
+    </section>
+
     <!-- Alerts page -->
     <section id="page-alerts" class="page">
+      <div id="anomalyPanel"></div>
       <div class="narrative-box" id="alertsNarrative">
         用量高不等于会用。用量过低或长期为零，往往说明 AI 工作流还没接到日常工作里。费用要按账号和项目拆开看。
       </div>
@@ -869,7 +1023,7 @@
       </div>
     </section>
 
-      <span id="footerCostNote">费用数字是列表价估算，不是发票 · <a href="/docs/INSTALL.md">安装</a> · <a href="/docs/TROUBLESHOOTING.md">排错</a> · <a href="/procode">接入说明</a> · <a href="/docs">接口文档</a> · <a href="/health">健康检查</a></span>
+      <span id="footerCostNote">费用数字是列表价估算，不是发票 · <a href="/onboard">如何接入</a> · <a href="/privacy">会上报什么</a> · <a href="/settings">可见范围</a> · <a href="/docs/INSTALL.md">安装</a> · <a href="/docs/TROUBLESHOOTING.md">排错</a> · <a href="/procode">ProCode</a> · <a href="/docs">接口文档</a> · <a href="/health">健康检查</a></span>
       <span id="generatedAt"></span>
     </div>
   </div>
@@ -890,6 +1044,7 @@
   </div>
 
 
+  <script src="/static/product.js"></script>
   <script>
     const KEY_STORAGE = "token_rankings_user_api_key";
     // Never put TOKEN_RANKINGS_API_KEY / service ingest key here as a default.
@@ -900,7 +1055,7 @@
       orgWindow: "7d",
       projectWindow: "7d",
       agentWindow: "7d",
-      meWindow: "7d",
+      meWindow: "today",
       alertWindow: "7d",
       hideUnlabeledProjects: true,
       hideUnlabeledAgents: true,
@@ -1149,6 +1304,9 @@
       else if (state.page === "projects") loadProjects();
       else if (state.page === "agents") loadAgents();
       else if (state.page === "me") loadMe();
+      else if (state.page === "onboard" && window.Product) Product.onPage("onboard");
+      else if (state.page === "privacy" && window.Product) Product.onPage("privacy");
+      else if (state.page === "settings" && window.Product) Product.onPage("settings");
       else if (state.page === "alerts") loadAlerts();
       else if (state.page === "forum") loadForum();
       else if (state.page === "procode") loadProcode();
@@ -1161,6 +1319,9 @@
       if (path === "/projects") return "projects";
       if (path === "/agents") return "agents";
       if (path === "/me") return "me";
+      if (path === "/onboard") return "onboard";
+      if (path === "/privacy") return "privacy";
+      if (path === "/settings") return "settings";
       if (path === "/alerts") return "alerts";
       if (path === "/forum") return "forum";
       if (path === "/procode") return "procode";
@@ -1171,7 +1332,7 @@
       document.querySelectorAll(".nav a[data-page]").forEach(a => {
         a.classList.toggle("active", a.dataset.page === state.page);
       });
-      ["people","orgs","projects","agents","me","alerts","forum","procode"].forEach(p => {
+      ["people","orgs","projects","agents","me","onboard","privacy","settings","alerts","forum","procode"].forEach(p => {
         const el = document.getElementById("page-" + p);
         if (el) el.classList.toggle("active", state.page === p);
       });
@@ -1572,6 +1733,7 @@
         document.getElementById("meAgents").innerHTML = emptyNext("还没选账号");
         document.getElementById("meProjects").innerHTML = '<div class="empty">选好账号后，这里会列出项目</div>';
         document.getElementById("meTools").innerHTML = '<div class="empty">选好账号后，这里会列出用过的工具</div>';
+        if (window.Product) Product.refreshMe();
         return;
       }
 
@@ -1630,8 +1792,10 @@
             }
           }
         } catch (_) { /* ignore */ }
+        if (window.Product) Product.refreshMe();
       } catch (err) {
         document.getElementById("meShareCard").innerHTML = errorBlock(err);
+        if (window.Product) Product.refreshMe();
       }
     }
 
@@ -1924,6 +2088,10 @@ async function loadForum() {
     }
 
     async function boot() {
+      window.TR = {
+        state, apiFetch, authHeaders, escapeHtml, fmtTokens, fmtUsd, fmtInt,
+        getStoredKey, basisBadge, errorBlock,
+      };
       state.page = detectPage();
       const qs = new URLSearchParams(location.search);
       const preAccount = qs.get("account_id");
@@ -2004,8 +2172,15 @@ async function loadForum() {
         loadAgents();
       } else if (state.page === "me") {
         loadMe();
+      } else if (state.page === "onboard" && window.Product) {
+        Product.onPage("onboard");
+      } else if (state.page === "privacy" && window.Product) {
+        Product.onPage("privacy");
+      } else if (state.page === "settings" && window.Product) {
+        Product.onPage("settings");
       } else if (state.page === "alerts") {
         loadAlerts(false);
+        if (window.Product) Product.onPage("alerts");
       } else if (state.page === "forum") {
         loadForum();
       } else loadPeople();

@@ -407,6 +407,24 @@ async def require_write_api_key(
     return presented
 
 
+async def require_ingest_api_key(
+    authorization: Optional[str] = Header(None),
+    x_api_key: Optional[str] = Header(None, alias="X-API-Key"),
+) -> str:
+    """Ingest only: service key, admin user key, or a personal collector token.
+
+    Collector tokens are account-scoped. They are not accepted by scan, sync,
+    seed, or admin clear.
+    """
+    presented = extract_presented_key(authorization, x_api_key)
+    if presented and presented.startswith("ctr_"):
+        from app.self_service import match_collector_token
+
+        if match_collector_token(presented):
+            return presented
+    return await require_write_api_key(authorization, x_api_key)
+
+
 async def optional_principal(
     authorization: Optional[str] = Header(None),
     x_api_key: Optional[str] = Header(None, alias="X-API-Key"),

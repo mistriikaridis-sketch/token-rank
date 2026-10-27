@@ -13,7 +13,7 @@ curl -s http://localhost:8000/health
 ```
 
 - [ ] 能打开，且 `"status"` 为 `"ok"`
-- [ ] `"version"` 是 `0.21.1`
+- [ ] `"version"` 是 `0.22.0`
 - [ ] 若仍是演示密钥，`"setup"."demo_keys_in_use"` 为 `true`，网页顶部有黄色提醒
 - [ ] 交付之后 `"setup"."demo_keys_in_use"` 为 `false`，且 `"setup"."rankings_require_auth"` 为 `true`
 
@@ -126,7 +126,7 @@ curl -sS "$RANKINGS_URL/health"
 ```
 
 - [ ] `"status"` 为 `"ok"`
-- [ ] `"version"` 是 `0.21.1`
+- [ ] `"version"` 是 `0.22.0`
 - [ ] `adapters` 里 ProCode 的 `"status"` 仍是 `placeholder`
 - [ ] `blocked` 含 `encrypted_sqlite`、`keychain`、`canoryn_cli`
 - [ ] `notes` 写明不解密、不打开数据库、不读钥匙串、不启动 canoryn
@@ -223,6 +223,52 @@ python -m collector once --tool cursor
 
 `CURSOR_ADMIN_API_KEY` 只放在跑排行榜的那台机器上，不要写进 `collector.json`。
 
+## 7. 接入、我的用量、可见范围
+
+浏览器打开这些地址，页面是中文：
+
+- <http://localhost:8000/onboard>
+- <http://localhost:8000/privacy>
+- <http://localhost:8000/me>
+- <http://localhost:8000/settings>
+
+贴上 `demo-alice-key` 之后：
+
+```bash
+curl -s -H 'Authorization: Bearer demo-alice-key' \
+  http://localhost:8000/api/v1/onboarding
+curl -s http://localhost:8000/api/v1/privacy
+curl -s -H 'Authorization: Bearer demo-alice-key' \
+  'http://localhost:8000/api/v1/me/dashboard?window=today'
+curl -s http://localhost:8000/api/v1/pricing/formula
+curl -s -H 'Authorization: Bearer demo-alice-key' \
+  http://localhost:8000/api/v1/anomalies
+```
+
+- [ ] 接入页能选 macOS/Linux 和 Windows，命令可以复制，并写着「勿转发」
+- [ ] 没贴用户密钥时，命令里**没有**服务器写入密钥
+- [ ] 贴了成员密钥后，命令里是 `ctr_` 开头的个人上报密钥，而且写明不要转发
+- [ ] 隐私页能看到「会上传 / 仅本地 / 永不采集」，其中代码、对话、文件、密钥、截图在「永不采集」
+- [ ] 页面写了 `python -m collector preview` 和 `python -m collector once --dry-run`
+- [ ] 「我的」能切换今日、昨日、近 7 天、近 30 天；没有数据时有空状态，而不是报错
+- [ ] 能看到预估费用、缓存说明，以及「列表价估算，不是实扣账单」
+- [ ] 公式里有输入、输出、缓存读、缓存写，并能打开 `/api/v1/pricing`
+- [ ] 设置里能选全公司 / 本部门 / 仅自己。没有城市榜
+- [ ] 设备列表能改名、隐藏、停用。停用后再上报，这种工具的新用量不再累加
+- [ ] 诊断表单可以提交「目录在不在、preview 几行」这种结构说明；贴上密钥样式会被拒绝
+- [ ] 提醒页能看到「异常用量待审」的说明。没有突增时列表是空的
+
+个人上报密钥不能调用清库：
+
+```bash
+# 把下面的密钥换成接入页命令里的 ctr_...
+curl -s -o /tmp/ctr-clear.json -w '%{http_code}\n' \
+  -X POST 'http://localhost:8000/api/v1/admin/clear?scope=all' \
+  -H 'Authorization: Bearer ctr_替换成你的个人上报密钥'
+```
+
+- [ ] 上一行不是 `200`
+
 ### 8. 常见失败
 
 | 看到什么 | 原因 | 怎么处理 |
@@ -232,5 +278,5 @@ python -m collector once --tool cursor
 | `连不上 http://...` | `RANKINGS_URL` 错了，或服务没起来 | 先 `curl -sS "$RANKINGS_URL/health"` |
 | 0 行，且写着没找到目录 | 这台电脑没有该工具的数据目录 | 正常。没装的工具不必造目录 |
 | ProCode 目录在，但仍是 0 行 | 里面只有加密库、蓝图或评论，没有 usage json | 看 `diagnostics.unopened_db_seen`。不要解密，也不要启动 `canoryn`。状态保持 `placeholder` |
-| preview 里出现家目录全路径 | 采集器版本过旧 | 升到 `0.21.1` |
+| preview 里出现家目录全路径 | 采集器版本过旧 | 升到 `0.22.0` |
 | 项目榜是空的，但 preview 有行 | 还没 once，或窗口选得太窄，或勾了隐藏未标注 | 先 once，窗口改 `30d` 或 `all`，核对 `project_id` |

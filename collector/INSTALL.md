@@ -74,7 +74,24 @@ python -m collector once
 # 先把预览存下来，核对后再发
 python -m collector preview --out /tmp/collector-preview.json
 python -m collector upload --file /tmp/collector-preview.json
+
+# 和 preview 一样，不发送
+python -m collector once --dry-run
 ```
+
+## 从网页接入
+
+排行榜打开后，浏览器访问 `/onboard`（如何接入）。
+
+1. 先在页面上粘贴**用户密钥**（不是上面的写入密钥）。
+2. 选择 macOS / Linux 或 Windows，复制命令。命令里是**个人上报密钥**，只能写入你自己的账号。
+3. 页面上有红字：**勿转发**。这串密钥不要发到群里。
+4. 在仓库根目录运行命令。它会先 `preview` 再 `once`。
+5. 回到网页点「再检查连接」。
+
+服务器上的 `TOKEN_RANKINGS_API_KEY` 仍然给管理员批量导入。个人上报密钥不能清库，也不能在服务器上扫描目录。
+
+不想自己敲命令时，接入页有一段可以复制给 Cursor / Claude 的提示词。那一段只让它运行采集命令。采集器只上报 Token 数字。
 
 默认每 30 分钟一轮。只扫一种工具：`--tool workbuddy`（`workbody` 同样认）、`--tool cursor`、`--tool procode`（`canoryn` 同样认）。
 
@@ -235,7 +252,7 @@ curl -sS "$RANKINGS_URL/health"
 ```
 
 - [ ] `"status"` 为 `"ok"`
-- [ ] `"version"` 是 `0.21.1`
+- [ ] `"version"` 是 `0.22.0`
 - [ ] `adapters` 里 `id` 为 `procode` 的 `"status"` 仍是 `placeholder`，`blocked` 含 `encrypted_sqlite`、`keychain`、`canoryn_cli`，`notes` 写明不解密
 
 ### 2. 写入密钥，六个工具各跑一遍
@@ -325,7 +342,7 @@ python -m collector once --tool cursor
 | `连不上 http://...` | `RANKINGS_URL` 错了，或服务没起来 | 先 `curl -sS "$RANKINGS_URL/health"` |
 | 0 行，且写着没找到目录 | 这台电脑没有该工具的数据目录 | 正常。ProCode 需要自己放 usage json |
 | ProCode 目录在，但仍是 0 行 | 里面只有加密库、蓝图或评论，没有 usage json | 看 diagnostics 的 `unopened_db_seen`。不要解密，也不要启动 canoryn |
-| preview 里出现 `/Users/...` 或 `/home/某用户` | 采集器版本过旧 | 升到 `0.21.1` |
+| preview 里出现 `/Users/...` 或 `/home/某用户` | 采集器版本过旧 | 升到 `0.22.0` |
 
 ## 用样例自测（不需要真的装 WorkBuddy）
 

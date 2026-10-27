@@ -19,8 +19,10 @@ from app.auth import (
     api_key_configured,
     apply_account_scope,
     auth_status,
+    extract_presented_key,
     optional_principal,
     require_admin,
+    require_ingest_api_key,
     require_principal,
     require_write_api_key,
     setup_warnings,
@@ -99,7 +101,7 @@ def read_app_version() -> str:
         text = VERSION_FILE.read_text(encoding="utf-8").strip()
     except OSError:
         text = ""
-    return text or "0.21.1"
+    return text or "0.22.0"
 
 
 APP_VERSION = read_app_version()
@@ -109,6 +111,33 @@ app = FastAPI(
     description="企业内 LLM Token / 成本排行榜。不做自研网关，不做公网热度榜。",
     version=APP_VERSION,
 )
+
+from app.self_service import router as product_router
+
+app.include_router(product_router)
+
+
+@app.middleware("http")
+async def bind_collector_scope(request, call_next):
+    """Bind a personal report token before the threadpool copies context."""
+    from app.collector_scope import reset_collector_scope, set_collector_scope
+    from app.self_service import match_collector_token
+
+    presented = extract_presented_key(
+        request.headers.get("authorization"),
+        request.headers.get("x-api-key"),
+    )
+    scope = None
+    if presented and presented.startswith("ctr_"):
+        try:
+            scope = match_collector_token(presented)
+        except Exception:
+            scope = None
+    token = set_collector_scope(scope)
+    try:
+        return await call_next(request)
+    finally:
+        reset_collector_scope(token)
 
 
 class UsageIn(BaseModel):
@@ -128,6 +157,9 @@ class UsageIn(BaseModel):
     request_id: Optional[str] = Field(None, max_length=256)
     source: Optional[str] = Field(None, max_length=64)
     timestamp: Optional[str] = None
+    cache_read_tokens: int = Field(0, ge=0)
+    cache_write_tokens: int = Field(0, ge=0)
+    reasoning_tokens: int = Field(0, ge=0)
 
     model_config = {"populate_by_name": True}
 
@@ -310,6 +342,8 @@ def _parse_window(window: str) -> tuple[Optional[datetime], Optional[datetime]]:
         "近7天": "7d",
         "30d": "30d",
         "近30天": "30d",
+        "3d": "3d",
+        "近3天": "3d",
         "90d": "90d",
         "all": "all",
         "全部": "all",
@@ -322,6 +356,8 @@ def _parse_window(window: str) -> tuple[Optional[datetime], Optional[datetime]]:
         return today0, None
     if key == "yesterday":
         return today0 - timedelta(days=1), today0
+    if key == "3d":
+        return now - timedelta(days=3), None
     if key == "7d":
         return now - timedelta(days=7), None
     if key == "30d":
@@ -380,6 +416,20 @@ def _scoped_account(
 ) -> Optional[str]:
     """RBAC: member forced to own account_id; admin/anon use request."""
     return apply_account_scope(principal, account_id)
+
+
+def _with_visibility(
+    where: str, params: list[Any], principal: Optional[Principal]
+) -> tuple[str, list[Any]]:
+    """Drop accounts that chose 本部门 or 仅自己 from leaderboards."""
+    from app.self_service import visibility_clause
+
+    clause, values = visibility_clause(principal)
+    if not clause:
+        return where, params
+    if where:
+        return f"{where} AND {clause}", [*params, *values]
+    return " WHERE " + clause, list(values)
 
 
 def _dropdown_account(
@@ -516,11 +566,17 @@ def health() -> dict[str, Any]:
 @app.post("/api/v1/usage", response_model=UsageOut)
 def ingest_usage(
     body: UsageIn,
-    _auth: str = Depends(require_write_api_key),
+    _auth: str = Depends(require_ingest_api_key),
 ) -> UsageOut:
     total = body.total_tokens
     if total is None:
-        total = body.prompt_tokens + body.completion_tokens
+        total = (
+            body.prompt_tokens
+            + body.completion_tokens
+            + body.cache_read_tokens
+            + body.cache_write_tokens
+            + body.reasoning_tokens
+        )
     ts = body.timestamp
     if not ts:
         ts = _utc_now().isoformat()
@@ -542,6 +598,9 @@ def ingest_usage(
                 "prompt_tokens": body.prompt_tokens,
                 "completion_tokens": body.completion_tokens,
                 "total_tokens": total,
+                "cache_read_tokens": body.cache_read_tokens,
+                "cache_write_tokens": body.cache_write_tokens,
+                "reasoning_tokens": body.reasoning_tokens,
                 "team": body.team,
                 "api_key": body.api_key,
                 "tag": body.tag,
@@ -558,6 +617,15 @@ def ingest_usage(
         ]
     )
     if result["accepted"] == 0:
+        if int(result.get("skipped_disabled") or 0):
+            raise HTTPException(
+                status_code=403,
+                detail={
+                    "error": "device_disabled",
+                    "message": "这种工具已在设备管理里停用，新用量不会累加。",
+                    "skipped": result["skipped"],
+                },
+            )
         raise HTTPException(
             status_code=409,
             detail={
@@ -617,7 +685,7 @@ def _ingest_payload(payload: Any, source: str) -> IngestResult:
 @app.post("/api/v1/ingest/litellm", response_model=IngestResult)
 def ingest_litellm(
     payload: Any = Body(...),
-    _auth: str = Depends(require_write_api_key),
+    _auth: str = Depends(require_ingest_api_key),
 ) -> IngestResult:
     """Batch ingest LiteLLM SpendLogs (single object, list, or {data:[...]})."""
     return _ingest_payload(payload, source="litellm")
@@ -626,7 +694,7 @@ def ingest_litellm(
 @app.post("/api/v1/ingest/openai-usage", response_model=IngestResult)
 def ingest_openai_usage(
     payload: Any = Body(...),
-    _auth: str = Depends(require_write_api_key),
+    _auth: str = Depends(require_ingest_api_key),
 ) -> IngestResult:
     """Ingest OpenAI-compatible chat.completion usage (+ optional metadata)."""
     return _ingest_payload(payload, source="openai-usage")
@@ -635,7 +703,7 @@ def ingest_openai_usage(
 @app.post("/api/v1/ingest/cursor", response_model=IngestResult)
 def ingest_cursor(
     payload: Any = Body(...),
-    _auth: str = Depends(require_write_api_key),
+    _auth: str = Depends(require_ingest_api_key),
 ) -> IngestResult:
     """Offline / push path: Cursor filtered-usage-events JSON → unified usage."""
     events = extract_cursor_events(payload)
@@ -754,7 +822,7 @@ def sync_cursor(
 @app.post("/api/v1/ingest/workbuddy", response_model=IngestResult)
 def ingest_workbuddy(
     payload: Any = Body(...),
-    _auth: str = Depends(require_write_api_key),
+    _auth: str = Depends(require_ingest_api_key),
 ) -> IngestResult:
     """Push already-parsed WorkBuddy usage events (no chat content stored)."""
     events = extract_workbuddy_payload(payload)
@@ -814,7 +882,7 @@ def scan_workbuddy_endpoint(
 @app.post("/api/v1/ingest/procode", response_model=IngestResult)
 def ingest_procode(
     payload: Any = Body(...),
-    _auth: str = Depends(require_write_api_key),
+    _auth: str = Depends(require_ingest_api_key),
 ) -> IngestResult:
     """ProCode ingest: unified usage schema with tool=procode.
 
@@ -840,7 +908,7 @@ def ingest_procode(
 @app.post("/api/v1/ingest/claude_code", response_model=IngestResult)
 def ingest_claude_code(
     payload: Any = Body(...),
-    _auth: str = Depends(require_write_api_key),
+    _auth: str = Depends(require_ingest_api_key),
 ) -> IngestResult:
     """Push Claude Code assistant jsonl events (message.usage only; no chat content)."""
     events = extract_claude_code_payload(payload)
@@ -898,7 +966,7 @@ def scan_claude_code_endpoint(
 @app.post("/api/v1/ingest/codex", response_model=IngestResult)
 def ingest_codex(
     payload: Any = Body(...),
-    _auth: str = Depends(require_write_api_key),
+    _auth: str = Depends(require_ingest_api_key),
 ) -> IngestResult:
     """Push Codex CLI rollout lines / usage events (no chat content stored).
 
@@ -961,7 +1029,7 @@ def scan_codex_endpoint(
 @app.post("/api/v1/ingest/continue", response_model=IngestResult)
 def ingest_continue(
     payload: Any = Body(...),
-    _auth: str = Depends(require_write_api_key),
+    _auth: str = Depends(require_ingest_api_key),
 ) -> IngestResult:
     """Push Continue tokensGenerated events (HTTP destination or flat jsonl).
 
@@ -1148,6 +1216,7 @@ def get_rankings(
             (seed_clause, seed_val) if seed_clause else ("", None),
         ],
     )
+    where, params = _with_visibility(where, params, principal)
     acct_expr = f"COALESCE(NULLIF(TRIM(account_id), ''), '{UNLABELED_ACCOUNT}')"
     proj_expr = f"COALESCE(NULLIF(TRIM(project_id), ''), '{UNLABELED_PROJECT}')"
     if group_by == "model":
@@ -1302,6 +1371,7 @@ def get_people_rankings(
     if seed_clause:
         extras.append((seed_clause, seed_val))
     where, params = _and_filters(where, params, extras)
+    where, params = _with_visibility(where, params, principal)
 
     pexpr = _participant_expr()
     sql = f"""
@@ -1333,6 +1403,7 @@ def get_people_rankings(
     if seed_clause:
         filter_extras.append((seed_clause, seed_val))
     filter_where, filter_params = _and_filters("", [], filter_extras)
+    filter_where, filter_params = _with_visibility(filter_where, filter_params, principal)
     with db() as conn:
         detail = conn.execute(sql, params).fetchall()
         filter_rows = conn.execute(
@@ -1519,6 +1590,7 @@ def get_org_rankings(
             (seed_clause, seed_val) if seed_clause else ("", None),
         ],
     )
+    where, params = _with_visibility(where, params, principal)
     pexpr = _participant_expr()
 
     sql = f"""
@@ -1545,6 +1617,7 @@ def get_org_rankings(
     if seed_clause:
         filter_extras.append((seed_clause, seed_val))
     filter_where, filter_params = _and_filters("", [], filter_extras)
+    filter_where, filter_params = _with_visibility(filter_where, filter_params, principal)
     with db() as conn:
         rows = conn.execute(sql, params).fetchall()
         filter_rows = conn.execute(
@@ -1685,6 +1758,7 @@ def get_project_rankings(
     if seed_clause:
         extras.append((seed_clause, seed_val))
     where, params = _and_filters(where, params, extras)
+    where, params = _with_visibility(where, params, principal)
     pexpr = _participant_expr()
 
     sql = f"""
@@ -1716,6 +1790,7 @@ def get_project_rankings(
     if seed_clause:
         filter_extras.append((seed_clause, seed_val))
     filter_where, filter_params = _and_filters("", [], filter_extras)
+    filter_where, filter_params = _with_visibility(filter_where, filter_params, principal)
     with db() as conn:
         rows = conn.execute(sql, params).fetchall()
         filter_rows = conn.execute(
@@ -1878,6 +1953,7 @@ def get_agent_rankings(
     if seed_clause:
         extras.append((seed_clause, seed_val))
     where, params = _and_filters(where, params, extras)
+    where, params = _with_visibility(where, params, principal)
     pexpr = _participant_expr()
 
     sql = f"""
@@ -1917,6 +1993,7 @@ def get_agent_rankings(
     if seed_clause:
         filter_extras.append((seed_clause, seed_val))
     filter_where, filter_params = _and_filters("", [], filter_extras)
+    filter_where, filter_params = _with_visibility(filter_where, filter_params, principal)
 
     # unlabeled event count (same filters, no hide)
     unlab_where, unlab_params = _where_ts(since, until)
@@ -3018,6 +3095,9 @@ def collector_doc() -> FileResponse:
 @app.get("/projects")
 @app.get("/agents")
 @app.get("/me")
+@app.get("/onboard")
+@app.get("/privacy")
+@app.get("/settings")
 @app.get("/alerts")
 @app.get("/forum")
 @app.get("/procode")

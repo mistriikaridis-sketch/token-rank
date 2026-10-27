@@ -1,6 +1,6 @@
 # Token 消耗排行榜 · 能力总览
 
-客户验收请用 [ACCEPTANCE.md](ACCEPTANCE.md)（当前版本见仓库 `VERSION`，**0.21.1**）。下面是能力索引，不是购买方清单。内网试点清单在 [INSTALL.md](INSTALL.md)。真机采集打勾见 ACCEPTANCE 的「真机采集验收」。
+客户验收请用 [ACCEPTANCE.md](ACCEPTANCE.md)（当前版本见仓库 `VERSION`，**0.22.0**）。下面是能力索引，不是购买方清单。内网试点清单在 [INSTALL.md](INSTALL.md)。真机采集打勾见 ACCEPTANCE 的「真机采集验收」。
 
 面向 Mateo 的一页验收清单。代码：`/workspace/token-rankings` · 许可证 MIT · 本地：`http://localhost:8000`
 
@@ -16,7 +16,10 @@
 | `/orgs` | 组织/部门榜：总量、人均，并带账号 × 项目拆分 |
 | `/projects` | 账号 × 项目拆分（不是合计） |
 | `/agents` | 按账号 × agent_id 拆开，并列出项目 |
-| `/me` | 个人自助：Agent/项目 Top、工具分布、周报文案/分享图、FinOps CSV |
+| `/me` | 个人用量：热力图、工具/模型、缓存费用、按小时明细，以及 Agent/项目 Top |
+| `/onboard` | 如何接入：系统选择、个人上报命令、再检查连接 |
+| `/privacy` | 会上传 / 仅本地 / 永不采集，以及本机 preview |
+| `/settings` | 全公司 / 本部门 / 仅自己、设备、时区对照、诊断 |
 | `/alerts` | 闲置、用量过低、费用突增、账号费用阈值（中文） |
 | `/forum` | 企业内部交流区：发帖/列表/点赞；匿名只读 |
 | `/procode` | ProCode 占位说明 + ingest 指引 |

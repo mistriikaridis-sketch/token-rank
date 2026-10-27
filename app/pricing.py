@@ -279,6 +279,115 @@ def estimate_cost(model: str, prompt_tokens: int, completion_tokens: int) -> flo
     return round(input_cost + output_cost, 6)
 
 
+FORMULA_ZH = (
+    "预估费用 = 输入 Token × 输入单价 + 输出 Token × 输出单价"
+    " + 缓存读 Token × 缓存读单价 + 缓存写 Token × 缓存写单价。"
+    "单价是每百万 Token 的公开列表价。价目表没有单独写出缓存价时，"
+    "缓存读按输入价的 10% 估算，缓存写按输入价的 125% 估算。"
+    "这是列表价估算，不是实扣账单。"
+)
+
+LEADERBOARD_COST_ZH = (
+    "个人榜、组织榜、项目榜、Agent 榜上的费用仍只按输入和输出估算，"
+    "和以前一样，避免历史数字突然变化。"
+    "「我的」里的预估费用会把缓存读、缓存写摊进去，并标明列表价估算。"
+)
+
+
+def _cache_ratios() -> tuple[float, float]:
+    notes = pricing_notes()
+    try:
+        read_ratio = float(notes.get("cache_read_ratio_of_input", 0.1))
+    except (TypeError, ValueError):
+        read_ratio = 0.1
+    try:
+        write_ratio = float(notes.get("cache_write_ratio_of_input", 1.25))
+    except (TypeError, ValueError):
+        write_ratio = 1.25
+    return read_ratio, write_ratio
+
+
+def cache_rates(model: str) -> dict[str, Any]:
+    """Per-million list prices, including cache read/write.
+
+    Explicit ``cache_read_per_1m`` / ``cache_write_per_1m`` on a model win.
+    Otherwise the ratios in ``_notes`` (default 10% and 125% of input) apply.
+    """
+    rates = _rates_for(model)
+    pin = float(rates["input_per_1m"])
+    pout = float(rates["output_per_1m"])
+    read_ratio, write_ratio = _cache_ratios()
+    if "cache_read_per_1m" in rates:
+        cache_read = float(rates["cache_read_per_1m"])
+        read_default = False
+    else:
+        cache_read = pin * read_ratio
+        read_default = True
+    if "cache_write_per_1m" in rates:
+        cache_write = float(rates["cache_write_per_1m"])
+        write_default = False
+    else:
+        cache_write = pin * write_ratio
+        write_default = True
+    return {
+        "input_per_1m": pin,
+        "output_per_1m": pout,
+        "cache_read_per_1m": cache_read,
+        "cache_write_per_1m": cache_write,
+        "cache_rates_are_default": read_default or write_default,
+        "tier": price_tier(model),
+        "currency": rates.get("currency") or "USD",
+        "cost_basis": "estimate",
+    }
+
+
+def estimate_usage_parts(
+    model: str,
+    prompt_tokens: int,
+    completion_tokens: int,
+    cache_read_tokens: int = 0,
+    cache_write_tokens: int = 0,
+) -> dict[str, Any]:
+    """List-price split used on 「我的」. Does not change leaderboard totals.
+
+    ``estimate_cost`` stays prompt + completion only. This function adds
+    cache read and cache write so the formula on the page matches the number.
+    """
+    rates = cache_rates(model)
+
+    def _usd(tokens: int, per_million: float) -> float:
+        return (max(int(tokens or 0), 0) / 1_000_000) * float(per_million)
+
+    input_usd = _usd(prompt_tokens, rates["input_per_1m"])
+    output_usd = _usd(completion_tokens, rates["output_per_1m"])
+    cache_read_usd = _usd(cache_read_tokens, rates["cache_read_per_1m"])
+    cache_write_usd = _usd(cache_write_tokens, rates["cache_write_per_1m"])
+    billed_as_input = _usd(cache_read_tokens, rates["input_per_1m"])
+    savings = max(billed_as_input - cache_read_usd, 0.0)
+    return {
+        "input_usd": round(input_usd, 6),
+        "output_usd": round(output_usd, 6),
+        "cache_read_usd": round(cache_read_usd, 6),
+        "cache_write_usd": round(cache_write_usd, 6),
+        "total_usd": round(input_usd + output_usd + cache_read_usd + cache_write_usd, 6),
+        "cache_savings_usd": round(savings, 6),
+        **rates,
+    }
+
+
+def pricing_formula() -> dict[str, Any]:
+    read_ratio, write_ratio = _cache_ratios()
+    return {
+        "formula_zh": FORMULA_ZH,
+        "leaderboard_zh": LEADERBOARD_COST_ZH,
+        "cost_basis": "estimate",
+        "cache_read_ratio_of_input": read_ratio,
+        "cache_write_ratio_of_input": write_ratio,
+        "rates_url": "/api/v1/pricing",
+        "disclaimer_zh": (pricing_notes().get("disclaimer_zh") or FORMULA_ZH),
+    }
+
+
 def list_priced_models() -> list[str]:
     pricing = load_pricing()
     return [k for k in pricing.keys() if k != "default" and not str(k).startswith("_")]
