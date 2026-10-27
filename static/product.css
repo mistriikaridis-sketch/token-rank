@@ -1,0 +1,133 @@
+.page-title { margin: 0 0 8px; font-size: 1.25rem; }
+.lead { color: var(--muted); margin: 0 0 14px; line-height: 1.5; }
+.secret-warn {
+  background: rgba(248, 113, 113, 0.12);
+  border: 1px solid rgba(248, 113, 113, 0.45);
+  color: #fecaca;
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  font-weight: 600;
+}
+.step-card, .set-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+}
+.step-card h3, .set-card h3 { margin: 0 0 8px; font-size: 1rem; }
+.copy-block { position: relative; margin-top: 8px; }
+.copy-block pre, .mono {
+  background: #100e0b;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #efe4cf;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  margin: 0;
+}
+.copy-block .btn { margin-top: 8px; }
+.os-switch { display: flex; gap: 8px; flex-wrap: wrap; }
+.conn-status {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+}
+.conn-status.ok { border-color: rgba(240, 180, 41, 0.6); color: var(--accent); }
+.conn-status.bad { border-color: rgba(248, 113, 113, 0.45); }
+.me-dash { margin: 12px 0; }
+.dash-grid {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr 1fr 1fr;
+  gap: 12px;
+}
+@media (max-width: 800px) {
+  .dash-grid { grid-template-columns: 1fr 1fr; }
+}
+.heat {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(7, 12px);
+  gap: 3px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+.heat i {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  background: #2a2418;
+  display: block;
+}
+.heat i.lv1 { background: #6b5420; }
+.heat i.lv2 { background: #a7842a; }
+.heat i.lv3 { background: #d4a017; }
+.heat i.lv4 { background: #f0b429; }
+.heat i.future { background: transparent; border: 1px solid #2a2418; }
+.detail-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
+.detail-tabs button.active { color: var(--accent); border-color: var(--accent); }
+.stack {
+  display: flex;
+  height: 14px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #2a2418;
+  margin: 8px 0;
+}
+.stack i { display: block; height: 100%; }
+.legend { display: flex; gap: 12px; flex-wrap: wrap; color: var(--muted); font-size: 0.8rem; }
+.swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; }
+.hour-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.hour-table th, .hour-table td {
+  text-align: right;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+}
+.hour-table th:first-child, .hour-table td:first-child { text-align: left; }
+.review-flag {
+  display: inline-block;
+  background: rgba(248, 113, 113, 0.15);
+  color: #fecaca;
+  border: 1px solid rgba(248, 113, 113, 0.4);
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 0.78rem;
+}
+.field { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; color: var(--muted); font-size: 0.85rem; }
+.field input, .field select, .field textarea {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font: inherit;
+}
+.radio-row { display: flex; gap: 14px; flex-wrap: wrap; color: var(--text); }
+.privacy-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+.privacy-table th, .privacy-table td {
+  text-align: left;
+  padding: 8px 6px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.tag-up { color: var(--accent); }
+.tag-local { color: #fbbf24; }
+.tag-never { color: #fca5a5; }
+.device-row {
+  display: flex; justify-content: space-between; gap: 8px; align-items: center;
+  padding: 8px 0; border-bottom: 1px solid var(--border); flex-wrap: wrap;
+}
+.formula {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  background: #100e0b;
+  border-radius: 10px;
+  padding: 10px 12px;
+  line-height: 1.5;
+}

@@ -284,6 +284,7 @@ def _init_sqlite() -> None:
             "CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_log(action)"
         )
         _ensure_forum_tables(conn)
+        _ensure_product_tables(conn)
 
 
 def _init_postgres() -> None:
@@ -375,6 +376,7 @@ def _init_postgres() -> None:
             "CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_log(action)"
         )
         _ensure_forum_tables(conn)
+        _ensure_product_tables(conn)
 
 
 def count_events(exclude_seed: bool = False) -> int:
@@ -489,13 +491,21 @@ def insert_usage_rows(rows: list[dict]) -> dict[str, Any]:
     Duplicate (source, request_id) rows are skipped (not stacked).
     """
     if not rows:
-        return {"ids": [], "accepted": 0, "skipped": 0}
+        return {"ids": [], "accepted": 0, "skipped": 0, "skipped_disabled": 0}
     ids: list[int] = []
     accepted = 0
     skipped = 0
+    skipped_disabled = 0
+    touches: list[tuple[str, str, str]] = []
     pg = is_postgres()
     with db() as conn:
         for r in rows:
+            gated = _gate_ingest_row(conn, r)
+            if gated is None:
+                skipped += 1
+                skipped_disabled += 1
+                continue
+            r = gated
             request_id = r.get("request_id")
             if isinstance(request_id, str):
                 request_id = request_id.strip() or None
@@ -574,6 +584,7 @@ def insert_usage_rows(rows: list[dict]) -> dict[str, Any]:
                 if row and row.get("id") is not None:
                     ids.append(int(row["id"]))
                     accepted += 1
+                    _remember_touch(touches, r)
                 else:
                     skipped += 1
             else:
@@ -592,9 +603,33 @@ def insert_usage_rows(rows: list[dict]) -> dict[str, Any]:
                 if cur.rowcount and cur.lastrowid:
                     ids.append(int(cur.lastrowid))
                     accepted += 1
+                    _remember_touch(touches, r)
                 else:
                     skipped += 1
-    return {"ids": ids, "accepted": accepted, "skipped": skipped}
+    if touches:
+        from app.self_service import remember_devices
+
+        remember_devices(touches)
+    return {
+        "ids": ids,
+        "accepted": accepted,
+        "skipped": skipped,
+        "skipped_disabled": skipped_disabled,
+    }
+
+
+def _gate_ingest_row(conn: Any, row: dict) -> Optional[dict]:
+    from app.self_service import gate_ingest_row
+
+    return gate_ingest_row(conn, row)
+
+
+def _remember_touch(touches: list[tuple[str, str, str]], row: dict) -> None:
+    account = str(row.get("account_id") or "").strip()
+    if not account:
+        return
+    tool = str(row.get("tool") or "unknown").strip() or "unknown"
+    touches.append((account, tool, str(row.get("ts") or "")))
 
 
 def _ensure_forum_tables(conn: Any) -> None:
@@ -633,6 +668,130 @@ def _ensure_forum_tables(conn: Any) -> None:
         )
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_forum_created ON forum_posts(created_at)"
+    )
+
+
+def _ensure_product_tables(conn: Any) -> None:
+    """Prefs, devices, personal report tokens, and diagnostic notes."""
+    if is_postgres():
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS account_prefs (
+                account_id TEXT PRIMARY KEY,
+                visibility TEXT NOT NULL DEFAULT 'company',
+                org_tag TEXT,
+                department TEXT,
+                timezone TEXT NOT NULL DEFAULT 'Asia/Shanghai',
+                compare_timezone TEXT,
+                show_rank INTEGER NOT NULL DEFAULT 1,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS collector_tokens (
+                account_id TEXT PRIMARY KEY,
+                token_sha256 TEXT NOT NULL UNIQUE,
+                token_hint TEXT NOT NULL,
+                token_plain TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS devices (
+                id BIGSERIAL PRIMARY KEY,
+                account_id TEXT NOT NULL,
+                device_key TEXT NOT NULL,
+                name TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'active',
+                last_seen TEXT,
+                last_tool TEXT,
+                report_count INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL,
+                UNIQUE (account_id, device_key)
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS feedback (
+                id BIGSERIAL PRIMARY KEY,
+                account_id TEXT,
+                author_name TEXT,
+                kind TEXT NOT NULL,
+                tool_name TEXT,
+                note TEXT,
+                structure_text TEXT,
+                status TEXT NOT NULL DEFAULT 'open',
+                created_at TEXT NOT NULL
+            )
+            """
+        )
+    else:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS account_prefs (
+                account_id TEXT PRIMARY KEY,
+                visibility TEXT NOT NULL DEFAULT 'company',
+                org_tag TEXT,
+                department TEXT,
+                timezone TEXT NOT NULL DEFAULT 'Asia/Shanghai',
+                compare_timezone TEXT,
+                show_rank INTEGER NOT NULL DEFAULT 1,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS collector_tokens (
+                account_id TEXT PRIMARY KEY,
+                token_sha256 TEXT NOT NULL UNIQUE,
+                token_hint TEXT NOT NULL,
+                token_plain TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS devices (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                account_id TEXT NOT NULL,
+                device_key TEXT NOT NULL,
+                name TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'active',
+                last_seen TEXT,
+                last_tool TEXT,
+                report_count INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL,
+                UNIQUE (account_id, device_key)
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS feedback (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                account_id TEXT,
+                author_name TEXT,
+                kind TEXT NOT NULL,
+                tool_name TEXT,
+                note TEXT,
+                structure_text TEXT,
+                status TEXT NOT NULL DEFAULT 'open',
+                created_at TEXT NOT NULL
+            )
+            """
+        )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_devices_account ON devices(account_id)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_feedback_account ON feedback(account_id)"
     )
 
 

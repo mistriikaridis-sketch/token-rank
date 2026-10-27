@@ -1,6 +1,6 @@
 # Token 消耗排行榜
 
-许可证：**MIT** · 版本 **0.21.1**
+许可证：**MIT** · 版本 **0.22.0**
 
 ## 客户 10 分钟跑通
 
@@ -61,13 +61,16 @@ docker compose -f docker-compose.yml -f docker-compose.postgres.yml up -d --buil
 - **组织榜** `/orgs`：按部门排行（总量 / 人均 / 人数）；可按 **工具** 筛选
 - **项目榜** `/projects`：按 **账号 × 项目** 拆开看，证明不是总量黑盒
 - **Agent 榜** `/agents`：按 **agent_id** 看团队里每个 agent 大概烧多少；可用账号下拉看「我的 agents」
-- **我的** `/me`：选账号看自己的 Agent / 项目 Top、工具分布、本周文案 / 分享图
+- **我的** `/me`：当日/区间用量、列表价估算、企业内排名、连续活跃、热力图、工具与模型、缓存、按小时明细；仍可看 Agent / 项目 Top
+- **接入** `/onboard`：macOS/Linux 或 Windows 的安装命令（含个人上报密钥，勿转发）、再检查连接、给 AI 的安装提示词
+- **隐私** `/privacy`：会上传 / 仅本地 / 永不采集，以及 `preview` / `once --dry-run`
+- **设置** `/settings`：全公司 / 本部门 / 仅自己、可选组织标签、设备改名/隐藏/停用、时区对照、诊断表单、费用公式
 - **提醒** `/alerts`：闲置、用量过低、费用突增、账号费用阈值；member 只看自己
 - **贴 Key**：顶栏把用户 API Key 存 localStorage，排行 /me /export /alerts /forum 自动带 Header（勿存 ingest Key）
 - **交流区** `/forum`：企业内部最小讨论（发帖 / 列表 / 点赞）；匿名只读；禁止贴 Key/对话原文
 - **ProCode** `/procode`：占位适配说明；`POST /api/v1/ingest/procode`
 
-许可证：**MIT** · 版本 **0.21.1**（客户文档见文首「客户 10 分钟跑通」）
+许可证：**MIT** · 版本 **0.22.0**（客户文档见文首「客户 10 分钟跑通」）
 
 ## 本地探测
 
@@ -145,6 +148,9 @@ curl -s -X POST http://localhost:8000/api/v1/ingest/litellm \
 - 项目榜：<http://localhost:8000/projects>
 - Agent 榜：<http://localhost:8000/agents>（例：`/agents?account_id=acme-prod`）
 - **我的**：<http://localhost:8000/me>（例：`/me?account_id=acme-prod`）
+- **如何接入**：<http://localhost:8000/onboard>
+- **会上报什么**：<http://localhost:8000/privacy>
+- **可见范围和设备**：<http://localhost:8000/settings>
 - **提醒**：<http://localhost:8000/alerts>
 - **交流区**：<http://localhost:8000/forum>
 - 真机探测说明：<http://localhost:8000/docs/probe.md>

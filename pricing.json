@@ -132,6 +132,10 @@
     "currency": "USD",
     "fx_cny_per_usd": 7.2,
     "disclaimer_zh": "数字是公开列表价估算，用来在企业内部对照用量，不是云厂商发票、合同价或实扣账单。国内模型按公开人民币标价、约 7.2 CNY = 1 USD 折算，档位和汇率都会变。",
+    "formula_zh": "预估费用 = 输入×输入单价 + 输出×输出单价 + 缓存读×缓存读单价 + 缓存写×缓存写单价（每百万 Token，列表价估算）。",
+    "cache_read_ratio_of_input": 0.1,
+    "cache_write_ratio_of_input": 1.25,
+    "cache_zh": "价目表没有单独标缓存价时，缓存读按输入价的 10%，缓存写按输入价的 125%。「我的」用这个公式；排行榜上的费用仍只按输入和输出，避免历史数字突然变化。",
     "unknown_models_zh": "不认识的模型名会原样入库并计入 Token。只有计价会落到 default（每百万 Token 输入 1 USD、输出 3 USD）。不会因为模型不在表里就丢弃事件。",
     "normalization_zh": "已知模型会把厂商前缀（openai/、dashscope/、zhipuai/、volcengine/ 等）、日期后缀和 Ollama 量化标签折成表内规范名。对不上目录的字符串保持日志原样。",
     "default_tier": {"input_per_1m": 1.0, "output_per_1m": 3.0}
