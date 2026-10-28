@@ -37,10 +37,10 @@ curl -s -X POST http://localhost:8000/api/v1/ingest/litellm \
 
 回到网页：
 
-1. 打开首页的 **首次配置**。
-2. 用户密钥粘贴 `demo-alice-key`（这是演示用的，正式环境要换掉）。
-3. 账号选择 `acme-prod`。
-4. 打开 [我的](http://localhost:8000/me) 和 [Agent](http://localhost:8000/agents)。
+1. 打开 [登录](http://localhost:8000/login)。本机试用没有 Google 时，展开 **私有部署 / 密钥登录**。
+2. 用户密钥粘贴 `demo-alice-key`（这是演示用的，正式环境要换掉），点「用密钥登录」。
+3. 还没有用量时会进入 [接入](http://localhost:8000/onboard)。在仓库根目录运行命令。命令会上报一次，并接上采集器原来的定时任务。每日自动同步用量。
+4. 再打开 [我的](http://localhost:8000/me) 和 [Agent](http://localhost:8000/agents)。
 
 检查是否全部通过：
 
@@ -200,6 +200,21 @@ ALERT_ACCOUNT_THRESHOLDS={"acme-prod":{"min_tokens":5000,"spend_usd":20}}
 `window=all` 没有上一窗，不评估费用突增。用量高只是提醒去拆项目，不等于这个人更会用。长期为零通常说明采集或工作流还没接上。
 
 页面 `/alerts` 会显示同一段中文说明。旧地址 `/api/v1/alerts/low-usage` 仍然只做低用量，试点请用 `GET /api/v1/alerts`。
+
+## 从 0.23.0 升到 0.24.0
+
+在仓库目录：
+
+```bash
+git pull
+docker compose up -d --build
+```
+
+启动时会自己补上 Google 用户和浏览器会话两张表，不用手工改数据库。表里不存 Google 的令牌。
+
+公开站点要在 Google Cloud 控制台建一个 OAuth 客户端。步骤和占位环境变量见 [README](../README.md) 的「在 Google Cloud 里创建 OAuth 客户端」。回调地址是 `https://tokenrank.online/auth/google/callback`。私有部署可以不填 `GOOGLE_CLIENT_ID`、`GOOGLE_CLIENT_SECRET`、`GOOGLE_REDIRECT_URI`，登录页只用用户密钥。
+
+登录后如果这个账号还没有用量，会进入「接入」。安装命令会调用原来的 `python -m collector service`，每天自动同步用量。
 
 ## 从 0.22.0 升到 0.23.0
 

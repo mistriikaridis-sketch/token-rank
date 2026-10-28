@@ -8,9 +8,11 @@ from collections import Counter
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Literal, Optional
+from urllib.parse import quote
 
-from fastapi import Body, Depends, FastAPI, HTTPException, Query
-from fastapi.responses import FileResponse, Response
+from fastapi import Body, Depends, FastAPI, HTTPException, Query, Request
+from fastapi.exception_handlers import http_exception_handler
+from fastapi.responses import FileResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -101,7 +103,7 @@ def read_app_version() -> str:
         text = VERSION_FILE.read_text(encoding="utf-8").strip()
     except OSError:
         text = ""
-    return text or "0.23.0"
+    return text or "0.24.0"
 
 
 APP_VERSION = read_app_version()
@@ -112,9 +114,12 @@ app = FastAPI(
     version=APP_VERSION,
 )
 
+from app.google_auth import google_enabled
+from app.google_auth import router as google_router
 from app.self_service import router as product_router
 
 app.include_router(product_router)
+app.include_router(google_router)
 
 
 @app.middleware("http")
@@ -138,6 +143,41 @@ async def bind_collector_scope(request, call_next):
         return await call_next(request)
     finally:
         reset_collector_scope(token)
+
+
+def _wants_html_document(request: Request) -> bool:
+    """True for a browser address-bar navigation. fetch() does not send text/html."""
+    accept = (request.headers.get("accept") or "").lower()
+    if "text/html" not in accept:
+        return False
+    dest = (request.headers.get("sec-fetch-dest") or "").lower()
+    if dest and dest not in {"document", "iframe"}:
+        return False
+    return True
+
+
+def _login_redirect_target(request: Request) -> str:
+    nxt = request.url.path
+    if request.url.query:
+        nxt = f"{nxt}?{request.url.query}"
+    presented = extract_presented_key(
+        request.headers.get("authorization"),
+        request.headers.get("x-api-key"),
+    )
+    error = "invalid" if presented else "required"
+    return "/login?next=" + quote(nxt, safe="") + "&error=" + error
+
+
+@app.exception_handler(HTTPException)
+async def redirect_browser_401(request: Request, exc: HTTPException):
+    """Browser navigations that fail auth land on /login instead of a JSON body."""
+    if (
+        exc.status_code == 401
+        and request.url.path != "/login"
+        and _wants_html_document(request)
+    ):
+        return RedirectResponse(url=_login_redirect_target(request), status_code=303)
+    return await http_exception_handler(request, exc)
 
 
 class UsageIn(BaseModel):
@@ -562,6 +602,7 @@ def health() -> dict[str, Any]:
     return {
         "status": "ok",
         "version": APP_VERSION,
+        "google_login_configured": google_enabled(),
         "server_time": _utc_now().isoformat(),
         "pricing_table": {
             "table_version": pricing_notes().get("table_version") or "",
@@ -3187,6 +3228,7 @@ def collector_doc() -> FileResponse:
 @app.get("/alerts")
 @app.get("/forum")
 @app.get("/procode")
+@app.get("/login")
 def index() -> FileResponse:
     index_path = STATIC_DIR / "index.html"
     if not index_path.is_file():

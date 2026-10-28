@@ -1,6 +1,6 @@
 # Token 消耗排行榜
 
-许可证：**MIT** · 版本 **0.23.0**
+许可证：**MIT** · 版本 **0.24.0**
 
 ## 客户 10 分钟跑通
 
@@ -24,7 +24,7 @@ curl -s -X POST http://localhost:8000/api/v1/ingest/litellm \
   -d @fixtures/litellm_spend_logs.json
 ```
 
-回到网页，在 **首次配置** 里粘贴用户密钥 `demo-alice-key`，账号选 `acme-prod`，然后看 [我的](http://localhost:8000/me) 和 [Agent](http://localhost:8000/agents)。
+本机试用没有配置 Google。打开 [登录](http://localhost:8000/login)，展开「私有部署 / 密钥登录」，粘贴用户密钥 `demo-alice-key`，勾选记住，点「用密钥登录」。还没有用量时会进入 [接入](http://localhost:8000/onboard)。在仓库根目录运行页面上的命令：先上报一次，再接上采集器原来的定时任务。之后每日自动同步用量。再看 [我的](http://localhost:8000/me)。点「退出」会回到登录页。
 
 确认跑通：
 
@@ -73,7 +73,7 @@ python -m collector once --dry-run
 
 个人上报密钥以 `ctr_` 开头，**只属于一个账号**，用来让这台电脑上报用量。它不能清库，也不能让服务器去扫目录，不能看别人的账号。不要转发。
 
-生产把服务绑在本机 `127.0.0.1:8000`，再用反向代理把浏览器流量转进来。示例域名是 `tokenrank.online`（只是配置例子，不代表这台机器已经改了 DNS）。从 0.22.0 升到 0.23.0 见 [docs/INSTALL.md](docs/INSTALL.md)。更细的说明见 [docs/SECURITY.md](docs/SECURITY.md)。
+生产把服务绑在本机 `127.0.0.1:8000`，再用反向代理把浏览器流量转进来。示例域名是 `tokenrank.online`（只是配置例子，不代表这台机器已经改了 DNS）。从 0.23.0 升到 0.24.0 见 [docs/INSTALL.md](docs/INSTALL.md)。更细的说明见 [docs/SECURITY.md](docs/SECURITY.md)。
 
 试用默认使用 SQLite。需要 Postgres 时：
 
@@ -96,11 +96,11 @@ docker compose -f docker-compose.yml -f docker-compose.postgres.yml up -d --buil
 - **隐私** `/privacy`：会上传 / 仅本地 / 永不采集，以及 `preview` / `once --dry-run`
 - **设置** `/settings`：全公司 / 本部门 / 仅自己、可选组织标签、设备改名/隐藏/停用、时区对照、诊断表单、费用公式
 - **提醒** `/alerts`：闲置、用量过低、费用突增、账号费用阈值；member 只看自己
-- **贴 Key**：顶栏把用户 API Key 存 localStorage，排行 /me /export /alerts /forum 自动带 Header（勿存 ingest Key）
+- **登录** `/login`：公开站点用 Google；私有部署用用户密钥。还没上报过时，登录后进入「接入」。每日自动同步用量（勿存 ingest Key，也不要把 Google 令牌写入浏览器）
 - **交流区** `/forum`：企业内部最小讨论（发帖 / 列表 / 点赞）；匿名只读；禁止贴 Key/对话原文
 - **ProCode** `/procode`：占位适配说明；`POST /api/v1/ingest/procode`
 
-许可证：**MIT** · 版本 **0.23.0**（客户文档见文首「客户 10 分钟跑通」。English summary is below.）
+许可证：**MIT** · 版本 **0.24.0**（客户文档见文首「客户 10 分钟跑通」。English summary is below.）
 
 ## 本地探测
 
@@ -137,7 +137,7 @@ python -m collector once --fixtures
 8. **成本口径可见**：`cost_basis` 区分 `estimate` / `cursor_charged` / `litellm_spend` / `invoice`；UI 徽章标注，混合时标明「含估算」。列表价覆盖国内外主流模型，未知模型仍入库，只是估价落到 default；页面写明这不是发票。
 9. **未标注可隐藏**：无 `project_id` / `agent_id` 归「未标注」，排行默认 `hide_unlabeled=true`。
 10. **个人自助**：`/me?account_id=` 看自己的 Agent / 项目 / 工具分布，可复制周报文案或生成分享图。
-11. **浏览器贴用户 Key**：`localStorage` 存 member/admin Key；请求自动带 `Authorization`；提供清除；**不要**把 `TOKEN_RANKINGS_API_KEY` 写进前端默认。
+11. **登录**：公开站点 Google 登录（httpOnly Cookie）。私有部署仍可贴 member/admin Key（勾选记住才进 `localStorage`）。没有用量时登录后去 `/onboard`，安装命令接上原来的定时任务，每日自动同步用量。**不要**把 `TOKEN_RANKINGS_API_KEY` 或 Google 客户端密钥写进前端。
 12. **试点提醒**：`GET /api/v1/alerts`（闲置 / 用量过低 / 费用突增 / 账号费用阈值）；`GET /api/v1/alerts/low-usage` 仍只做低用量。叙事：用量高不等于会用，过低往往说明工作流还没接上。配置见 [docs/INSTALL.md](docs/INSTALL.md)。可选 `LOW_USAGE_WEBHOOK_URL` + `notify=true`。
 13. **交流区（最小）**：`/forum` 发帖需用户 Key；匿名只读；点赞；禁止密钥；非全功能社区。
 14. **真机探测**：见 [`docs/probe.md`](docs/probe.md)（亦可通过 `/docs/probe.md` 读取）；不要求本环境真装 Cursor / WorkBuddy。
@@ -177,6 +177,7 @@ curl -s -X POST http://localhost:8000/api/v1/ingest/litellm \
 - 组织榜：<http://localhost:8000/orgs>
 - 项目榜：<http://localhost:8000/projects>
 - Agent 榜：<http://localhost:8000/agents>（例：`/agents?account_id=acme-prod`）
+- **登录**：<http://localhost:8000/login>
 - **我的**：<http://localhost:8000/me>（例：`/me?account_id=acme-prod`）
 - **如何接入**：<http://localhost:8000/onboard>
 - **会上报什么**：<http://localhost:8000/privacy>
@@ -215,14 +216,53 @@ curl -s -X POST 'http://localhost:8000/api/v1/seed?force=true' \
 
 
 
-## 浏览器贴用户 Key
+## 登录
 
-顶栏 **贴 Key** → 输入 `demo-alice-key` / `demo-admin-key` 等 **用户** Key（见 `fixtures/users.json`）。
+打开 <http://localhost:8000/login>。
 
-- 仅存本机 `localStorage`（键名 `token_rankings_user_api_key`）
-- 排行、`/me`、导出、提醒请求自动带 `Authorization: Bearer …`
-- Member 自动只看自己的 `account_id`；清除按钮可删掉本地 Key
-- **禁止**把服务端 `TOKEN_RANKINGS_API_KEY`（ingest 用）写进前端默认值或提交到仓库前端代码
+公开站点 [tokenrank.online](https://tokenrank.online) 点 **使用 Google 登录**。还没有用量时，登录后进入 [接入](http://localhost:8000/onboard)。在仓库根目录运行页面上的命令：先上报一次，再写好采集器原来的定时任务（cron / systemd / launchd / 计划任务，默认大约每 30 分钟）。**每日自动同步用量**，不是只上报这一次，也不是另一套协议。
+
+本机试用或内网没有 Google 时，展开 **私有部署 / 密钥登录**，粘贴 `demo-alice-key` / `demo-admin-key` 等用户密钥（见 `fixtures/users.json`）。
+
+- Google 登录状态是网站自己的 httpOnly Cookie，名字 `tr_session`。Google 的访问令牌和 ID 令牌核对后即丢弃，不写入数据库，也不进 `localStorage`
+- 勾选「在这台浏览器记住密钥」时，用户密钥存在 `localStorage`（键名 `token_rankings_user_api_key`）。不勾选时只留在当前窗口
+- 采集器、脚本、导出仍用 `Authorization: Bearer …`。Google 登录不能代替写入密钥
+- 新 Google 用户默认是成员，账号就是邮箱。邮箱写在 `GOOGLE_ADMIN_EMAILS` 里则是管理员。用户名单里如果有相同的 `email` 或 `account_id`，会连到那一条
+- 未登录时，网页上的排行和「我的」会转到 `/login`。密钥不对会显示中文原因
+- 右上角「退出」会清掉 Cookie 和记住的用户密钥，并回到登录页
+- **禁止**把 `TOKEN_RANKINGS_API_KEY` 或 Google 客户端密钥写进前端或提交到仓库
+
+### 在 Google Cloud 里创建 OAuth 客户端
+
+仓库里没有客户端密钥。下面的值都是占位，要换成控制台里你自己的那一串，而且不要发到聊天里。
+
+1. 打开 <https://console.cloud.google.com/> ，用准备拿来管理这个站点的 Google 账号进入。
+2. 顶部项目选择器里新建项目，或选中已有项目。
+3. 左侧「API 和服务」→「OAuth 同意屏幕」。若控制台已改成「Google Auth platform」，就进「品牌 / Branding」和「受众 / Audience」。
+   - 用户类型选 **外部 / External**（不是只给你们 Workspace 里的人用时）。
+   - 应用名称：`Token 消耗排行榜`
+   - 用户支持电子邮件：选你自己的邮箱
+   - 已获授权的网域：`tokenrank.online`
+   - 范围 / Data access：加上 `openid`、`email`、`profile`
+   - 应用还在测试状态时，把允许登录的 Gmail 加进「测试用户」。发布之后，其他 Google 账号才能登录。
+4. 「API 和服务」→「凭据」→「创建凭据」→「OAuth 客户端 ID」。
+   - 应用类型：**Web 应用**
+   - 名称：`tokenrank.online`
+   - 已获授权的 JavaScript 来源：`https://tokenrank.online`
+   - 已获授权的重定向 URI：`https://tokenrank.online/auth/google/callback`
+   - 本机试用再加一条，并且和下面的 `GOOGLE_REDIRECT_URI` 逐字相同（含 `http`、主机名、端口）：`http://127.0.0.1:8000/auth/google/callback`
+5. 创建后，客户端密钥只完整显示一次。抄进服务器环境变量，不要写进仓库。
+
+```bash
+GOOGLE_CLIENT_ID=粘贴客户端 ID
+GOOGLE_CLIENT_SECRET=粘贴客户端密钥
+GOOGLE_REDIRECT_URI=https://tokenrank.online/auth/google/callback
+GOOGLE_ADMIN_EMAILS=管理员邮箱@example.com
+```
+
+三项里有空着的，或仍是 `CHANGE_ME`，登录页就不会出现可用的 Google 按钮，只走密钥登录。改完执行 `docker compose up -d --build`。
+
+私有部署可以三项都不填。同事用用户密钥登录，采集器仍用原来的请求头。
 
 ## 试点提醒
 
@@ -308,7 +348,7 @@ curl -s -H 'Authorization: Bearer demo-admin-key' \
 bash scripts/verify_rbac.sh
 ```
 
-生产必须：`RANKINGS_REQUIRE_AUTH=1`，并改掉全部演示 Key（`.env` 的 `TOKEN_RANKINGS_API_KEY` 与 `fixtures/users.json`）。网页「首次配置」只把**用户** Key 存在本机浏览器；仍在使用演示 Key 时顶部会出黄条。匿名看全量只适合本机试用。详见 [docs/SECURITY.md](docs/SECURITY.md)。
+生产必须：`RANKINGS_REQUIRE_AUTH=1`，并改掉全部演示 Key（`.env` 的 `TOKEN_RANKINGS_API_KEY` 与 `fixtures/users.json`）。网页登录页只把**用户** Key 存在本机浏览器；仍在使用演示 Key 时顶部会出黄条。不设 `RANKINGS_REQUIRE_AUTH` 时，脚本仍可以不带密钥读排行接口，这只适合本机试用。详见 [docs/SECURITY.md](docs/SECURITY.md)。
 
 ## 数据库（SQLite demo / Postgres 生产）
 
@@ -522,7 +562,11 @@ curl -s 'http://localhost:8000/health' | jq '{version,rbac,database,tools_connec
 |---|---|---|
 | `TOKEN_RANKINGS_API_KEY` | compose 示例 `dev-token-rankings-change-me` | 写接口鉴权（service admin）；未配置则写接口 503 |
 | `USERS_FILE` / `USERS_JSON` | compose: `/app/fixtures/users.json` | 用户 Key → role + account_id |
-| `RANKINGS_REQUIRE_AUTH` | `0`（试用） | **生产设为 `1`**：排行 GET 也必须带用户 Key |
+| `RANKINGS_REQUIRE_AUTH` | `0`（试用） | **生产设为 `1`**：排行 GET 也必须登录（Google Cookie 或用户密钥） |
+| `GOOGLE_CLIENT_ID` | 空 | Google OAuth 客户端 ID。留空则只有密钥登录 |
+| `GOOGLE_CLIENT_SECRET` | 空 | Google 客户端密钥。只放服务器，不要写进仓库 |
+| `GOOGLE_REDIRECT_URI` | 空 | 必须与控制台一致。公开站点是 `https://tokenrank.online/auth/google/callback` |
+| `GOOGLE_ADMIN_EMAILS` | 空 | 逗号分隔。这些邮箱登录后是管理员，其余 Google 用户是成员 |
 | `DATABASE_URL` | —（SQLite） | `postgresql://…` 时真切 Postgres；见 `docker-compose.postgres.yml` |
 | `SEED_ON_START` | `0` | 启动灌 demo（`source=seed`） |
 | `LITELLM_BASE_URL` / `LITELLM_MASTER_KEY` | — | LiteLLM sync |
@@ -539,7 +583,7 @@ curl -s 'http://localhost:8000/health' | jq '{version,rbac,database,tools_connec
 
 ## English
 
-MIT license. Version **0.23.0**. Self-hosted FinOps for token usage inside one company. It is not a public model leaderboard and it does not proxy model calls. The collector is first-party: it uploads token counts only.
+MIT license. Version **0.24.0**. Self-hosted FinOps for token usage inside one company. It is not a public model leaderboard and it does not proxy model calls. The collector is first-party: it uploads token counts only. The public site signs in with Google at `/login`. The session is an httpOnly cookie. Self-host installs can leave Google unset and paste a user key instead. After login, a new account lands on `/onboard`. The install command enables the existing collector timer so usage syncs every day, not only once.
 
 Quick start: `docker compose up -d --build`, open <http://localhost:8000>. The published port is `127.0.0.1:8000`. Put HTTPS in front of it. The example domain in the docs is `tokenrank.online` (a config sample, not a DNS change performed by this repo).
 
@@ -568,6 +612,8 @@ python -m collector once --dry-run
 ```
 
 A personal report token starts with `ctr_`. It can write usage for that one account only. It cannot wipe the database or scan directories on the server.
+
+Upgrade 0.23.0 → 0.24.0: pull, `docker compose up -d --build`. Startup creates the Google user and browser session tables. It does not store Google tokens. Create an OAuth client in Google Cloud Console (steps above; callback `https://tokenrank.online/auth/google/callback`) or leave those variables empty and keep key login. New sign-ins open `/onboard` until that account has usage. The install command runs `python -m collector service` on the existing timer.
 
 Upgrade 0.22.0 → 0.23.0: pull, `docker compose up -d --build`. New tables are created on startup. Leaderboard cost still excludes cache unless you turn on 「含缓存」. Unknown model ids are stored and priced on the default tier, marked 估算 in the UI. Prices are list-price estimates, not invoices. The price-table version is on `/api/v1/pricing/formula`.
 

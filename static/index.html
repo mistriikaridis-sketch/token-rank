@@ -5,6 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Token 消耗排行榜</title>
   <link rel="stylesheet" href="/static/product.css" />
+  <script>
+    (function () {
+      var path = (location.pathname || "/").replace(/\/+$/, "") || "/";
+      if (path === "/login") document.documentElement.classList.add("is-login");
+    })();
+  </script>
   <style>
     :root {
       --bg: #12100c;
@@ -486,9 +492,84 @@
     }
     .forum-warn.show { display: block; }
 
+    body.booting .wrap { visibility: hidden; }
+    html.is-login body.booting .wrap { visibility: visible; }
+    html.is-login #page-login { display: block; }
+    html.is-login .cache-toggle,
+    html.is-login #credDetails,
+    html.is-login #demoWarn,
+    html.is-login #loginBanner,
+    html.is-login #setupPanel { display: none !important; }
+    .login-shell {
+      width: min(440px, 100%);
+      margin: 28px auto 12px;
+      background: var(--panel);
+      border: 1px solid var(--accent-border);
+      border-radius: 16px;
+      padding: 22px 18px 18px;
+      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.28);
+    }
+    .login-shell h1 { margin: 0 0 8px; font-size: 1.45rem; }
+    .login-shell .lead { margin: 0 0 16px; }
+    .login-shell label.field {
+      display: block;
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+    .login-shell input[type="password"] {
+      display: block;
+      width: 100%;
+      margin-top: 6px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      font: inherit;
+      font-size: 1rem;
+    }
+    .login-shell .btn {
+      width: 100%;
+      padding: 12px 14px;
+      font-size: 1rem;
+      margin-top: 4px;
+    }
+    .login-shell .btn:disabled { opacity: 0.65; cursor: wait; }
+    .login-error {
+      color: #fecaca;
+      background: rgba(248, 113, 113, 0.1);
+      border: 1px solid rgba(248, 113, 113, 0.4);
+      border-radius: 10px;
+      padding: 10px 12px;
+      margin: 12px 0 0;
+      line-height: 1.5;
+      font-size: 0.92rem;
+    }
+    .login-error[hidden] { display: none; }
+    .login-note {
+      margin: 12px 0 0;
+      color: var(--muted);
+      font-size: 0.85rem;
+      line-height: 1.5;
+    }
+    .google-btn { display: block; text-align: center; text-decoration: none; margin: 0 0 8px; }
+    .google-btn[hidden], #googleOffNote[hidden] { display: none !important; }
+    details.key-login { margin-top: 14px; }
+    details.key-login summary {
+      cursor: pointer;
+      color: var(--accent);
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+    @media (max-width: 720px) {
+      .login-shell { margin-top: 12px; padding: 18px 14px; }
+      .topbar-inner { gap: 10px; }
+    }
+
   </style>
 </head>
-<body>
+<body class="booting">
   <div class="topbar">
     <div class="topbar-inner">
       <div class="brand">Token <span>消耗排行榜</span></div>
@@ -504,14 +585,18 @@
         <a href="/forum" data-page="forum">交流区</a>
       </nav>
       <div class="top-right">
-        <div class="key-chip" id="keyChip"><span>未贴密钥</span></div>
-        <button type="button" class="key-btn" id="keyOpenBtn">贴密钥</button>
+        <div class="key-chip" id="keyChip"><span>未登录</span></div>
+        <a class="key-btn" id="keyOpenBtn" href="/login">登录</a>
+        <button type="button" class="key-btn ghost" id="logoutBtn" hidden>退出</button>
       </div>
     </div>
   </div>
 
   <div class="wrap">
     <div class="warn-banner" id="demoWarn" hidden></div>
+    <div class="hint-card" id="loginBanner" hidden>
+      <a href="/login">登录</a>后才能看排行和「我的」。密钥只留在这台浏览器里。
+    </div>
     <label class="cache-toggle" id="cacheToggleLabel">
       <input type="checkbox" id="includeCacheToggle" />
       榜上费用含缓存（默认关闭，和以前的数字一致。这是列表价估算，不是实扣账单）
@@ -534,6 +619,7 @@
         <button type="button" class="btn ghost" id="setupClearBtn">清除密钥</button>
       </div>
       <div class="setup-links">
+        <a href="/login">登录页</a> ·
         <a href="/docs/INSTALL.md">安装</a> ·
         <a href="/docs/ACCEPTANCE.md">验收清单</a> ·
         <a href="/docs/SECURITY.md">安全说明</a> ·
@@ -544,6 +630,31 @@
       <summary>高级指标（给负责安装的同事）</summary>
       <div class="cred-strip" id="credStrip">加载中…</div>
     </details>
+
+    <section id="page-login" class="page">
+      <div class="login-shell">
+        <h1>登录</h1>
+        <p class="lead">登录之后先去「接入」，在这台电脑装上采集器。之后每天自动同步用量。</p>
+        <a class="btn google-btn" id="googleLogin" href="/auth/google/start">使用 Google 登录</a>
+        <p id="googleOffNote" class="login-note" hidden>这台服务没有打开 Google 登录。私有部署请用下面的用户密钥。</p>
+        <p class="login-error" id="loginError" role="alert" hidden></p>
+        <details class="key-login" id="keyLogin">
+          <summary>私有部署 / 密钥登录</summary>
+          <form id="loginForm" autocomplete="off" onsubmit="return false;">
+            <label class="field" for="loginKey">用户密钥
+              <input id="loginKey" type="password" autocomplete="off" placeholder="粘贴用户密钥" />
+            </label>
+            <label class="toggle-row" for="loginRemember">
+              <input id="loginRemember" type="checkbox" checked />
+              在这台浏览器记住密钥
+            </label>
+            <button type="submit" class="btn" id="loginSubmit">用密钥登录</button>
+            <p class="login-note">不要粘贴采集用的写入密钥。Google 登录不会把 Google 的令牌存进这台浏览器。说明见 <a href="/docs/SECURITY.md">安全说明</a>。</p>
+          </form>
+        </details>
+      </div>
+    </section>
+
     <!-- People page -->
     <section id="page-people" class="page">
       <div class="hint-card" id="homeScope">
@@ -706,7 +817,8 @@
     <section id="page-me" class="page">
       <div class="hint-card">
         看自己的用量：助手、项目、本周合计。可以复制一段文字发到群里。
-        还没配过的话，用页面上方的「首次配置」。
+        <strong>每日自动同步用量。</strong> 装好采集器之后，模型和工具用量每天都会更新，不用再手动上报。
+        还没装的话，去<a href="/onboard">接入</a>。
       </div>
 
       <div class="pills" id="mePills">
@@ -779,7 +891,8 @@
 
     <section id="page-onboard" class="page">
       <h2 class="page-title">如何接入</h2>
-      <p class="lead">三步把这台电脑的 Token 用量送到你们自己的排行榜。这是企业内部的榜，不是公开城市榜。</p>
+      <p class="lead">登录之后先做这一步。在这台电脑装上采集器，用量就会送到你们自己的排行榜。</p>
+      <div class="hint-card"><strong>每日自动同步用量。</strong> 安装命令会接上采集器原来的定时任务（cron / systemd / launchd / 计划任务，默认大约每 30 分钟）。装好之后每天都会更新，不是只上报这一次。</div>
       <div class="secret-warn">勿转发。命令里含个人上报密钥。别人拿到后，可以往你的账号写入用量。</div>
       <div class="step-card">
         <h3>1. 选择你的系统</h3>
@@ -791,13 +904,13 @@
       </div>
       <div class="step-card">
         <h3>2. 复制命令，在仓库根目录运行</h3>
-        <p>命令会写入本机配置，先预览再上报。采集器只报 Token 数字，不上传代码和对话。</p>
+        <p>命令会写入本机配置，先预览、上报一次，再写好定时任务。采集器只报 Token 数字，不上传代码和对话。之后每天自动同步用量。</p>
         <label class="field">账号
           <input id="onboardAccount" placeholder="成员密钥会自动带上；管理员请填写，例如 acme-prod" />
         </label>
         <button type="button" class="btn ghost" id="onboardReloadBtn">按这个账号生成命令</button>
         <div class="copy-block">
-          <pre id="installCommand">先在右上角粘贴用户密钥，再生成命令。</pre>
+          <pre id="installCommand">先登录，再生成命令。</pre>
           <button type="button" class="btn" data-copy="installCommand">复制</button>
         </div>
         <p class="muted" id="installHint"></p>
@@ -860,6 +973,7 @@ python -m collector once --dry-run</pre>
     <section id="page-settings" class="page">
       <h2 class="page-title">企业里谁能看见我</h2>
       <p class="lead">这里代替公开主页和城市榜。可选全公司、本部门或仅自己。组织标签只是备注。</p>
+      <div class="hint-card"><strong>每日自动同步用量。</strong> 接入页的安装命令会写好定时任务。装好之后，排行榜每天都会更新，不用每次手动上报。</div>
       <label class="field">账号
         <input id="settingsAccount" placeholder="成员密钥会自动带上" />
       </label>
@@ -973,7 +1087,7 @@ python -m collector once --dry-run</pre>
     <!-- Forum page -->
     <section id="page-forum" class="page">
       <div class="narrative-box" id="forumDisclaimer">
-        公司内部讨论。不贴密钥时只能看；贴上用户密钥后可以发帖。不要粘贴密钥、密码或对话原文。
+        公司内部讨论。没登录时只能看；登录后可以发帖。不要粘贴密钥、密码或对话原文。
       </div>
       <div class="hint-card">
         不是全功能社区：只有发帖、列表（时间倒序）、简单点赞。敏感密钥请勿上传——服务端也会拦截疑似 Key 内容。
@@ -986,7 +1100,7 @@ python -m collector once --dry-run</pre>
         <div class="row">
           <button type="button" class="btn" id="forumSubmitBtn">发布</button>
           <button type="button" class="btn ghost" id="forumReloadBtn">刷新列表</button>
-          <span class="hint-inline" id="forumAuthHint">还没贴密钥，只能浏览。贴上用户密钥后可以发帖</span>
+          <span class="hint-inline" id="forumAuthHint">还没登录，只能浏览。请先<a href="/login">登录</a>再发帖</span>
         </div>
         <div class="forum-warn" id="forumWarn"></div>
       </div>
@@ -1029,7 +1143,7 @@ python -m collector once --dry-run</pre>
       </div>
     </section>
 
-      <span id="footerCostNote">费用数字是列表价估算，不是发票 · <a href="/onboard">如何接入</a> · <a href="/privacy">会上报什么</a> · <a href="/settings">可见范围</a> · <a href="/docs/INSTALL.md">安装</a> · <a href="/docs/TROUBLESHOOTING.md">排错</a> · <a href="/procode">ProCode</a> · <a href="/docs">接口文档</a> · <a href="/health">健康检查</a></span>
+      <span id="footerCostNote">费用数字是列表价估算，不是发票 · <a href="/login">登录</a> · <a href="/onboard">如何接入</a> · <a href="/privacy">会上报什么</a> · <a href="/settings">可见范围</a> · <a href="/docs/INSTALL.md">安装</a> · <a href="/docs/TROUBLESHOOTING.md">排错</a> · <a href="/procode">ProCode</a> · <a href="/docs">接口文档</a> · <a href="/health">健康检查</a></span>
       <span id="generatedAt"></span>
     </div>
   </div>
@@ -1066,6 +1180,7 @@ python -m collector once --dry-run</pre>
       hideUnlabeledProjects: true,
       hideUnlabeledAgents: true,
       whoami: null,
+      requireAuth: false,
     };
 
     const fmtInt = (n) => new Intl.NumberFormat("zh-CN").format(Math.round(n || 0));
@@ -1113,16 +1228,182 @@ python -m collector once --dry-run</pre>
       return `<span class="basis-badge ${cls}">${escapeHtml(lab)}</span>`;
     }
 
+    const PERSONAL_PAGES = ["me", "settings"];
+    const BOARD_PAGES = ["people", "orgs", "projects", "agents", "alerts"];
+    const OPEN_PAGES = ["login", "privacy", "onboard", "procode", "forum"];
+
     function getStoredKey() {
-      try { return (localStorage.getItem(KEY_STORAGE) || "").trim(); }
-      catch (_) { return ""; }
+      try {
+        const local = (localStorage.getItem(KEY_STORAGE) || "").trim();
+        if (local) return local;
+        return (sessionStorage.getItem(KEY_STORAGE) || "").trim();
+      } catch (_) { return ""; }
     }
 
-    function setStoredKey(key) {
+    function setStoredKey(key, remember) {
+      const keep = remember !== false;
       try {
-        if (key) localStorage.setItem(KEY_STORAGE, key);
-        else localStorage.removeItem(KEY_STORAGE);
+        if (!key) {
+          localStorage.removeItem(KEY_STORAGE);
+          sessionStorage.removeItem(KEY_STORAGE);
+          return;
+        }
+        if (keep) {
+          localStorage.setItem(KEY_STORAGE, key);
+          sessionStorage.removeItem(KEY_STORAGE);
+        } else {
+          sessionStorage.setItem(KEY_STORAGE, key);
+          localStorage.removeItem(KEY_STORAGE);
+        }
       } catch (_) { /* ignore quota */ }
+    }
+
+    function pageNeedsLogin() {
+      if (OPEN_PAGES.indexOf(state.page) !== -1) return false;
+      if (PERSONAL_PAGES.indexOf(state.page) !== -1) return true;
+      if (BOARD_PAGES.indexOf(state.page) !== -1) return true;
+      return state.requireAuth === true;
+    }
+
+    function safeNext(raw) {
+      if (!raw || typeof raw !== "string") return "";
+      let value = raw.trim();
+      if (!value) return "";
+      try { value = decodeURIComponent(value); } catch (_) { return ""; }
+      if (!value.startsWith("/") || value.startsWith("//") || value.startsWith("/\\")) return "";
+      if (value.indexOf("://") !== -1 || value.indexOf("\\") !== -1) return "";
+      if (value.indexOf("\n") !== -1 || value.indexOf("\r") !== -1) return "";
+      const queryAt = value.indexOf("?");
+      const pathOnly = (queryAt === -1 ? value : value.slice(0, queryAt)).replace(/\/+$/, "") || "/";
+      const allowed = ["/", "/people", "/orgs", "/projects", "/agents", "/me", "/onboard", "/privacy", "/settings", "/alerts", "/forum", "/procode"];
+      if (allowed.indexOf(pathOnly) === -1) return "";
+      const query = queryAt === -1 ? "" : value.slice(queryAt);
+      return (pathOnly === "/" ? "/" : pathOnly) + query;
+    }
+
+    function loginHref() {
+      const here = location.pathname + location.search;
+      const dest = state.page === "login" ? "/onboard" : here;
+      return "/login?next=" + encodeURIComponent(dest);
+    }
+
+    function goLogin(reason) {
+      if (state.page === "login") return;
+      const params = new URLSearchParams();
+      params.set("next", location.pathname + location.search);
+      if (reason) params.set("error", reason);
+      location.replace("/login?" + params.toString());
+    }
+
+    async function logout() {
+      setStoredKey("");
+      try {
+        await fetch("/auth/logout", { method: "POST", credentials: "same-origin", headers: { Accept: "application/json" } });
+        location.href = "/login";
+      } catch (_) {
+        location.href = "/auth/logout";
+      }
+    }
+
+    function showLoginError(message) {
+      const err = document.getElementById("loginError");
+      if (!err) return;
+      err.hidden = !message;
+      err.textContent = message || "";
+    }
+
+    function initLoginPage() {
+      const params = new URLSearchParams(location.search);
+      const code = params.get("error") || "";
+      const authed = state.whoami && state.whoami.authenticated;
+      const messages = {
+        invalid: "密钥不正确。请核对后再试。请粘贴管理员发给你的用户密钥，不要粘贴采集用的写入密钥。",
+        required: "请先登录。登录之后先去「接入」，装上采集器，每天自动同步用量。",
+        google_unconfigured: "这台服务没有配置 Google 登录。请用下面的用户密钥。",
+        google_denied: "Google 登录已取消。可以再试一次，或改用用户密钥。",
+        google_state: "这次登录已失效。请重新点「使用 Google 登录」。",
+        google_email: "Google 没有提供已验证的邮箱，不能登录。",
+        google_token: "Google 没有完成本次登录。请再试一次。",
+      };
+      if (code === "invalid" || (getStoredKey() && !authed && code.indexOf("google_") !== 0)) {
+        setStoredKey("");
+        const chip = document.getElementById("keyChip");
+        if (chip) chip.innerHTML = "<span>未登录</span>";
+        showLoginError(messages.invalid);
+      } else {
+        showLoginError(messages[code] || "");
+      }
+      const remember = document.getElementById("loginRemember");
+      if (remember) remember.checked = true;
+      const input = document.getElementById("loginKey");
+      if (input && code === "invalid") input.value = "";
+      const google = document.getElementById("googleLogin");
+      const requested = safeNext(params.get("next"));
+      if (google) {
+        google.setAttribute("href", requested
+          ? ("/auth/google/start?next=" + encodeURIComponent(requested))
+          : "/auth/google/start");
+      }
+      return fetch("/api/v1/auth/config", { headers: { Accept: "application/json" } })
+        .then((res) => res.ok ? res.json() : { google_enabled: false })
+        .catch(() => ({ google_enabled: false }))
+        .then((cfg) => {
+          const enabled = !!(cfg && cfg.google_enabled);
+          const note = document.getElementById("googleOffNote");
+          const box = document.getElementById("keyLogin");
+          if (google) google.hidden = !enabled;
+          if (note) note.hidden = enabled;
+          if (box) box.open = !enabled || code === "invalid" || code === "google_unconfigured";
+          if (!enabled && input) input.focus();
+        });
+    }
+
+    async function submitLogin(event) {
+      if (event) event.preventDefault();
+      const input = document.getElementById("loginKey");
+      const btn = document.getElementById("loginSubmit");
+      const key = (input && input.value || "").trim();
+      const remember = !!(document.getElementById("loginRemember") && document.getElementById("loginRemember").checked);
+      if (!key) {
+        showLoginError("请先粘贴用户密钥。");
+        return;
+      }
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = "正在核对…";
+      }
+      try {
+        const res = await fetch("/api/v1/whoami", {
+          headers: {
+            "Authorization": "Bearer " + key,
+            "Accept": "application/json",
+          },
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.authenticated) {
+          const detail = data && data.detail;
+          const message = (detail && detail.message) || "密钥不正确。请核对后再试。";
+          showLoginError(message);
+          return;
+        }
+        setStoredKey(key, remember);
+        const next = await postLoginPath(new URLSearchParams(location.search).get("next"));
+        location.href = next;
+      } catch (_) {
+        showLoginError("暂时连不上排行榜。请确认服务已启动后再试。");
+      } finally {
+        if (btn && document.body) {
+          btn.disabled = false;
+          btn.textContent = "登录";
+        }
+      }
+    }
+
+    function syncLoginBanner() {
+      const el = document.getElementById("loginBanner");
+      if (!el) return;
+      const authed = state.whoami && state.whoami.authenticated;
+      el.hidden = !!authed || state.page === "login" || pageNeedsLogin();
     }
 
     function authHeaders() {
@@ -1144,7 +1425,14 @@ python -m collector once --dry-run</pre>
         message = raw;
       }
       if (res.status === 401) {
-        message = message || "没有通过身份验证。请先在「首次配置」里粘贴用户密钥。";
+        message = message || "没有通过身份验证。请先打开登录页，粘贴用户密钥。";
+        if (state.page !== "login") {
+          goLogin(getStoredKey() ? "invalid" : "required");
+          const err = new Error(message);
+          err.status = 401;
+          err.redirecting = true;
+          throw err;
+        }
       } else if (res.status === 403) {
         message = message || "没有权限。成员只能查看自己的账号。";
       } else if (!message) {
@@ -1156,12 +1444,15 @@ python -m collector once --dry-run</pre>
     }
 
     function errorBlock(err) {
+      if (err && err.redirecting) {
+        return '<div class="empty">正在前往登录…</div>';
+      }
       const status = err && err.status;
       let title = "暂时打不开";
       let next = "下一步：确认服务已启动，然后看 <a href=\"/docs/TROUBLESHOOTING.md\">排错</a>。";
       if (status === 401) {
-        title = "需要先贴密钥";
-        next = "下一步：在「首次配置」粘贴管理员给你的用户密钥（不要填采集用的写入密钥）。见 <a href=\"/docs/SECURITY.md\">安全说明</a>。";
+        title = "需要先登录";
+        next = "下一步：打开 <a href=\"/login\">登录页</a>，粘贴管理员给你的用户密钥（不要填采集用的写入密钥）。见 <a href=\"/docs/SECURITY.md\">安全说明</a>。";
       } else if (status === 403) {
         title = "没有权限看这里";
         next = "下一步：成员只能看自己的账号。请换自己的密钥，或请管理员检查用户名单。见 <a href=\"/docs/SECURITY.md\">安全说明</a>。";
@@ -1184,20 +1475,34 @@ python -m collector once --dry-run</pre>
     }
 
     async function apiFetch(url, options) {
-      const opts = Object.assign({}, options || {});
+      const opts = Object.assign({ credentials: "same-origin" }, options || {});
       const headers = Object.assign({}, authHeaders(), opts.headers || {});
       opts.headers = headers;
       return fetch(url, opts);
     }
 
+    async function postLoginPath(requested) {
+      let hasUsage = false;
+      try {
+        const res = await apiFetch("/api/v1/onboarding/status", { headers: { Accept: "application/json" } });
+        if (res.ok) {
+          const data = await res.json();
+          hasUsage = Number(data.event_count || 0) > 0;
+        }
+      } catch (_) { /* 还没接上就去接入页 */ }
+      if (!hasUsage) return "/onboard";
+      return safeNext(requested) || "/me";
+    }
+
     async function refreshWhoami() {
       const chip = document.getElementById("keyChip");
       const btn = document.getElementById("keyOpenBtn");
+      const logoutBtn = document.getElementById("logoutBtn");
       try {
         const res = await apiFetch("/api/v1/whoami");
         const data = await res.json();
-        state.whoami = data;
-        if (data.authenticated) {
+        state.whoami = (res.ok && data && data.authenticated) ? data : { authenticated: false };
+        if (state.whoami.authenticated) {
           const scope = data.role === "member"
             ? (data.account_id || "本账号")
             : (data.role === "admin" ? "全站" : "");
@@ -1205,20 +1510,59 @@ python -m collector once --dry-run</pre>
             + ` · ${escapeHtml(data.role || "")}`
             + (scope ? ` · ${escapeHtml(scope)}` : "")
             + (data.key_hint ? ` <span class="muted">${escapeHtml(data.key_hint)}</span>` : "");
-          btn.textContent = "换密钥";
+          if (btn) btn.hidden = true;
+          if (logoutBtn) logoutBtn.hidden = false;
         } else if (getStoredKey()) {
           chip.innerHTML = `<span style="color:var(--danger)">密钥不正确</span>`;
-          btn.textContent = "重贴密钥";
+          if (btn) { btn.hidden = false; btn.textContent = "登录"; }
+          if (logoutBtn) logoutBtn.hidden = true;
         } else {
-          chip.innerHTML = `<span>未贴密钥</span>`;
-          btn.textContent = "贴密钥";
+          chip.innerHTML = `<span>未登录</span>`;
+          if (btn) { btn.hidden = false; btn.textContent = "登录"; }
+          if (logoutBtn) logoutBtn.hidden = true;
         }
       } catch (err) {
-        chip.textContent = "鉴权状态未知";
+        state.whoami = { authenticated: false };
+        chip.textContent = "未登录";
+        if (btn) { btn.hidden = false; btn.textContent = "登录"; }
+        if (logoutBtn) logoutBtn.hidden = true;
       }
+      if (btn) btn.setAttribute("href", loginHref());
       updateForumAuthHint();
-      if (typeof syncSetupPanel === "function") syncSetupPanel();
+      syncLoginBanner();
+      if (state._sessionReady && state.page !== "login" && typeof syncSetupPanel === "function") {
+        syncSetupPanel();
+      }
       return state.whoami;
+    }
+
+    async function prepareSession() {
+      state.requireAuth = false;
+      try {
+        const res = await fetch("/health", { headers: { Accept: "application/json" } });
+        if (res.ok) {
+          const health = await res.json();
+          state.requireAuth = !!(health.setup && health.setup.rankings_require_auth);
+        }
+      } catch (_) { /* 健康检查失败时，网页仍先要求登录再看排行 */ }
+      await refreshWhoami();
+      const authed = !!(state.whoami && state.whoami.authenticated);
+      if (state.page === "login") {
+        if (authed) {
+          const next = await postLoginPath(new URLSearchParams(location.search).get("next"));
+          location.replace(next);
+          return false;
+        }
+        state._sessionReady = true;
+        return true;
+      }
+      if (!authed && pageNeedsLogin()) {
+        goLogin(getStoredKey() ? "invalid" : "required");
+        return false;
+      }
+      state._sessionReady = true;
+      if (typeof syncSetupPanel === "function") syncSetupPanel();
+      return true;
     }
 
     function showSetupPanel() {
@@ -1277,15 +1621,11 @@ python -m collector once --dry-run</pre>
       setStoredKey("");
       const input = document.getElementById("setupKey");
       if (input) input.value = "";
-      await refreshWhoami();
-      reloadActivePage();
+      location.href = "/login";
     }
 
     function openKeyModal() {
-      document.getElementById("keyModal").classList.add("open");
-      const input = document.getElementById("keyInput");
-      input.value = getStoredKey();
-      input.focus();
+      location.href = loginHref();
     }
     function closeKeyModal() {
       document.getElementById("keyModal").classList.remove("open");
@@ -1331,6 +1671,7 @@ python -m collector once --dry-run</pre>
       if (path === "/alerts") return "alerts";
       if (path === "/forum") return "forum";
       if (path === "/procode") return "procode";
+      if (path === "/login") return "login";
       return "people";
     }
 
@@ -1338,10 +1679,12 @@ python -m collector once --dry-run</pre>
       document.querySelectorAll(".nav a[data-page]").forEach(a => {
         a.classList.toggle("active", a.dataset.page === state.page);
       });
-      ["people","orgs","projects","agents","me","onboard","privacy","settings","alerts","forum","procode"].forEach(p => {
+      ["people","orgs","projects","agents","me","onboard","privacy","settings","alerts","forum","procode","login"].forEach(p => {
         const el = document.getElementById("page-" + p);
         if (el) el.classList.toggle("active", state.page === p);
       });
+      document.documentElement.classList.toggle("is-login", state.page === "login");
+      document.body.classList.toggle("is-login", state.page === "login");
     }
 
     function bindPills(containerId, key) {
@@ -1747,7 +2090,7 @@ python -m collector once --dry-run</pre>
       }
 
       if (!account && !(who && who.authenticated && who.role === "member")) {
-        document.getElementById("meShareCard").textContent = "请先在上方「首次配置」里粘贴用户密钥，并选择账号。";
+        document.getElementById("meShareCard").textContent = "请先登录，再选择账号。";
         document.getElementById("meAgents").innerHTML = emptyNext("还没选账号");
         document.getElementById("meProjects").innerHTML = '<div class="empty">选好账号后，这里会列出项目</div>';
         document.getElementById("meTools").innerHTML = '<div class="empty">选好账号后，这里会列出用过的工具</div>';
@@ -1888,7 +2231,6 @@ python -m collector once --dry-run</pre>
       const options = opts || {};
       if (!getStoredKey()) {
         openKeyModal();
-        alert("导出需要先粘贴用户密钥。请用「首次配置」或右上角「贴密钥」。不要粘贴采集用的写入密钥。");
         return;
       }
       const grain = options.grain || "finops";
@@ -1983,11 +2325,11 @@ python -m collector once --dry-run</pre>
       if (!el) return;
       const key = getStoredKey();
       if (!key) {
-        el.textContent = "还没贴密钥，只能浏览。请在「首次配置」粘贴用户密钥后再发帖。";
+        el.textContent = "还没登录，只能浏览。请先到登录页粘贴用户密钥后再发帖。";
       } else if (state.whoami && state.whoami.name) {
         el.textContent = `以 ${state.whoami.name} 发帖`;
       } else {
-        el.textContent = "已贴密钥，可以发帖";
+        el.textContent = "已登录，可以发帖";
       }
     }
 
@@ -2041,7 +2383,7 @@ async function loadForum() {
         document.getElementById("generatedAt").textContent = new Date().toLocaleString("zh-CN");
         const items = data.items || [];
         if (!items.length) {
-          host.innerHTML = '<div class="empty"><strong>还没有帖子</strong><div class="empty-steps">贴上用户密钥后就可以发第一条。只谈用量和工作流，不要粘贴密钥或对话原文。</div></div>';
+          host.innerHTML = '<div class="empty"><strong>还没有帖子</strong><div class="empty-steps">登录后就可以发第一条。只谈用量和工作流，不要粘贴密钥或对话原文。</div></div>';
           return;
         }
         host.innerHTML = items.map(p => `
@@ -2066,7 +2408,7 @@ async function loadForum() {
     async function submitForumPost() {
       showForumWarn("");
       if (!getStoredKey()) {
-        showForumWarn("请先在「首次配置」或右上角粘贴用户密钥，然后再发帖。");
+        showForumWarn("请先登录，然后再发帖。不要粘贴采集用的写入密钥。");
         openKeyModal();
         return;
       }
@@ -2111,6 +2453,10 @@ async function loadForum() {
         getStoredKey, basisBadge, errorBlock,
       };
       state.page = detectPage();
+      window.addEventListener("pageshow", (event) => {
+        if (!event.persisted) return;
+        if (!getStoredKey() && pageNeedsLogin()) goLogin("required");
+      });
       const qs = new URLSearchParams(location.search);
       const preAccount = qs.get("account_id");
       if (preAccount && state.page === "agents") state._preAccount = preAccount;
@@ -2124,7 +2470,12 @@ async function loadForum() {
       bindPills("mePills", "meWindow");
       bindPills("alertPills", "alertWindow");
 
-      document.getElementById("keyOpenBtn").addEventListener("click", openKeyModal);
+      document.getElementById("keyOpenBtn").addEventListener("click", (e) => {
+        e.preventDefault();
+        openKeyModal();
+      });
+      document.getElementById("logoutBtn").addEventListener("click", logout);
+      document.getElementById("loginForm").addEventListener("submit", submitLogin);
       document.getElementById("keySaveBtn").addEventListener("click", saveKeyFromModal);
       document.getElementById("keyClearBtn").addEventListener("click", clearKeyFromModal);
       document.getElementById("keyCancelBtn").addEventListener("click", closeKeyModal);
@@ -2185,7 +2536,13 @@ async function loadForum() {
       const _pcb = document.getElementById("procodeReloadBtn");
       if (_pcb && !_pcb.dataset.bound) { _pcb.dataset.bound = "1"; _pcb.addEventListener("click", loadProcode); }
 
-      await refreshWhoami();
+      const stay = await prepareSession();
+      if (!stay) return;
+      document.body.classList.remove("booting");
+      if (state.page === "login") {
+        await initLoginPage();
+        return;
+      }
       loadCredStrip();
 
       if (state.page === "orgs") loadOrgs();

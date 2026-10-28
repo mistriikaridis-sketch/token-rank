@@ -246,9 +246,9 @@ class V23ThresholdTests(unittest.TestCase):
         self.assertFalse(formula["include_cache_default"])
         self.assertIn("tokenrank.online", install)
         self.assertIn("127.0.0.1:8000", (ROOT / "docker-compose.yml").read_text(encoding="utf-8"))
-        self.assertEqual((ROOT / "VERSION").read_text(encoding="utf-8").strip(), "0.23.0")
+        self.assertEqual((ROOT / "VERSION").read_text(encoding="utf-8").strip(), "0.24.0")
         health = self.client.get("/health").json()
-        self.assertEqual(health["version"], "0.23.0")
+        self.assertEqual(health["version"], "0.24.0")
         self.assertIn("server_time", health)
         self.assertEqual(health["pricing_table"]["table_version"], "2026.10.28")
 

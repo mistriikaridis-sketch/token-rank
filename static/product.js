@@ -113,8 +113,8 @@
     const hint = document.getElementById("installHint");
     if (hint) {
       hint.textContent = data.token_ready
-        ? "命令里已经写好你的个人上报密钥，只能写入账号 " + (data.account_id || "") + "。"
-        : "还没有个人密钥。先在右上角粘贴用户密钥；管理员再填账号，然后点「按这个账号生成命令」。";
+        ? "命令里已经写好你的个人上报密钥，只能写入账号 " + (data.account_id || "") + "。跑完会接上原来的定时任务。每日自动同步用量，不是只上报这一次。"
+        : "还没有个人密钥。先登录。管理员再填账号，然后点「按这个账号生成命令」。";
     }
   }
 
@@ -143,7 +143,7 @@
       const detail = data.detail || {};
       const code = detail.error === "invalid_api_key" ? "invalid_key" : (detail.error || "invalid_key");
       box.textContent = (detail.message || "密钥无效。") + " 错误码 " + code + "。" +
-        (detail.next_step ? " 下一步：" + detail.next_step : " 下一步：回到右上角重新粘贴用户密钥。不要用写入密钥。");
+        (detail.next_step ? " 下一步：" + detail.next_step : " 下一步：打开登录页，重新粘贴用户密钥。不要用写入密钥。");
       if (tools) tools.textContent = "";
       return;
     }

@@ -59,9 +59,17 @@ AI_INSTALL_INTRO = (
     "请只在本机安装 Token 消耗排行榜的上报，不要改我的代码，不要读取对话。\n"
     "只做这几步：\n"
     "1. 在仓库根目录运行我贴出的命令。里面的 ctr_ 密钥不要转发，不要写进 git。\n"
-    "2. 只装上报：先 python -m collector preview，再 python -m collector once。\n"
-    "3. 确认没有上传代码、对话、文件、密钥或截图。ProCode 不解密、不打开 sqlite、不读钥匙串、不启动 canoryn。\n"
-    "4. 失败时把终端最后 30 行贴回来，先删掉密钥。\n"
+    "2. 只装上报：先 python -m collector preview，再 python -m collector once，"
+    "然后 python -m collector service 写好原来的定时任务。\n"
+    "3. 每日自动同步用量。装好之后每天都会更新，不是只上报这一次。\n"
+    "4. 确认没有上传代码、对话、文件、密钥或截图。ProCode 不解密、不打开 sqlite、不读钥匙串、不启动 canoryn。\n"
+    "5. 失败时把终端最后 30 行贴回来，先删掉密钥。\n"
+)
+
+SCHEDULE_NOTE = (
+    "每日自动同步用量。安装命令会接上采集器原来的定时任务"
+    "（cron / systemd / launchd / 计划任务，默认大约每 30 分钟跑一次 collector once），"
+    "不是只上报一次，也不是另一套同步协议。"
 )
 
 MATRIX_TOOLS = (
@@ -86,7 +94,7 @@ ERROR_TEXT = {
     ),
     "invalid_key": (
         "密钥无效。排行榜不认识这串密钥。",
-        "回到右上角重新粘贴用户密钥，再复制命令。不要使用服务器的写入密钥，也不要把 ctr_ 密钥发到群里。",
+        "打开登录页重新粘贴用户密钥，再复制命令。不要使用服务器的写入密钥，也不要把 ctr_ 密钥发到群里。",
     ),
     "clock_skew": (
         "时钟偏差。这台电脑的时间和服务器差得比较多，「今天」会对不齐。",
@@ -178,7 +186,7 @@ def _require_user(principal: Optional[Principal]) -> Principal:
             status_code=401,
             detail={
                 "error": "missing_api_key",
-                "message": "请先在页面「首次配置」或右上角粘贴用户密钥。",
+                "message": "请先打开 /login 登录。",
             },
         )
     return principal
@@ -563,13 +571,32 @@ def render_install_script(
                 '  Write-Host "下一步：按上面的错误码处理。处理完回到网页点「再检查连接」。把终端最后 30 行发出来时，先删掉密钥。"',
                 "  exit 1",
                 "}",
-                'Write-Host "安装步骤已跑完。回到网页点「再检查连接」。"',
-                "Write-Host \"定时上报（可选）：python -m collector service --os windows\"",
+                "python -m collector service --os windows",
+                "if ($LASTEXITCODE -ne 0) {",
+                '  Fail "schedule_failed" "定时任务没有写上。" "在仓库根目录再运行 python -m collector service --os windows。这是采集器原来的计划任务，不是新的上报方式。"',
+                "}",
+                "$task = Join-Path $env:LOCALAPPDATA \"token-rankings\\register-task.ps1\"",
+                "if (Test-Path $task) {",
+                "  powershell -NoProfile -ExecutionPolicy Bypass -File $task",
+                "  if ($LASTEXITCODE -ne 0) {",
+                '    Write-Host "下一步：定时任务文件已写好，但计划任务还没注册。打开 $task 核对 Python 路径后再运行。启用后每天自动同步用量。"',
+                "  }",
+                "}",
+                'Write-Host "每日自动同步用量。定时任务会反复运行 collector once（默认大约每 30 分钟），不是只上报这一次。回到网页点「再检查连接」。"',
                 "",
             ]
         )
-    schedule = "macos" if family == "macos" else "linux"
     title = "macOS" if family == "macos" else "Linux"
+    if family == "macos":
+        schedule_lines = [
+            '"$PY" -m collector service --os macos || fail schedule_failed "定时任务没有写上。" "在仓库根目录再运行 python -m collector service --os macos。这是采集器原来的 launchd 定时，不是新的上报方式。"',
+            'launchctl load -w "$HOME/Library/LaunchAgents/com.tokenrankings.collector.plist" || echo "下一步：定时任务文件已写好，但还没启用。运行 launchctl load -w ~/Library/LaunchAgents/com.tokenrankings.collector.plist 。启用后每天自动同步用量。" >&2',
+        ]
+    else:
+        schedule_lines = [
+            '"$PY" -m collector service --os linux --enable || fail schedule_failed "定时任务没有写上。" "在仓库根目录再运行 python -m collector service --os linux --enable。这是采集器原来的 systemd 定时，不是新的上报方式。"',
+            'echo "若上面写着没有启用，在本机执行：systemctl --user daemon-reload && systemctl --user enable --now token-rankings-collector.timer" >&2',
+        ]
     return "\n".join(
         [
             "#!/bin/sh",
@@ -602,8 +629,8 @@ def render_install_script(
             '  echo "下一步：按上面的错误码处理。处理完回到网页点「再检查连接」。把终端最后 30 行发出来时，先删掉密钥。" >&2',
             "  exit 1",
             "}",
-            'echo "安装步骤已跑完。回到网页点「再检查连接」。"',
-            f'echo "定时上报（可选）：python -m collector service --os {schedule}"',
+            *schedule_lines,
+            'echo "每日自动同步用量。定时任务会反复运行 collector once（默认大约每 30 分钟），不是只上报这一次。回到网页点「再检查连接」。"',
             "",
         ]
     )
@@ -611,7 +638,7 @@ def render_install_script(
 
 def _placeholder_commands() -> dict[str, str]:
     text = (
-        "echo '请先在页面右上角粘贴用户密钥，再回到「如何接入」复制命令。'\n"
+        "echo '请先打开登录页粘贴用户密钥，再回到「如何接入」复制命令。'\n"
         "echo '失败（missing_key）：还没有个人上报密钥。'\n"
         "echo '下一步：不要把服务器的 TOKEN_RANKINGS_API_KEY 贴进网页或转发到群里。'"
     )
@@ -697,9 +724,11 @@ def get_onboarding(
         "commands": commands,
         "ai_prompt": ai_prompt,
         "collector_token": _collector_token_note(),
+        "schedule_note": SCHEDULE_NOTE,
         "steps": [
-            "选择 macOS、Linux 或 Windows。三条命令都会在失败时用中文写出原因和下一步。",
-            "在仓库根目录粘贴命令。先预览，再上报。",
+            "登录之后先到这一页。",
+            "选择 macOS、Linux 或 Windows，在仓库根目录粘贴命令。命令会先上报一次，再写好原来的定时任务。",
+            "每日自动同步用量。装好之后每天都会更新，不是只上报这一次。",
             "回到本页点「再检查连接」，看错误码，以及检测到和未检测到的工具。",
         ],
     }

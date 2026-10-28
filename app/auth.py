@@ -27,7 +27,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, Optional
 
-from fastapi import Header, HTTPException
+from fastapi import Cookie, Header, HTTPException
 
 ENV_KEY = "TOKEN_RANKINGS_API_KEY"
 ENV_USERS_JSON = "USERS_JSON"
@@ -82,10 +82,10 @@ MSG_INVALID_KEY = (
     "在页面上请粘贴管理员发给你的用户密钥，不要粘贴采集用的写入密钥。"
 )
 MSG_MISSING_KEY = (
-    "还没有提供密钥。请在网页「首次配置」里粘贴用户密钥，"
-    "或在请求头加上 Authorization: Bearer <用户密钥>。"
+    "还没有登录。请打开网页 /login：公开站点用 Google 登录，"
+    "私有部署粘贴用户密钥。脚本请在请求头加上 Authorization: Bearer <用户密钥>。"
 )
-MSG_AUTH_REQUIRED = "这个站已经要求登录后才能看排行。请先粘贴用户密钥。"
+MSG_AUTH_REQUIRED = "这个站已经要求登录后才能看排行。请打开 /login。"
 MSG_ADMIN_REQUIRED = "这个操作只有管理员可以做。请换用管理员密钥。"
 MSG_MEMBER_NO_ACCOUNT = "你的身份没有绑定账号，暂时不能查看数据。请联系管理员检查用户名单。"
 MSG_ACCOUNT_FORBIDDEN = "你只能查看自己的账号，不能查看别人的数据。"
@@ -291,6 +291,7 @@ def load_user_directory() -> list[dict[str, Any]]:
         if account_id is not None:
             account_id = str(account_id).strip() or None
         name = str(item.get("name") or account_id or role).strip()
+        email = str(item.get("email") or "").strip().lower()
         if role == "member" and not account_id:
             # skip invalid member without account scope
             continue
@@ -301,6 +302,7 @@ def load_user_directory() -> list[dict[str, Any]]:
                 "role": role,
                 "account_id": account_id,
                 "name": name,
+                "email": email,
             }
         )
     return out
@@ -425,13 +427,28 @@ async def require_ingest_api_key(
     return await require_write_api_key(authorization, x_api_key)
 
 
+def resolve_browser_principal(
+    presented: Optional[str],
+    session_id: Optional[str],
+) -> Optional[Principal]:
+    """API key wins when a caller sends one. Otherwise use the Google session cookie."""
+    if presented:
+        return resolve_principal(presented)
+    if session_id and session_id.strip():
+        from app.google_auth import principal_for_session
+
+        return principal_for_session(session_id.strip())
+    return None
+
+
 async def optional_principal(
     authorization: Optional[str] = Header(None),
     x_api_key: Optional[str] = Header(None, alias="X-API-Key"),
+    tr_session: Optional[str] = Cookie(None, alias="tr_session"),
 ) -> Optional[Principal]:
     """For ranking GETs: anonymous OK unless RANKINGS_REQUIRE_AUTH."""
     presented = extract_presented_key(authorization, x_api_key)
-    principal = resolve_principal(presented)
+    principal = resolve_browser_principal(presented, tr_session)
     if principal is None and rankings_require_auth():
         raise HTTPException(
             status_code=401,
@@ -447,10 +464,11 @@ async def optional_principal(
 async def require_principal(
     authorization: Optional[str] = Header(None),
     x_api_key: Optional[str] = Header(None, alias="X-API-Key"),
+    tr_session: Optional[str] = Cookie(None, alias="tr_session"),
 ) -> Principal:
-    """For /me, export, audit — must present a valid key."""
+    """For /me, export, forum posts — Google session cookie or a user API key."""
     presented = extract_presented_key(authorization, x_api_key)
-    if not presented:
+    if not presented and not (tr_session and tr_session.strip()):
         raise HTTPException(
             status_code=401,
             detail={
@@ -459,13 +477,13 @@ async def require_principal(
             },
             headers={"WWW-Authenticate": "Bearer"},
         )
-    principal = resolve_principal(presented)
+    principal = resolve_browser_principal(presented, tr_session)
     if principal is None:
         raise HTTPException(
             status_code=401,
             detail={
-                "error": "invalid_api_key",
-                "message": MSG_INVALID_KEY,
+                "error": "invalid_api_key" if presented else "missing_api_key",
+                "message": MSG_INVALID_KEY if presented else MSG_MISSING_KEY,
             },
             headers={"WWW-Authenticate": "Bearer"},
         )
@@ -475,10 +493,11 @@ async def require_principal(
 async def require_admin(
     authorization: Optional[str] = Header(None),
     x_api_key: Optional[str] = Header(None, alias="X-API-Key"),
+    tr_session: Optional[str] = Cookie(None, alias="tr_session"),
 ) -> Principal:
     """Admin-only dependency (audit list, etc.)."""
     presented = extract_presented_key(authorization, x_api_key)
-    if not presented:
+    if not presented and not (tr_session and tr_session.strip()):
         raise HTTPException(
             status_code=401,
             detail={
@@ -487,8 +506,17 @@ async def require_admin(
             },
             headers={"WWW-Authenticate": "Bearer"},
         )
-    p = resolve_principal(presented)
-    if p is None or p.role != "admin":
+    p = resolve_browser_principal(presented, tr_session)
+    if p is None:
+        raise HTTPException(
+            status_code=401,
+            detail={
+                "error": "invalid_api_key" if presented else "missing_api_key",
+                "message": MSG_INVALID_KEY if presented else MSG_MISSING_KEY,
+            },
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    if p.role != "admin":
         raise HTTPException(
             status_code=403,
             detail={
