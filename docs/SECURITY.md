@@ -2,6 +2,34 @@
 
 给准备把这个服务交给同事使用的人。不需要懂代码，但请逐条看完。
 
+下面三列和网页 `/privacy` 一致。
+
+| 内容 | 归类 | 说明 |
+|---|---|---|
+| Token 计数（输入、输出、缓存读、缓存写、推理） | 会上传 | 只有数字 |
+| 模型名、工具名、时间 | 会上传 | 用来归类，并按北京时间切日 |
+| 账号、显示名、部门 | 会上传 | 只在企业内部排行里用 |
+| 项目目录名 | 会上传 | 例如 chatbot-core，不是完整路径，也不是源文件名 |
+| 去重用的 request_id | 会上传 | 同一条再报一次不会叠量 |
+| 本机原始日志和 Cursor 的 state.vscdb | 仅本地 | 只在你的电脑上抽出计数，整库不上传 |
+| 定时任务和采集配置 | 仅本地 | cron / systemd / launchd / 计划任务 |
+| 个人上报密钥（collector.env） | 仅本地 | 文件权限 0600。不要转发，不要提交到 git |
+| 代码和源文件内容 | 永不采集 | 不上传 |
+| 对话、提示词、回复 | 永不采集 | 含大段 content / prompt 的行会整行跳过 |
+| 文件正文、截图 | 永不采集 | 不上传 |
+| 密钥、Cookie、钥匙串 | 永不采集 | ProCode 不解密、不打开 sqlite、不读钥匙串、不启动 canoryn |
+
+先看不会发送的内容：
+
+```bash
+python -m collector preview
+python -m collector once --dry-run
+```
+
+`ctr_` 个人上报密钥只能给这一个账号上报用量。它不能清库，也不能让服务器去扫目录。
+
+生产环境把应用绑在 `127.0.0.1:8000`，再用 Caddy 或 nginx 反代。文档里的示例域名是 `tokenrank.online`，只是配置例子。从 0.22.0 升到 0.23.0 见 [INSTALL.md](INSTALL.md)。
+
 ## 默认是「先能试用」
 
 | 项目 | 试用默认 | 生产环境应该怎样 |
@@ -68,3 +96,17 @@ TOKEN_RANKINGS_API_KEY=换成你们自己的长随机串
 用量继续走你们已经在用的网关或工具，本服务只接收汇总后的用量。详见 [NON_GOALS.md](NON_GOALS.md)。
 
 内网试点按 [INSTALL.md](INSTALL.md) 的「企业试点上线清单」逐项做：Postgres、HTTPS 反向代理、换掉演示密钥、`RANKINGS_REQUIRE_AUTH=1`、本机采集。提醒和导出也不要把对话原文送出去。
+
+反代示例（域名只是例子，不会自动改 DNS）：
+
+```caddy
+tokenrank.online {
+    reverse_proxy 127.0.0.1:8000
+}
+```
+
+## English
+
+The three lists above are the same as `/privacy`: uploaded token counts and names, local logs and the collector env file, and never-collected source, chat, files, screenshots, secrets, cookies, and keychain. `python -m collector preview` and `python -m collector once --dry-run` print the payload on the laptop and do not send it.
+
+A `ctr_` token writes usage for one account. It cannot clear the database or scan the server. Bind the app to `127.0.0.1:8000` and reverse-proxy `tokenrank.online` only as a documented example. Upgrade steps are in INSTALL.md. License remains MIT.

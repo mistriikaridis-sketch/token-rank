@@ -13,7 +13,7 @@ curl -s http://localhost:8000/health
 ```
 
 - [ ] 能打开，且 `"status"` 为 `"ok"`
-- [ ] `"version"` 是 `0.22.0`
+- [ ] `"version"` 是 `0.23.0`
 - [ ] 若仍是演示密钥，`"setup"."demo_keys_in_use"` 为 `true`，网页顶部有黄色提醒
 - [ ] 交付之后 `"setup"."demo_keys_in_use"` 为 `false`，且 `"setup"."rankings_require_auth"` 为 `true`
 
@@ -119,14 +119,14 @@ docker compose up -d --build
 export RANKINGS_URL=http://127.0.0.1:8000
 ```
 
-已经有服务时，只改地址，例如 `export RANKINGS_URL=https://rankings.example.internal`。
+已经有服务时，只改地址，例如 `export RANKINGS_URL=https://tokenrank.online`。这只是示例域名。
 
 ```bash
 curl -sS "$RANKINGS_URL/health"
 ```
 
 - [ ] `"status"` 为 `"ok"`
-- [ ] `"version"` 是 `0.22.0`
+- [ ] `"version"` 是 `0.23.0`
 - [ ] `adapters` 里 ProCode 的 `"status"` 仍是 `placeholder`
 - [ ] `blocked` 含 `encrypted_sqlite`、`keychain`、`canoryn_cli`
 - [ ] `notes` 写明不解密、不打开数据库、不读钥匙串、不启动 canoryn
@@ -278,5 +278,32 @@ curl -s -o /tmp/ctr-clear.json -w '%{http_code}\n' \
 | `连不上 http://...` | `RANKINGS_URL` 错了，或服务没起来 | 先 `curl -sS "$RANKINGS_URL/health"` |
 | 0 行，且写着没找到目录 | 这台电脑没有该工具的数据目录 | 正常。没装的工具不必造目录 |
 | ProCode 目录在，但仍是 0 行 | 里面只有加密库、蓝图或评论，没有 usage json | 看 `diagnostics.unopened_db_seen`。不要解密，也不要启动 `canoryn`。状态保持 `placeholder` |
-| preview 里出现家目录全路径 | 采集器版本过旧 | 升到 `0.22.0` |
+| preview 里出现家目录全路径 | 采集器版本过旧 | 升到 `0.23.0` |
 | 项目榜是空的，但 preview 有行 | 还没 once，或窗口选得太窄，或勾了隐藏未标注 | 先 once，窗口改 `30d` 或 `all`，核对 `project_id` |
+
+## 9. v0.23 第一次接入（大约 15 分钟）
+
+给一台还没装过采集器的电脑。不需要读代码。目标是第一次成功上报，或在失败时看到能照着做的中文原因。
+
+- [ ] `/health` 的 `"version"` 是 `0.23.0`
+- [ ] 打开 `/onboard`，能分别选择 macOS、Linux、Windows。三条命令里都有「失败」和「下一步」
+- [ ] 没贴用户密钥时，命令里没有服务器写入密钥，也没有 `ctr_`
+- [ ] 贴上成员密钥后，命令里是 `ctr_` 开头的个人上报密钥，并写着勿转发
+- [ ] 在仓库根目录运行所选系统的命令。失败时终端用中文写原因和下一步，而不是只有一串英文报错
+- [ ] 给 AI 的提示词可以复制，里面写着只装上报，失败时贴终端最后 30 行，并先删掉密钥
+- [ ] 点「再检查连接」。页面上有错误码：`ok`、`not_reported`（未上报）、`invalid_key`（密钥无效）、`clock_skew`（时钟偏差）、`no_local_logs`（无本地日志）或 `stale_report` 之一，并有下一步
+- [ ] 跑过 `python -m collector diagnose` 之后，同一页列出检测到的工具和未检测到的工具
+- [ ] 打开 `/me`。Cursor、Claude Code、Codex、Continue、WorkBuddy、ProCode 都能看到三态之一：有数、未检测到、已禁用。文案写明下一步，而不是空白
+- [ ] ProCode 仍是占位：不解密、不打开 sqlite、不读钥匙串、不启动 canoryn
+- [ ] 不认识的模型名仍在「我的」里，旁边有「估算」。`/api/v1/pricing/formula` 能看到 `table_version` 和 `updated_at`，并写明列表价估算，不是实扣账单
+- [ ] 榜上费用默认不含缓存（不勾选时和以前一样）。勾选「含缓存」后，费用才会把缓存读、缓存写算进去
+- [ ] `/privacy`、README 安全节、`docs/SECURITY.md` 都能看到同一批「会上传 / 仅本地 / 永不采集」
+- [ ] 下面两条能在仓库根目录跑完，并且不会往服务器送数据：
+
+```bash
+python -m collector preview --fixtures
+python -m collector once --dry-run --fixtures
+```
+
+- [ ] 用接入页里的 `ctr_` 密钥调用清库，不是 `200`。用它请求 `POST /api/v1/scan/workbuddy`，也不是 `200`
+- [ ] `docker-compose.yml` 把 8000 绑在 `127.0.0.1`。安装说明里的反代示例域名是 `tokenrank.online`（只是例子）

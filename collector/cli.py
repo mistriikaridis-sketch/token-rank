@@ -15,6 +15,7 @@ from collector.config import (
     load_config,
     save_config,
 )
+from collector.diagnose import format_diagnose, run_diagnose
 from collector.payload import build_payloads, summarize
 from collector.service import detect_os, enable_hint, install_files, render, try_enable_systemd
 from collector.sources import canonical_tool, scan_all
@@ -83,6 +84,11 @@ def _build_parser() -> argparse.ArgumentParser:
     upload.add_argument("--file", required=True, help="preview --out 写出的文件")
     upload.add_argument("--url", help="覆盖 RANKINGS_URL")
     upload.set_defaults(func=cmd_upload)
+
+    diagnose = sub.add_parser("diagnose", help="检查连接：未上报、密钥、时钟、本地日志")
+    _add_scan_flags(diagnose)
+    diagnose.add_argument("--json", action="store_true", help="以 JSON 打印诊断")
+    diagnose.set_defaults(func=cmd_diagnose)
 
     service = sub.add_parser("service", help="安装 cron / systemd / launchd / 计划任务")
     service.add_argument(
@@ -272,6 +278,21 @@ def cmd_upload(args: argparse.Namespace) -> int:
             print(exc.body, file=sys.stderr)
         return 1
     print(json.dumps(result, ensure_ascii=False, indent=2))
+    return 0
+
+
+def cmd_diagnose(args: argparse.Namespace) -> int:
+    cfg = load_config()
+    _apply_cli_identity(cfg, args)
+    home = Path(args.home).expanduser() if getattr(args, "home", None) else None
+    tools = _selected_tools(args, cfg)
+    doc = run_diagnose(cfg, tools=tools, fixtures=bool(args.fixtures), home=home)
+    if args.json:
+        print(json.dumps(doc, ensure_ascii=False, indent=2))
+    else:
+        print(format_diagnose(doc), end="")
+    if doc.get("error_code") in ("invalid_key", "clock_skew", "unreachable", "missing_key"):
+        return 1
     return 0
 
 

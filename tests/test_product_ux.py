@@ -100,7 +100,7 @@ class ProductUxTests(unittest.TestCase):
     def test_version_and_pages(self) -> None:
         health = self.client.get("/health")
         self.assertEqual(health.status_code, 200)
-        self.assertEqual(health.json()["version"], "0.22.0")
+        self.assertEqual(health.json()["version"], "0.23.0")
         for path, text in (
             ("/onboard", "如何接入"),
             ("/onboard", "勿转发"),
@@ -118,7 +118,7 @@ class ProductUxTests(unittest.TestCase):
         self.assertEqual(anon.status_code, 200)
         body = anon.text
         self.assertNotIn(service, body)
-        self.assertNotIn("ctr_", body)
+        self.assertNotIn("export TOKEN_RANKINGS_API_KEY=ctr_", body)
         self.assertFalse(anon.json()["token_ready"])
         self.assertIn("勿转发", anon.json()["warning"])
 

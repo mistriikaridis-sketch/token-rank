@@ -2,7 +2,10 @@ services:
   token-rankings:
     build: .
     ports:
-      - "8000:8000"
+      # Production binds the host port to loopback. Reach it through a reverse
+      # proxy (example: https://tokenrank.online → 127.0.0.1:8000). Same-machine
+      # browsers still open http://localhost:8000.
+      - "127.0.0.1:8000:8000"
     volumes:
       - rankings-data:/data
       # Optional: mount host WorkBuddy projects for POST /api/v1/scan/workbuddy

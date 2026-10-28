@@ -1,6 +1,6 @@
 # Token 消耗排行榜 · 能力总览
 
-客户验收请用 [ACCEPTANCE.md](ACCEPTANCE.md)（当前版本见仓库 `VERSION`，**0.22.0**）。下面是能力索引，不是购买方清单。内网试点清单在 [INSTALL.md](INSTALL.md)。真机采集打勾见 ACCEPTANCE 的「真机采集验收」。
+客户验收请用 [ACCEPTANCE.md](ACCEPTANCE.md)（当前版本见仓库 `VERSION`，**0.23.0**）。下面是能力索引，不是购买方清单。内网试点清单在 [INSTALL.md](INSTALL.md)。真机采集打勾见 ACCEPTANCE 的「真机采集验收」。
 
 面向 Mateo 的一页验收清单。代码：`/workspace/token-rankings` · 许可证 MIT · 本地：`http://localhost:8000`
 

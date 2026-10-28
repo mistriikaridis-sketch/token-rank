@@ -33,6 +33,27 @@
 }
 .copy-block .btn { margin-top: 8px; }
 .os-switch { display: flex; gap: 8px; flex-wrap: wrap; }
+.cache-toggle {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+.tool-matrix { display: grid; gap: 8px; }
+.tool-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #100e0b;
+}
+.tool-card .state { font-weight: 700; }
+.tool-card.has_data .state { color: var(--accent); }
+.tool-card.not_detected .state { color: #d6c4a1; }
+.tool-card.disabled .state { color: #fca5a5; }
+.error-code { font-family: ui-monospace, SFMono-Regular, monospace; color: var(--accent); }
 .conn-status {
   margin-top: 10px;
   padding: 10px 12px;

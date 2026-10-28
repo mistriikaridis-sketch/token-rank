@@ -85,19 +85,16 @@
     if (node) copyText(node.textContent || "", button);
   });
 
-  let os = "unix";
+  let os = "macos";
   let commandSet = null;
 
   function showCommand() {
     const pre = document.getElementById("installCommand");
     if (!pre || !commandSet) return;
-    pre.textContent = os === "windows" ? commandSet.windows : commandSet.unix;
+    const direct = { macos: "macos", linux: "linux", windows: "windows" }[os] || "linux";
+    pre.textContent = commandSet[direct] || commandSet.unix || "";
     const curl = document.getElementById("installCurl");
-    if (curl) {
-      curl.textContent = os === "windows"
-        ? "Windows 请直接复制上面的 PowerShell，在仓库根目录运行。"
-        : (commandSet.unix_curl || "");
-    }
+    if (curl) curl.textContent = commandSet[direct + "_curl"] || commandSet.unix_curl || "";
   }
 
   async function loadOnboard() {
@@ -133,18 +130,32 @@
       return;
     }
     rememberAccount(account);
-    const res = await api("/api/v1/onboarding/status?account_id=" + encodeURIComponent(account));
+    const clientTime = new Date().toISOString();
+    const res = await api(
+      "/api/v1/onboarding/status?account_id=" + encodeURIComponent(account) +
+      "&client_time=" + encodeURIComponent(clientTime)
+    );
     const data = await res.json().catch(() => ({}));
     if (!box) return;
+    const tools = document.getElementById("connTools");
     if (!res.ok) {
       box.className = "conn-status bad";
-      const detail = data.detail && (data.detail.message || data.detail.error);
-      box.textContent = detail || "检查失败";
+      const detail = data.detail || {};
+      const code = detail.error === "invalid_api_key" ? "invalid_key" : (detail.error || "invalid_key");
+      box.textContent = (detail.message || "密钥无效。") + " 错误码 " + code + "。" +
+        (detail.next_step ? " 下一步：" + detail.next_step : " 下一步：回到右上角重新粘贴用户密钥。不要用写入密钥。");
+      if (tools) tools.textContent = "";
       return;
     }
     box.className = "conn-status " + (data.connected ? "ok" : "bad");
     const when = data.last_report_label ? "上次上报 " + data.last_report_label + "。" : "";
-    box.textContent = data.message + when + " 累计 " + (data.event_count || 0) + " 条。";
+    box.textContent = (data.message || "") + " 错误码 " + (data.error_code || "unknown") + "。" +
+      when + " 累计 " + (data.event_count || 0) + " 条。下一步：" + (data.next_step || "");
+    if (tools) {
+      const detected = (data.detected || []).join("、") || "还没有探测记录";
+      const missing = (data.missing || []).join("、") || "还没有探测记录";
+      tools.textContent = "检测到：" + detected + "。未检测到：" + missing + "。";
+    }
   }
 
   async function loadPrivacy() {
@@ -185,17 +196,28 @@
     const heat = (data.heatmap || []).map((day) =>
       `<i class="${levelClass(day)}" title="${esc(day.date)} ${tokens(day.tokens)}"></i>`
     ).join("");
-    const tools = (data.tools || []).map((tool) => `
+    const matrix = (data.tool_matrix || []).map((tool) => `
+      <div class="tool-card ${esc(tool.state)}">
+        <div class="mini-row">
+          <div><strong>${esc(tool.label)}</strong> · <span class="state">${esc(tool.state_label)}</span></div>
+          <div class="tok">${tool.state === "has_data" ? tokens(tool.total_tokens) : ""}</div>
+        </div>
+        <p class="muted">${esc(tool.copy || "")}</p>
+      </div>
+    `).join("");
+    const tools = matrix
+      ? `<div class="tool-matrix">${matrix}</div>`
+      : ((data.tools || []).map((tool) => `
       <div class="mini-row"><div>${esc(tool.label)} · ${tool.share_pct}%</div><div class="tok">${tokens(tool.total_tokens)}</div></div>
       <div class="bar-wrap"><div class="bar"><i style="width:${Math.min(100, tool.share_pct || 0)}%"></i></div></div>
-    `).join("") || '<div class="empty">这个时间范围还没有工具用量。</div>';
+    `).join("") || '<div class="empty">这个时间范围还没有工具用量。回到「接入」运行安装命令，再点「再检查连接」。</div>');
     const models = (data.models || []).map((model) => `
       <div class="mini-row">
-        <div>${esc(model.model)} · ${model.share_pct}%</div>
+        <div>${esc(model.model)} · ${model.share_pct}%${model.estimate ? ' <span class="basis-badge estimate">估算</span>' : ""}</div>
         <div class="tok">${tokens(model.total_tokens)} · ${usd(model.estimated_cost_usd)}</div>
       </div>
       <div class="bar-wrap"><div class="bar"><i style="width:${Math.min(100, model.share_pct || 0)}%"></i></div></div>
-    `).join("") || '<div class="empty">还没有模型。</div>';
+    `).join("") || '<div class="empty">还没有模型。接入并上报之后，这里会列出模型名。不认识的模型也会留下，并标成估算。</div>';
     const cache = data.cache || {};
     const pct = cache.parts_pct || {};
     const colors = { input: "#7dcea0", output: "#5dade2", cache_read: "#f0b429", cache_write: "#bb8fce" };
@@ -282,6 +304,7 @@
           <p class="muted">${esc(cache.footnote || "")}</p>
           <p class="formula">${esc(data.formula_zh || "")}</p>
           <p class="muted">${esc(data.leaderboard_zh || "")} <a href="/api/v1/pricing">价目表</a> · <a href="/api/v1/pricing/formula">公式说明</a></p>
+          <p class="muted">定价表 ${(data.pricing_table && data.pricing_table.table_version) || "—"}，更新于 ${(data.pricing_table && data.pricing_table.updated_at) || "—"}。列表价估算，不是实扣账单。</p>
         </div>
         <div data-panel="hours" hidden>
           <div class="dash-grid">
@@ -426,7 +449,9 @@
       const data = await formula.json();
       const box = document.getElementById("formulaBox");
       if (box) {
-        box.innerHTML = `<p class="formula">${esc(data.formula_zh || "")}</p><p class="muted">${esc(data.leaderboard_zh || "")}</p><p><a href="/api/v1/pricing">打开价目表</a></p>`;
+        const version = data.table_version ? `定价表 ${esc(data.table_version)}` : "定价表";
+        const updated = data.updated_at ? `，更新于 ${esc(data.updated_at)}` : "";
+        box.innerHTML = `<p class="formula">${esc(data.formula_zh || "")}</p><p class="muted">${esc(data.disclaimer_zh || "列表价估算，不是实扣账单。")}</p><p class="muted">${esc(data.leaderboard_zh || "")}</p><p class="muted">${version}${updated}。不认识的模型会入库，费用用默认档，并标成估算。</p><p><a href="/api/v1/pricing">打开价目表</a></p>`;
       }
     }
     const feedback = await api("/api/v1/feedback");
@@ -518,26 +543,24 @@
   }
 
   function bindOnce() {
-    const unix = document.getElementById("osUnixBtn");
-    const win = document.getElementById("osWinBtn");
-    if (unix && !unix.dataset.bound) {
-      unix.dataset.bound = "1";
-      unix.addEventListener("click", () => {
-        os = "unix";
-        unix.classList.add("active");
-        if (win) win.classList.remove("active");
+    const osButtons = [
+      ["osMacBtn", "macos"],
+      ["osLinuxBtn", "linux"],
+      ["osWinBtn", "windows"],
+    ];
+    osButtons.forEach(([id, name]) => {
+      const button = document.getElementById(id);
+      if (!button || button.dataset.bound) return;
+      button.dataset.bound = "1";
+      button.addEventListener("click", () => {
+        os = name;
+        osButtons.forEach(([otherId]) => {
+          const other = document.getElementById(otherId);
+          if (other) other.classList.toggle("active", otherId === id);
+        });
         showCommand();
       });
-    }
-    if (win && !win.dataset.bound) {
-      win.dataset.bound = "1";
-      win.addEventListener("click", () => {
-        os = "windows";
-        win.classList.add("active");
-        if (unix) unix.classList.remove("active");
-        showCommand();
-      });
-    }
+    });
     const reload = document.getElementById("onboardReloadBtn");
     if (reload && !reload.dataset.bound) {
       reload.dataset.bound = "1";

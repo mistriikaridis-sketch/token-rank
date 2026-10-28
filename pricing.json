@@ -129,6 +129,8 @@
   "default": {"input_per_1m": 1.00, "output_per_1m": 3.00, "currency": "USD"},
   "_notes": {
     "cost_basis": "estimate",
+    "table_version": "2026.10.28",
+    "updated_at": "2026-10-28",
     "currency": "USD",
     "fx_cny_per_usd": 7.2,
     "disclaimer_zh": "数字是公开列表价估算，用来在企业内部对照用量，不是云厂商发票、合同价或实扣账单。国内模型按公开人民币标价、约 7.2 CNY = 1 USD 折算，档位和汇率都会变。",
