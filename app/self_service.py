@@ -6,6 +6,7 @@ only write usage for one account. They cannot scan the server or clear data.
 from __future__ import annotations
 
 import hashlib
+import json
 import secrets
 import shlex
 from datetime import datetime, timedelta, timezone
@@ -55,14 +56,51 @@ TIMEZONES: dict[str, str] = {
 SECRET_WARNING = "勿转发。命令里含个人上报密钥。别人拿到后，可以往你的账号写入用量。"
 
 AI_INSTALL_INTRO = (
-    "请在本机的 token-rank 仓库根目录帮我接入企业内部 Token 消耗排行榜。"
-    "只做下面这些事：\n"
-    "1. 运行我贴出的安装命令。命令里有个人上报密钥，不要发到别的聊天，不要写进 git。\n"
-    "2. 运行 python -m collector preview，确认输出只有 Token 数字、模型名、账号和项目目录名。\n"
-    "3. 确认没有上传代码、对话、文件内容、密钥或截图。\n"
-    "4. 再运行 python -m collector once。\n"
-    "采集器只上报 Token 计数。ProCode 不解密、不打开 sqlite、不读钥匙串、不启动 canoryn。\n"
+    "请只在本机安装 Token 消耗排行榜的上报，不要改我的代码，不要读取对话。\n"
+    "只做这几步：\n"
+    "1. 在仓库根目录运行我贴出的命令。里面的 ctr_ 密钥不要转发，不要写进 git。\n"
+    "2. 只装上报：先 python -m collector preview，再 python -m collector once。\n"
+    "3. 确认没有上传代码、对话、文件、密钥或截图。ProCode 不解密、不打开 sqlite、不读钥匙串、不启动 canoryn。\n"
+    "4. 失败时把终端最后 30 行贴回来，先删掉密钥。\n"
 )
+
+MATRIX_TOOLS = (
+    ("cursor", "Cursor", False),
+    ("claude_code", "Claude Code", False),
+    ("codex", "Codex", False),
+    ("continue", "Continue", False),
+    ("workbuddy", "WorkBuddy", False),
+    ("procode", "ProCode", True),
+)
+
+SKEW_LIMIT_SECONDS = 300
+
+ERROR_TEXT = {
+    "ok": (
+        "已收到上报。",
+        "可以打开「我的」看今天的用量。",
+    ),
+    "not_reported": (
+        "还没上报。服务器还没有这个账号的用量。",
+        "在仓库根目录运行本页的安装命令，跑完再点「再检查连接」。若终端写密钥无效，重新复制命令，不要手改、不要转发。",
+    ),
+    "invalid_key": (
+        "密钥无效。排行榜不认识这串密钥。",
+        "回到右上角重新粘贴用户密钥，再复制命令。不要使用服务器的写入密钥，也不要把 ctr_ 密钥发到群里。",
+    ),
+    "clock_skew": (
+        "时钟偏差。这台电脑的时间和服务器差得比较多，「今天」会对不齐。",
+        "打开系统设置，把日期和时间改成自动设置，等一分钟后再运行 python -m collector once。",
+    ),
+    "no_local_logs": (
+        "无本地日志。这台电脑上没找到可上报的用量。",
+        "没装的工具不用管。装了的话先在本机用一次，再运行 python -m collector preview。Cursor 本地全是 0 时，把仪表盘导出的 filtered-usage-events.json 放到 ~/.cursor/exports/ 。",
+    ),
+    "stale_report": (
+        "上次上报已超过 36 小时。",
+        "运行 python -m collector once。还是没有新数据时，运行 python -m collector service 看定时任务是否还在。",
+    ),
+}
 
 AI_AUDIT_PROMPT = (
     "请帮我审计这台电脑上的 Token 消耗排行榜采集器，只看结构和去向，不要读取对话正文，"
@@ -413,6 +451,39 @@ def _ps_quote(value: str) -> str:
     return "'" + (value or "").replace("'", "''") + "'"
 
 
+def _curl_runner(url: str, token: str, os_name: str) -> str:
+    endpoint = f"{url}/api/v1/onboarding/install.sh?os={os_name}"
+    header = _shell_quote("Authorization: Bearer " + token)
+    quoted = _shell_quote(endpoint)
+    return "\n".join(
+        [
+            f"script=$(curl -fsSL -H {header} {quoted}) || {{",
+            '  echo "失败（download_failed）：安装脚本没有下载下来。"',
+            '  echo "下一步：先在浏览器打开排行榜地址，确认能打开。然后改用本页上面的多行命令。不要把密钥转发到群里。"',
+            "  exit 1",
+            "}",
+            'printf \'%s\\n\' "$script" | sh',
+        ]
+    )
+
+
+def _windows_runner(url: str, token: str) -> str:
+    endpoint = url + "/api/v1/onboarding/install.sh?os=windows"
+    return "\n".join(
+        [
+            "$headers = @{ Authorization = " + _ps_quote("Bearer " + token) + " }",
+            "try {",
+            f"  $script = Invoke-RestMethod -Headers $headers -Uri {_ps_quote(endpoint)}",
+            "} catch {",
+            '  Write-Host "失败（download_failed）：安装脚本没有下载下来。"',
+            '  Write-Host "下一步：先在浏览器打开排行榜地址，确认能打开。然后改用本页上面的多行命令。不要把密钥转发到群里。"',
+            "  exit 1",
+            "}",
+            "Invoke-Expression $script",
+        ]
+    )
+
+
 def build_commands(
     *,
     base_url: str,
@@ -421,34 +492,25 @@ def build_commands(
     token: str,
 ) -> dict[str, str]:
     url = base_url.rstrip("/")
-    unix_direct = "\n".join(
-        [
-            f"export TOKEN_RANKINGS_API_KEY={_shell_quote(token)}",
-            f"export RANKINGS_URL={_shell_quote(url)}",
-            "python -m collector install --url \"$RANKINGS_URL\" "
-            f"--account-id {_shell_quote(account_id)} "
-            f"--participant {_shell_quote(participant)} --save-key",
-            "python -m collector preview",
-            "python -m collector once",
-        ]
+    macos = render_install_script(
+        os_name="macos", base_url=url, account_id=account_id, participant=participant, token=token
     )
-    unix_curl = (
-        "curl -fsSL "
-        f"-H {_shell_quote('Authorization: Bearer ' + token)} "
-        f"{_shell_quote(url + '/api/v1/onboarding/install.sh?os=unix')} | sh"
+    linux = render_install_script(
+        os_name="linux", base_url=url, account_id=account_id, participant=participant, token=token
     )
-    windows = "\n".join(
-        [
-            f"$env:TOKEN_RANKINGS_API_KEY = {_ps_quote(token)}",
-            f"$env:RANKINGS_URL = {_ps_quote(url)}",
-            "python -m collector install --url $env:RANKINGS_URL "
-            f"--account-id {_ps_quote(account_id)} "
-            f"--participant {_ps_quote(participant)} --save-key",
-            "python -m collector preview",
-            "python -m collector once",
-        ]
+    windows = render_install_script(
+        os_name="windows", base_url=url, account_id=account_id, participant=participant, token=token
     )
-    return {"unix": unix_direct, "unix_curl": unix_curl, "windows": windows}
+    return {
+        "macos": macos,
+        "linux": linux,
+        "unix": linux,
+        "windows": windows,
+        "macos_curl": _curl_runner(url, token, "macos"),
+        "linux_curl": _curl_runner(url, token, "linux"),
+        "unix_curl": _curl_runner(url, token, "linux"),
+        "windows_curl": _windows_runner(url, token),
+    }
 
 
 def render_install_script(
@@ -460,43 +522,88 @@ def render_install_script(
     token: str,
 ) -> str:
     url = base_url.rstrip("/")
-    if os_name == "windows":
+    family = "windows" if os_name == "windows" else ("macos" if os_name == "macos" else "linux")
+    if family == "windows":
         return "\n".join(
             [
-                "# Token 消耗排行榜 · 本机接入",
+                "# Token 消耗排行榜 · Windows 接入",
                 "# 只上报 Token 数字。不上传代码、对话、文件、密钥、截图。",
                 "# 勿转发：下面含个人上报密钥。",
                 "# ProCode 不解密、不打开 sqlite、不读钥匙串、不启动 canoryn。",
+                "function Fail([string]$Code, [string]$Reason, [string]$Next) {",
+                '  Write-Host "失败（$Code）：$Reason"',
+                '  Write-Host "下一步：$Next"',
+                "  exit 1",
+                "}",
+                "if (-not (Get-Command python -ErrorAction SilentlyContinue)) {",
+                '  Fail "no_python" "这台电脑没有 Python。" "请先安装 Python 3.11 或以上，重新打开 PowerShell，再粘贴本页的命令。"',
+                "}",
+                "python -c \"import collector\"",
+                "if ($LASTEXITCODE -ne 0) {",
+                '  Fail "no_collector" "当前目录找不到采集器。" "请先 cd 到 token-rank 仓库根目录（里面有 collector 文件夹），再运行。不要在别的项目里运行。"',
+                "}",
                 f"$env:TOKEN_RANKINGS_API_KEY = {_ps_quote(token)}",
                 f"$env:RANKINGS_URL = {_ps_quote(url)}",
                 f"$env:COLLECTOR_ACCOUNT_ID = {_ps_quote(account_id)}",
                 f"$env:COLLECTOR_PARTICIPANT = {_ps_quote(participant)}",
-                "python -m collector install --url $env:RANKINGS_URL "
-                "--account-id $env:COLLECTOR_ACCOUNT_ID "
-                "--participant $env:COLLECTOR_PARTICIPANT --save-key",
+                "python -m collector install --url $env:RANKINGS_URL --account-id $env:COLLECTOR_ACCOUNT_ID --participant $env:COLLECTOR_PARTICIPANT --save-key",
+                "if ($LASTEXITCODE -ne 0) {",
+                '  Fail "install_failed" "本机配置没有写上。" "看上面最后几行。常见原因是密钥为空。回到网页重新复制命令，不要转发密钥。"',
+                "}",
                 "python -m collector preview",
+                "if ($LASTEXITCODE -ne 0) {",
+                '  Fail "preview_failed" "预览没有跑完。" "把终端最后 30 行发给帮你安装的同事，先删掉密钥。"',
+                "}",
                 "python -m collector once",
+                "if ($LASTEXITCODE -ne 0) {",
+                '  Fail "upload_failed" "用量没有送到排行榜。" "先在浏览器打开排行榜地址确认能打开。然后回到网页点「再检查连接」，看错误码。"',
+                "}",
+                "python -m collector diagnose",
+                "if ($LASTEXITCODE -ne 0) {",
+                '  Write-Host "下一步：按上面的错误码处理。处理完回到网页点「再检查连接」。把终端最后 30 行发出来时，先删掉密钥。"',
+                "  exit 1",
+                "}",
+                'Write-Host "安装步骤已跑完。回到网页点「再检查连接」。"',
+                "Write-Host \"定时上报（可选）：python -m collector service --os windows\"",
                 "",
             ]
         )
+    schedule = "macos" if family == "macos" else "linux"
+    title = "macOS" if family == "macos" else "Linux"
     return "\n".join(
         [
             "#!/bin/sh",
-            "# Token 消耗排行榜 · 本机接入",
+            f"# Token 消耗排行榜 · {title} 接入",
             "# 只上报 Token 数字。不上传代码、对话、文件、密钥、截图。",
             "# 勿转发：下面含个人上报密钥。",
             "# ProCode 不解密、不打开 sqlite、不读钥匙串、不启动 canoryn。",
             "set -eu",
+            "fail() {",
+            '  echo "失败（$1）：$2" >&2',
+            '  echo "下一步：$3" >&2',
+            "  exit 1",
+            "}",
+            "if command -v python >/dev/null 2>&1; then",
+            "  PY=python",
+            "elif command -v python3 >/dev/null 2>&1; then",
+            "  PY=python3",
+            "else",
+            '  fail no_python "这台电脑没有 Python。" "请先安装 Python 3.11 或以上，然后重新复制本页的命令。"',
+            "fi",
+            '"$PY" -c "import collector" >/dev/null 2>&1 || fail no_collector "当前目录找不到采集器。" "请先 cd 到 token-rank 仓库根目录（里面有 collector 文件夹），再运行。不要在别的项目里运行。"',
             f"export TOKEN_RANKINGS_API_KEY={_shell_quote(token)}",
             f"export RANKINGS_URL={_shell_quote(url)}",
             f"export COLLECTOR_ACCOUNT_ID={_shell_quote(account_id)}",
             f"export COLLECTOR_PARTICIPANT={_shell_quote(participant)}",
-            'cd "$(dirname "$0")" 2>/dev/null || true',
-            "python -m collector install --url \"$RANKINGS_URL\" "
-            "--account-id \"$COLLECTOR_ACCOUNT_ID\" "
-            "--participant \"$COLLECTOR_PARTICIPANT\" --save-key",
-            "python -m collector preview",
-            "python -m collector once",
+            '"$PY" -m collector install --url "$RANKINGS_URL" --account-id "$COLLECTOR_ACCOUNT_ID" --participant "$COLLECTOR_PARTICIPANT" --save-key || fail install_failed "本机配置没有写上。" "看上面最后几行。常见原因是密钥为空。回到网页重新复制命令，不要转发密钥。"',
+            '"$PY" -m collector preview || fail preview_failed "预览没有跑完。" "把终端最后 30 行发给帮你安装的同事，先删掉密钥。"',
+            '"$PY" -m collector once || fail upload_failed "用量没有送到排行榜。" "先在浏览器打开排行榜地址确认能打开。然后回到网页点「再检查连接」，看错误码。"',
+            '"$PY" -m collector diagnose || {',
+            '  echo "下一步：按上面的错误码处理。处理完回到网页点「再检查连接」。把终端最后 30 行发出来时，先删掉密钥。" >&2',
+            "  exit 1",
+            "}",
+            'echo "安装步骤已跑完。回到网页点「再检查连接」。"',
+            f'echo "定时上报（可选）：python -m collector service --os {schedule}"',
             "",
         ]
     )
@@ -505,9 +612,20 @@ def render_install_script(
 def _placeholder_commands() -> dict[str, str]:
     text = (
         "echo '请先在页面右上角粘贴用户密钥，再回到「如何接入」复制命令。'\n"
-        "echo '不要把服务器的 TOKEN_RANKINGS_API_KEY 贴进网页或转发到群里。'"
+        "echo '失败（missing_key）：还没有个人上报密钥。'\n"
+        "echo '下一步：不要把服务器的 TOKEN_RANKINGS_API_KEY 贴进网页或转发到群里。'"
     )
-    return {"unix": text, "unix_curl": text, "windows": text}
+    keys = (
+        "macos",
+        "linux",
+        "unix",
+        "windows",
+        "macos_curl",
+        "linux_curl",
+        "unix_curl",
+        "windows_curl",
+    )
+    return {key: text for key in keys}
 
 
 class PrefsIn(BaseModel):
@@ -566,7 +684,7 @@ def get_onboarding(
                 token=token,
             )
             token_ready = True
-    ai_prompt = AI_INSTALL_INTRO + "\n安装命令：\n" + commands["unix"]
+    ai_prompt = AI_INSTALL_INTRO + "\n安装命令：\n" + commands.get("linux", commands.get("unix", ""))
     return {
         "account_id": resolved,
         "token_ready": token_ready,
@@ -578,10 +696,11 @@ def get_onboarding(
         ),
         "commands": commands,
         "ai_prompt": ai_prompt,
+        "collector_token": _collector_token_note(),
         "steps": [
-            "选择 macOS / Linux 或 Windows",
+            "选择 macOS、Linux 或 Windows。三条命令都会在失败时用中文写出原因和下一步。",
             "在仓库根目录粘贴命令。先预览，再上报。",
-            "回到本页点「再检查连接」，看上次上报时间。",
+            "回到本页点「再检查连接」，看错误码，以及检测到和未检测到的工具。",
         ],
     }
 
@@ -620,8 +739,9 @@ def install_script(
         account_id = scope.account_id
         participant = account_id
         token = presented
+    family = os_name if os_name in ("windows", "macos", "linux") else "linux"
     script = render_install_script(
-        os_name="windows" if os_name == "windows" else "unix",
+        os_name=family,
         base_url=str(request.base_url).rstrip("/"),
         account_id=account_id,
         participant=participant,
@@ -631,12 +751,49 @@ def install_script(
     return Response(content=script, media_type=media)
 
 
-@router.get("/api/v1/onboarding/status")
-def onboarding_status(
-    account_id: Optional[str] = Query(None),
-    principal: Optional[Principal] = Depends(optional_principal),
-) -> dict[str, Any]:
-    account = _account_for(principal, account_id)
+def _collector_token_note() -> dict[str, Any]:
+    return {
+        "prefix": "ctr_",
+        "can": "只把用量写入这个密钥所属的一个账号。",
+        "cannot": ["清库", "在服务器上扫描目录", "查看或写入别人的账号", "代替管理员"],
+        "note": (
+            "个人上报密钥以 ctr_ 开头，只属于一个账号，用来让这台电脑上报用量。"
+            "它不能清库，也不能让服务器去扫目录。不要转发。"
+        ),
+    }
+
+
+def _load_connection_report(account: str) -> Optional[dict[str, Any]]:
+    with db() as conn:
+        row = conn.execute(
+            "SELECT * FROM connection_reports WHERE account_id = ?",
+            (account,),
+        ).fetchone()
+    if not row:
+        return None
+    try:
+        detected = json.loads(row["detected_json"] or "[]")
+    except json.JSONDecodeError:
+        detected = []
+    try:
+        missing = json.loads(row["missing_json"] or "[]")
+    except json.JSONDecodeError:
+        missing = []
+    return {
+        "error_code": row["error_code"],
+        "message": row["message"],
+        "detected": detected if isinstance(detected, list) else [],
+        "missing": missing if isinstance(missing, list) else [],
+        "local_rows": int(row["local_rows"] or 0),
+        "has_local_logs": bool(int(row["has_local_logs"] or 0)),
+        "client_time": row["client_time"],
+        "server_time": row["server_time"],
+        "skew_seconds": row["skew_seconds"],
+        "updated_at": row["updated_at"],
+    }
+
+
+def _event_snapshot(account: str) -> tuple[int, Optional[str], Optional[float]]:
     with db() as conn:
         row = conn.execute(
             """
@@ -649,41 +806,198 @@ def onboarding_status(
     events = int(row["events"] or 0) if row else 0
     last_ts = row["last_ts"] if row else None
     age_hours = None
-    if last_ts:
+    seen = _parse_ts(last_ts)
+    if seen is not None:
+        age_hours = (_now() - seen).total_seconds() / 3600
+    return events, last_ts, age_hours
+
+
+def _skew_seconds(client_time: Optional[str]) -> Optional[float]:
+    seen = _parse_ts(client_time)
+    if seen is None:
+        return None
+    return (_now() - seen).total_seconds()
+
+
+def classify_connection(
+    *,
+    events: int,
+    age_hours: Optional[float],
+    skew_seconds: Optional[float],
+    has_local_logs: Optional[bool],
+    local_rows: int,
+    diagnosed: bool,
+) -> str:
+    if skew_seconds is not None and abs(float(skew_seconds)) > SKEW_LIMIT_SECONDS:
+        return "clock_skew"
+    if events <= 0 and diagnosed and has_local_logs is False and local_rows <= 0:
+        return "no_local_logs"
+    if events <= 0:
+        return "not_reported"
+    if age_hours is not None and age_hours > 36:
+        return "stale_report"
+    return "ok"
+
+
+def _status_payload(
+    account: str,
+    *,
+    client_time: Optional[str] = None,
+    report: Optional[dict[str, Any]] = None,
+) -> dict[str, Any]:
+    events, last_ts, age_hours = _event_snapshot(account)
+    stored = report if report is not None else _load_connection_report(account)
+    skew = _skew_seconds(client_time)
+    if skew is None and stored and stored.get("skew_seconds") is not None:
         try:
-            seen = datetime.fromisoformat(str(last_ts).replace("Z", "+00:00"))
-            if seen.tzinfo is None:
-                seen = seen.replace(tzinfo=timezone.utc)
-            age_hours = (_now() - seen.astimezone(timezone.utc)).total_seconds() / 3600
-        except ValueError:
-            age_hours = None
-    if not last_ts:
-        connected = False
-        message = "还没连上。请在仓库根目录运行安装命令，然后再检查一次。"
-    elif age_hours is not None and age_hours > 36:
-        connected = False
-        message = "上次上报已超过 36 小时。看一下定时任务是否还在跑。"
-    else:
-        connected = True
-        message = "已收到上报。"
+            skew = float(stored["skew_seconds"])
+        except (TypeError, ValueError):
+            skew = None
+    diagnosed = stored is not None
+    code = classify_connection(
+        events=events,
+        age_hours=age_hours,
+        skew_seconds=skew,
+        has_local_logs=None if not stored else bool(stored.get("has_local_logs")),
+        local_rows=int((stored or {}).get("local_rows") or 0),
+        diagnosed=diagnosed,
+    )
+    message, next_step = ERROR_TEXT[code]
     label = None
-    if last_ts:
-        try:
-            seen = datetime.fromisoformat(str(last_ts).replace("Z", "+00:00"))
-            if seen.tzinfo is None:
-                seen = seen.replace(tzinfo=timezone.utc)
-            local = seen.astimezone(ZoneInfo(DEFAULT_TZ))
-            label = local.strftime("%Y-%m-%d %H:%M") + "（北京时间）"
-        except ValueError:
-            label = str(last_ts)
+    seen = _parse_ts(last_ts)
+    if seen is not None:
+        label = seen.astimezone(ZoneInfo(DEFAULT_TZ)).strftime("%Y-%m-%d %H:%M") + "（北京时间）"
+    detected = list((stored or {}).get("detected") or [])
+    missing = list((stored or {}).get("missing") or [])
     return {
         "account_id": account,
-        "connected": connected,
+        "connected": code == "ok",
+        "error_code": code,
+        "last_error_code": (stored or {}).get("error_code") or code,
+        "message": message,
+        "next_step": next_step,
         "last_report_at": last_ts,
         "last_report_label": label,
         "event_count": events,
-        "message": message,
+        "detected": detected,
+        "missing": missing,
+        "detected_label": "检测到：" + ("、".join(detected) if detected else "还没有探测记录"),
+        "missing_label": "未检测到：" + ("、".join(missing) if missing else "还没有探测记录"),
+        "skew_seconds": None if skew is None else round(float(skew), 1),
     }
+
+
+class ConnectionReportIn(BaseModel):
+    client_time: str = ""
+    detected: list[str] = Field(default_factory=list)
+    missing: list[str] = Field(default_factory=list)
+    local_rows: int = Field(0, ge=0)
+    has_local_logs: bool = False
+
+
+def _clean_tools(names: list[str]) -> list[str]:
+    allowed = {slug for slug, _label, _placeholder in MATRIX_TOOLS}
+    out: list[str] = []
+    for name in names:
+        slug = str(name or "").strip().lower()
+        if slug in allowed and slug not in out:
+            out.append(slug)
+    return out
+
+
+@router.post("/api/v1/onboarding/report")
+def post_connection_report(
+    body: ConnectionReportIn,
+    authorization: Optional[str] = Header(None),
+    x_api_key: Optional[str] = Header(None, alias="X-API-Key"),
+) -> dict[str, Any]:
+    """Store a local probe. Personal tokens can only write their own account."""
+    presented = extract_presented_key(authorization, x_api_key)
+    scope = match_collector_token(presented) if presented else None
+    if scope is not None:
+        account = scope.account_id
+    else:
+        try:
+            principal = resolve_principal(presented) if presented else None
+        except HTTPException:
+            principal = None
+        if principal is None:
+            raise HTTPException(
+                status_code=401,
+                detail={
+                    "error": "invalid_key",
+                    "message": ERROR_TEXT["invalid_key"][0],
+                    "next_step": ERROR_TEXT["invalid_key"][1],
+                },
+            )
+        account = principal.account_id or ""
+        if not account:
+            raise HTTPException(
+                status_code=400,
+                detail={"error": "account_id_required", "message": "管理员请用个人上报密钥。"},
+            )
+    detected = _clean_tools(body.detected)
+    missing = [name for name in _clean_tools(body.missing) if name not in detected]
+    skew = _skew_seconds(body.client_time)
+    events, _last_ts, age_hours = _event_snapshot(account)
+    code = classify_connection(
+        events=events,
+        age_hours=age_hours,
+        skew_seconds=skew,
+        has_local_logs=bool(body.has_local_logs),
+        local_rows=int(body.local_rows or 0),
+        diagnosed=True,
+    )
+    message, next_step = ERROR_TEXT[code]
+    now = _now().isoformat()
+    with db() as conn:
+        conn.execute(
+            """
+            INSERT INTO connection_reports
+            (account_id, error_code, message, detected_json, missing_json,
+             local_rows, has_local_logs, client_time, server_time, skew_seconds, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(account_id) DO UPDATE SET
+                error_code = excluded.error_code,
+                message = excluded.message,
+                detected_json = excluded.detected_json,
+                missing_json = excluded.missing_json,
+                local_rows = excluded.local_rows,
+                has_local_logs = excluded.has_local_logs,
+                client_time = excluded.client_time,
+                server_time = excluded.server_time,
+                skew_seconds = excluded.skew_seconds,
+                updated_at = excluded.updated_at
+            """,
+            (
+                account,
+                code,
+                message,
+                json.dumps(detected, ensure_ascii=False),
+                json.dumps(missing, ensure_ascii=False),
+                int(body.local_rows or 0),
+                1 if body.has_local_logs else 0,
+                body.client_time or None,
+                now,
+                skew,
+                now,
+            ),
+        )
+    payload = _status_payload(account, client_time=body.client_time)
+    payload["message"] = message
+    payload["next_step"] = next_step
+    payload["error_code"] = code
+    return payload
+
+
+@router.get("/api/v1/onboarding/status")
+def onboarding_status(
+    account_id: Optional[str] = Query(None),
+    client_time: Optional[str] = Query(None),
+    principal: Optional[Principal] = Depends(optional_principal),
+) -> dict[str, Any]:
+    account = _account_for(principal, account_id)
+    return _status_payload(account, client_time=client_time)
 
 
 @router.get("/api/v1/privacy")
@@ -722,6 +1036,12 @@ def privacy_dictionary() -> dict[str, Any]:
         "allowed_keys": sorted(ALLOWED_KEYS),
         "ai_audit_prompt": AI_AUDIT_PROMPT,
         "procode": "ProCode 仍是占位：不解密、不打开 sqlite、不读钥匙串、不启动 canoryn。只读取已经放在那儿的 usage json。",
+        "collector_token": _collector_token_note(),
+        "tables": {
+            "会上传": [row["item"] for row in PRIVACY_ROWS if row["bucket"] == "会上传"],
+            "仅本地": [row["item"] for row in PRIVACY_ROWS if row["bucket"] == "仅本地"],
+            "永不采集": [row["item"] for row in PRIVACY_ROWS if row["bucket"] == "永不采集"],
+        },
     }
 
 
@@ -1055,6 +1375,50 @@ def list_devices(account: str) -> list[dict[str, Any]]:
     return items
 
 
+def _tool_matrix(account: str, tool_tokens: dict[str, int]) -> list[dict[str, Any]]:
+    """Three states per covered tool: 有数 / 未检测到 / 已禁用."""
+    devices = {item["device_key"]: item for item in list_devices(account)}
+    report = _load_connection_report(account) or {}
+    detected = set(report.get("detected") or [])
+    rows: list[dict[str, Any]] = []
+    for slug, label, placeholder in MATRIX_TOOLS:
+        tokens = int(tool_tokens.get(slug) or 0)
+        device = devices.get(slug)
+        disabled = bool(device and device.get("status") == DEVICE_DISABLED)
+        if disabled:
+            state = "disabled"
+            state_label = "已禁用"
+            copy = "你在设置里停用了这个工具。新的上报不再累加。要恢复，打开设置，在设备里点「恢复」。"
+        elif tokens > 0:
+            state = "has_data"
+            state_label = "有数"
+            copy = "这个时间范围已经收到用量。"
+        else:
+            state = "not_detected"
+            state_label = "未检测到"
+            if device and int(device.get("report_count") or 0) > 0:
+                when = device.get("last_seen") or "更早"
+                copy = f"这个时间范围没有新用量。上次看到是 {when}。可以换到「近 30 天」，或回到接入页再检查连接。"
+            elif slug in detected:
+                copy = "目录找到了，但这段时间没有可上报的数字。先在这个工具里用一次，再运行 python -m collector preview。"
+            elif placeholder:
+                copy = "还没找到现成的 usage json。ProCode 只读已经放好的用量文件，不解密、不打开数据库、不读钥匙串、不启动命令。没装就不用管。"
+            else:
+                copy = "这台电脑上还没找到这个工具的用量目录。没装就不用管。装了的话，先在本机用一次，再回到接入页运行安装命令。"
+        rows.append(
+            {
+                "tool": slug,
+                "label": label,
+                "state": state,
+                "state_label": state_label,
+                "total_tokens": tokens,
+                "copy": copy,
+                "placeholder": placeholder,
+            }
+        )
+    return rows
+
+
 def _tz_row(account: str, tz_name: str) -> dict[str, Any]:
     tz = _zone(tz_name)
     now_local = datetime.now(tz)
@@ -1122,12 +1486,15 @@ def my_dashboard(
         )
         for key in cost:
             cost[key] += float(parts[key])
+        unknown = parts["tier"] == "default"
         model_rows.append(
             {
                 "model": name,
                 "total_tokens": bucket["tokens"],
                 "estimated_cost_usd": parts["total_usd"],
                 "price_tier": parts["tier"],
+                "estimate": unknown,
+                "estimate_label": "估算" if unknown else "",
             }
         )
     for key in cost:
@@ -1145,6 +1512,7 @@ def my_dashboard(
                 "share_pct": round(tokens / total * 100, 1) if total else 0.0,
             }
         )
+    tool_matrix = _tool_matrix(account, tools)
     part_tokens = {
         "input": prompt,
         "output": completion,
@@ -1254,6 +1622,7 @@ def my_dashboard(
         },
         "heatmap": heat,
         "tools": tool_rows,
+        "tool_matrix": tool_matrix,
         "models": model_rows[:8],
         "cache": {
             "estimated_cost_usd": cost["total_usd"],
@@ -1280,6 +1649,11 @@ def my_dashboard(
         "anomaly": anomaly,
         "formula_zh": FORMULA_ZH,
         "leaderboard_zh": LEADERBOARD_COST_ZH,
+        "pricing_table": {
+            "table_version": pricing_formula().get("table_version") or "",
+            "updated_at": pricing_formula().get("updated_at") or "",
+            "disclaimer_zh": pricing_formula().get("disclaimer_zh") or "",
+        },
         "empty": len(rows) == 0,
     }
 

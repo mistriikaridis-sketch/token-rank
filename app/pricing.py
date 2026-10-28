@@ -288,9 +288,10 @@ FORMULA_ZH = (
 )
 
 LEADERBOARD_COST_ZH = (
-    "个人榜、组织榜、项目榜、Agent 榜上的费用仍只按输入和输出估算，"
+    "个人榜、组织榜、项目榜、Agent 榜上的费用默认只按输入和输出估算，"
     "和以前一样，避免历史数字突然变化。"
-    "「我的」里的预估费用会把缓存读、缓存写摊进去，并标明列表价估算。"
+    "榜上可以打开「含缓存」，把缓存读、缓存写按同一套列表价算进去。"
+    "「我的」里的预估费用一直含缓存，并标明列表价估算，不是实扣账单。"
 )
 
 
@@ -376,6 +377,7 @@ def estimate_usage_parts(
 
 
 def pricing_formula() -> dict[str, Any]:
+    notes = pricing_notes()
     read_ratio, write_ratio = _cache_ratios()
     return {
         "formula_zh": FORMULA_ZH,
@@ -384,7 +386,15 @@ def pricing_formula() -> dict[str, Any]:
         "cache_read_ratio_of_input": read_ratio,
         "cache_write_ratio_of_input": write_ratio,
         "rates_url": "/api/v1/pricing",
-        "disclaimer_zh": (pricing_notes().get("disclaimer_zh") or FORMULA_ZH),
+        "disclaimer_zh": (notes.get("disclaimer_zh") or FORMULA_ZH),
+        "unknown_models_zh": notes.get("unknown_models_zh") or "",
+        "table_version": notes.get("table_version") or "",
+        "updated_at": notes.get("updated_at") or "",
+        "include_cache_default": False,
+        "include_cache_zh": (
+            "榜默认不含缓存，和以前的数字一致。需要时在榜上打开「含缓存」。"
+            "这是列表价估算，不是实扣账单。"
+        ),
     }
 
 

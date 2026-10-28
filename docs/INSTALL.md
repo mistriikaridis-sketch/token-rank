@@ -128,8 +128,10 @@ docker compose -f docker-compose.yml -f docker-compose.postgres.yml up -d --buil
 
 Caddy：
 
+应用端口在 `docker-compose.yml` 里绑定 `127.0.0.1:8000`，不要改成对所有网卡开放。下面的域名只是示例，不代表已经把 DNS 指到你的机器。
+
 ```caddy
-rankings.example.internal {
+tokenrank.online {
     reverse_proxy 127.0.0.1:8000
 }
 ```
@@ -139,7 +141,7 @@ nginx：
 ```nginx
 server {
     listen 443 ssl;
-    server_name rankings.example.internal;
+    server_name tokenrank.online;
     # ssl_certificate     /path/fullchain.pem;
     # ssl_certificate_key /path/privkey.pem;
     location / {
@@ -159,7 +161,7 @@ server {
 - [ ] **换掉演示密钥。** 在仓库目录执行 `bash scripts/bootstrap_prod.sh`。没有 `--force` 时不会覆盖已经生成的密钥。不要再使用 `dev-token-rankings-change-me`、`CHANGE_ME`、`demo-admin-key`、`demo-alice-key`、`demo-dave-key`。用户名单用脚本生成的 `fixtures/users.prod.json`（或仓库外的文件），不要改 `fixtures/users.json`。
 - [ ] **排行必须登录。** `.env` 里 `RANKINGS_REQUIRE_AUTH=1`。重启后打开 `/health`，`setup.rankings_require_auth` 为 `true`，`setup.demo_keys_in_use` 为 `false`，网页顶部黄条消失。再跑 `SMOKE_REQUIRE_AUTH=1 bash scripts/customer_smoke.sh`。
 - [ ] **数据库用 Postgres。** 设置长随机的 `POSTGRES_PASSWORD`（不要用 `token` 当密码）。执行 `docker compose -f docker-compose.yml -f docker-compose.postgres.yml up -d --build`。`/health` 里数据库类型是 `postgres`。端口只留在 `127.0.0.1:5432`。自检：`bash scripts/verify_postgres.sh`。
-- [ ] **HTTPS 只做反向代理。** 用上面的 Caddy 或 nginx，把浏览器流量转到本机 `127.0.0.1:8000`。不要在这层转发模型请求，也不要做密钥池。证书用公司内网自己的。
+- [ ] **HTTPS 只做反向代理。** 用上面的 Caddy 或 nginx，把浏览器流量转到本机 `127.0.0.1:8000`。示例域名写 `tokenrank.online`。不要在这层转发模型请求，也不要做密钥池。证书用公司自己的。应用端口保持绑在 `127.0.0.1`。
 - [ ] **本机采集。** 每台开发机按 [collector/INSTALL.md](../collector/INSTALL.md) 安装（服务上的同一份是 `/docs/collector.md`）。覆盖 WorkBuddy、Claude Code、Codex、Continue、Cursor、ProCode。只上传 Token 数字。多账号、多项目靠日志里的邮箱和项目目录拆开，不要只报一个总数。
 - [ ] **真机采集验收。** 在装了开发工具的电脑上按 [ACCEPTANCE.md](ACCEPTANCE.md) 的「真机采集验收」打勾：排行榜地址、六个工具的 preview/once、账号 × 项目、提醒与 FinOps 导出、隐私、第二次 once、Cursor 的 `~/.cursor/exports` 回退。ProCode 仍是 placeholder，不解密聊天库。
 - [ ] **确认拆开可见。** 打开 [项目榜](http://localhost:8000/projects)。每一行是「账号 × 项目」，顶部写着按账号 × 项目拆开。再用成员密钥请求别人的 `account_id`，应得到 403。个人榜同一人跨账号时，行下面有拆分，不是只有合计。
@@ -198,6 +200,21 @@ ALERT_ACCOUNT_THRESHOLDS={"acme-prod":{"min_tokens":5000,"spend_usd":20}}
 `window=all` 没有上一窗，不评估费用突增。用量高只是提醒去拆项目，不等于这个人更会用。长期为零通常说明采集或工作流还没接上。
 
 页面 `/alerts` 会显示同一段中文说明。旧地址 `/api/v1/alerts/low-usage` 仍然只做低用量，试点请用 `GET /api/v1/alerts`。
+
+## 从 0.22.0 升到 0.23.0
+
+在仓库目录：
+
+```bash
+git pull
+docker compose up -d --build
+```
+
+启动时会自己补上连接诊断用的表，不用手工改数据库。榜上的费用默认仍只按输入和输出，数字不会因为这次升级突然把缓存加进去。需要含缓存时，在榜上勾选「含缓存」。
+
+定价表版本和更新日期在 <http://localhost:8000/api/v1/pricing/formula> 的 `table_version`、`updated_at`。不认识的模型会入库，费用用默认档，页面标「估算」。
+
+本机浏览器仍打开 <http://localhost:8000>。给同事用时，用反向代理把 `tokenrank.online` 转到 `127.0.0.1:8000`。这一步只改你自己的代理配置，仓库不会替你改 DNS。
 
 ## 下一步
 

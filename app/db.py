@@ -788,6 +788,23 @@ def _ensure_product_tables(conn: Any) -> None:
             """
         )
     conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS connection_reports (
+            account_id TEXT PRIMARY KEY,
+            error_code TEXT,
+            message TEXT,
+            detected_json TEXT,
+            missing_json TEXT,
+            local_rows INTEGER NOT NULL DEFAULT 0,
+            has_local_logs INTEGER NOT NULL DEFAULT 0,
+            client_time TEXT,
+            server_time TEXT,
+            skew_seconds REAL,
+            updated_at TEXT NOT NULL
+        )
+        """
+    )
+    conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_devices_account ON devices(account_id)"
     )
     conn.execute(

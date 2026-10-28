@@ -71,7 +71,7 @@ from app.db import (
     list_forum_posts,
 )
 from app.ingest import map_records
-from app.pricing import estimate_cost, list_priced_models, load_pricing, price_tier
+from app.pricing import estimate_cost, estimate_usage_parts, list_priced_models, load_pricing, price_tier, pricing_notes
 from app.seed import seed
 from app.forum import (
     BODY_MAX,
@@ -101,7 +101,7 @@ def read_app_version() -> str:
         text = VERSION_FILE.read_text(encoding="utf-8").strip()
     except OSError:
         text = ""
-    return text or "0.22.0"
+    return text or "0.23.0"
 
 
 APP_VERSION = read_app_version()
@@ -472,6 +472,26 @@ def _as_splits(split_map: dict[tuple[str, str], dict[str, Any]]) -> list[Dimensi
     ]
 
 
+def _group_cost_parts(
+    model: str,
+    prompt: int,
+    completion: int,
+    cache_read: int = 0,
+    cache_write: int = 0,
+    include_cache: bool = False,
+) -> float:
+    """Leaderboard cost. Default excludes cache so existing numbers stay put."""
+    if not include_cache:
+        return estimate_cost(model, prompt, completion)
+    return estimate_usage_parts(model, prompt, completion, cache_read, cache_write)["total_usd"]
+
+
+def _cache_board_note(include_cache: bool) -> str:
+    if include_cache:
+        return "榜上的费用含缓存读和缓存写。仍是列表价估算，不是实扣账单。"
+    return "榜上的费用只按输入和输出，和以前一样。打开「含缓存」才会把缓存读、缓存写算进去。"
+
+
 def _row_cost(model: str, prompt: int, completion: int, cost_usd: Any = None) -> float:
     """Prefer stored cost_usd (e.g. cursor_charged) when present."""
     if cost_usd is not None:
@@ -542,6 +562,12 @@ def health() -> dict[str, Any]:
     return {
         "status": "ok",
         "version": APP_VERSION,
+        "server_time": _utc_now().isoformat(),
+        "pricing_table": {
+            "table_version": pricing_notes().get("table_version") or "",
+            "updated_at": pricing_notes().get("updated_at") or "",
+            "disclaimer_zh": pricing_notes().get("disclaimer_zh") or "",
+        },
         "setup": setup_warnings(),
         "events": count_events(),
         "events_non_seed": count_events(exclude_seed=True),
@@ -1200,6 +1226,10 @@ def get_rankings(
     account_id: Optional[str] = Query(None),
     team: Optional[str] = Query(None),
     include_seed: bool = Query(False, description="include source=seed demo rows"),
+    include_cache: bool = Query(
+        False,
+        description="榜上费用是否含缓存读/写。默认 false，与现网只按输入和输出的口径一致。",
+    ),
     principal: Optional[Principal] = Depends(optional_principal),
 ) -> RankingsResponse:
     account_id = _scoped_account(principal, account_id)
@@ -1247,6 +1277,8 @@ def get_rankings(
             COUNT(*) AS requests,
             COALESCE(SUM(prompt_tokens), 0) AS prompt_tokens,
             COALESCE(SUM(completion_tokens), 0) AS completion_tokens,
+            COALESCE(SUM(cache_read_tokens), 0) AS cache_read_tokens,
+            COALESCE(SUM(cache_write_tokens), 0) AS cache_write_tokens,
             COALESCE(SUM(total_tokens), 0) AS total_tokens
         FROM usage_events
         {where}
@@ -1259,8 +1291,13 @@ def get_rankings(
     cost_by_name: dict[str, float] = {}
     if group_by == "model":
         for r in rows:
-            cost_by_name[r["name"]] = estimate_cost(
-                r["name"], int(r["prompt_tokens"]), int(r["completion_tokens"])
+            cost_by_name[r["name"]] = _group_cost_parts(
+                r["name"],
+                int(r["prompt_tokens"]),
+                int(r["completion_tokens"]),
+                int(r["cache_read_tokens"] or 0),
+                int(r["cache_write_tokens"] or 0),
+                include_cache,
             )
     else:
         detail_sql = f"""
@@ -1268,7 +1305,9 @@ def get_rankings(
                 {name_expr} AS grp,
                 model,
                 COALESCE(SUM(prompt_tokens), 0) AS prompt_tokens,
-                COALESCE(SUM(completion_tokens), 0) AS completion_tokens
+                COALESCE(SUM(completion_tokens), 0) AS completion_tokens,
+                COALESCE(SUM(cache_read_tokens), 0) AS cache_read_tokens,
+                COALESCE(SUM(cache_write_tokens), 0) AS cache_write_tokens
             FROM usage_events
             {where}
             GROUP BY {group_sql}, model
@@ -1277,8 +1316,13 @@ def get_rankings(
             detail_rows = conn.execute(detail_sql, params).fetchall()
         for dr in detail_rows:
             name = dr["grp"]
-            cost_by_name[name] = cost_by_name.get(name, 0.0) + estimate_cost(
-                dr["model"], int(dr["prompt_tokens"]), int(dr["completion_tokens"])
+            cost_by_name[name] = cost_by_name.get(name, 0.0) + _group_cost_parts(
+                dr["model"],
+                int(dr["prompt_tokens"]),
+                int(dr["completion_tokens"]),
+                int(dr["cache_read_tokens"] or 0),
+                int(dr["cache_write_tokens"] or 0),
+                include_cache,
             )
 
     grand_tokens = sum(int(r["total_tokens"]) for r in rows)
@@ -1334,6 +1378,8 @@ def get_rankings(
             "cost_basis_label": basis["label"],
             "cost_basis_note": basis["note"],
             "cost_basis_detail": basis,
+            "include_cache": include_cache,
+            "include_cache_zh": _cache_board_note(include_cache),
         },
         items=items,
     )
@@ -1349,6 +1395,7 @@ def get_people_rankings(
     account_id: Optional[str] = Query(None),
     q: Optional[str] = Query(None, description="search participant name"),
     include_seed: bool = Query(False, description="include source=seed demo rows"),
+    include_cache: bool = Query(False, description="榜上费用含缓存。默认 false。"),
     principal: Optional[Principal] = Depends(optional_principal),
 ) -> PeopleRankingsResponse:
     account_id = _scoped_account(principal, account_id)
@@ -1384,6 +1431,8 @@ def get_people_rankings(
             COALESCE(account_id, '') AS account_id,
             COALESCE(SUM(prompt_tokens), 0) AS prompt_tokens,
             COALESCE(SUM(completion_tokens), 0) AS completion_tokens,
+            COALESCE(SUM(cache_read_tokens), 0) AS cache_read_tokens,
+            COALESCE(SUM(cache_write_tokens), 0) AS cache_write_tokens,
             COALESCE(SUM(total_tokens), 0) AS total_tokens,
             COALESCE(SUM(cost_usd), 0) AS cost_usd_sum,
             SUM(CASE WHEN cost_usd IS NOT NULL THEN 1 ELSE 0 END) AS cost_usd_rows,
@@ -1447,8 +1496,13 @@ def get_people_rankings(
         else:
             billed = float(r["cost_usd_sum"] or 0)
             # estimate only for rows without cost_usd — approximate by proportion
-            est = estimate_cost(
-                r["model"], int(r["prompt_tokens"]), int(r["completion_tokens"])
+            est = _group_cost_parts(
+                r["model"],
+                int(r["prompt_tokens"]),
+                int(r["completion_tokens"]),
+                int(r["cache_read_tokens"] or 0),
+                int(r["cache_write_tokens"] or 0),
+                include_cache,
             )
             if int(r["cost_usd_rows"] or 0) > 0 and int(r["requests"] or 0) > 0:
                 # use billed sum + estimate scaled for missing fraction
@@ -1554,6 +1608,8 @@ def get_people_rankings(
             "cost_basis_label": basis["label"],
             "cost_basis_note": basis["note"],
             "cost_basis_detail": basis,
+            "include_cache": include_cache,
+            "include_cache_zh": _cache_board_note(include_cache),
         },
         items=items,
         filters={
@@ -1574,6 +1630,7 @@ def get_org_rankings(
     project_id: Optional[str] = Query(None),
     account_id: Optional[str] = Query(None),
     include_seed: bool = Query(False, description="include source=seed demo rows"),
+    include_cache: bool = Query(False, description="榜上费用含缓存。默认 false。"),
     principal: Optional[Principal] = Depends(optional_principal),
 ) -> OrgRankingsResponse:
     account_id = _scoped_account(principal, account_id)
@@ -1602,6 +1659,8 @@ def get_org_rankings(
             COALESCE(NULLIF(TRIM(project_id), ''), '{UNLABELED_PROJECT}') AS project_id,
             COALESCE(SUM(prompt_tokens), 0) AS prompt_tokens,
             COALESCE(SUM(completion_tokens), 0) AS completion_tokens,
+            COALESCE(SUM(cache_read_tokens), 0) AS cache_read_tokens,
+            COALESCE(SUM(cache_write_tokens), 0) AS cache_write_tokens,
             COALESCE(SUM(total_tokens), 0) AS total_tokens,
             COUNT(*) AS requests
         FROM usage_events
@@ -1646,8 +1705,13 @@ def get_org_rankings(
         a = agg[team]
         tok = int(r["total_tokens"])
         req = int(r["requests"])
-        delta = estimate_cost(
-            r["model"], int(r["prompt_tokens"]), int(r["completion_tokens"])
+        delta = _group_cost_parts(
+            r["model"],
+            int(r["prompt_tokens"]),
+            int(r["completion_tokens"]),
+            int(r["cache_read_tokens"] or 0),
+            int(r["cache_write_tokens"] or 0),
+            include_cache,
         )
         a["total_tokens"] += tok
         a["requests"] += req
@@ -1711,6 +1775,8 @@ def get_org_rankings(
             "cost_basis_label": basis["label"],
             "cost_basis_note": basis["note"],
             "cost_basis_detail": basis,
+            "include_cache": include_cache,
+            "include_cache_zh": _cache_board_note(include_cache),
         },
         items=items,
         filters={
@@ -1735,6 +1801,7 @@ def get_project_rankings(
         True, description="hide rows with missing project_id (未标注)"
     ),
     include_seed: bool = Query(False, description="include source=seed demo rows"),
+    include_cache: bool = Query(False, description="榜上费用含缓存。默认 false。"),
     principal: Optional[Principal] = Depends(optional_principal),
 ) -> ProjectRankingsResponse:
     """Rank by account_id × project_id so multi-project usage is not a black-box total."""
@@ -1770,6 +1837,8 @@ def get_project_rankings(
             model,
             COALESCE(SUM(prompt_tokens), 0) AS prompt_tokens,
             COALESCE(SUM(completion_tokens), 0) AS completion_tokens,
+            COALESCE(SUM(cache_read_tokens), 0) AS cache_read_tokens,
+            COALESCE(SUM(cache_write_tokens), 0) AS cache_write_tokens,
             COALESCE(SUM(total_tokens), 0) AS total_tokens,
             COALESCE(SUM(cost_usd), 0) AS cost_usd_sum,
             SUM(CASE WHEN cost_usd IS NOT NULL THEN 1 ELSE 0 END) AS cost_usd_rows,
@@ -1845,8 +1914,13 @@ def get_project_rankings(
         if int(r["cost_usd_rows"] or 0) == int(r["requests"] or 0) and int(r["requests"] or 0) > 0:
             a["cost"] += float(r["cost_usd_sum"] or 0)
         else:
-            a["cost"] += estimate_cost(
-                r["model"], int(r["prompt_tokens"]), int(r["completion_tokens"])
+            a["cost"] += _group_cost_parts(
+                r["model"],
+                int(r["prompt_tokens"]),
+                int(r["completion_tokens"]),
+                int(r["cache_read_tokens"] or 0),
+                int(r["cache_write_tokens"] or 0),
+                include_cache,
             )
         a["people"].add(r["participant"])
         a["tools"][r["tool"]] += int(r["total_tokens"])
@@ -1901,6 +1975,8 @@ def get_project_rankings(
             "cost_basis_label": basis["label"],
             "cost_basis_note": basis["note"],
             "cost_basis_detail": basis,
+            "include_cache": include_cache,
+            "include_cache_zh": _cache_board_note(include_cache),
             "unlabeled_events_hidden": unlabeled_events if hide_unlabeled else 0,
             "unlabeled_events": unlabeled_events,
             "hide_unlabeled": hide_unlabeled,
@@ -1930,6 +2006,7 @@ def get_agent_rankings(
         True, description="hide events without agent_id (未标注)"
     ),
     include_seed: bool = Query(False, description="include source=seed demo rows"),
+    include_cache: bool = Query(False, description="榜上费用含缓存。默认 false。"),
     principal: Optional[Principal] = Depends(optional_principal),
 ) -> AgentRankingsResponse:
     """Rank by account_id × agent_id so the same agent on two accounts stays split."""
@@ -1968,6 +2045,8 @@ def get_agent_rankings(
             model,
             COALESCE(SUM(prompt_tokens), 0) AS prompt_tokens,
             COALESCE(SUM(completion_tokens), 0) AS completion_tokens,
+            COALESCE(SUM(cache_read_tokens), 0) AS cache_read_tokens,
+            COALESCE(SUM(cache_write_tokens), 0) AS cache_write_tokens,
             COALESCE(SUM(total_tokens), 0) AS total_tokens,
             COALESCE(SUM(cost_usd), 0) AS cost_usd_sum,
             SUM(CASE WHEN cost_usd IS NOT NULL THEN 1 ELSE 0 END) AS cost_usd_rows,
@@ -2056,8 +2135,13 @@ def get_agent_rankings(
         if int(r["cost_usd_rows"] or 0) == int(r["requests"] or 0) and int(r["requests"] or 0) > 0:
             a["cost"] += float(r["cost_usd_sum"] or 0)
         else:
-            a["cost"] += estimate_cost(
-                r["model"], int(r["prompt_tokens"]), int(r["completion_tokens"])
+            a["cost"] += _group_cost_parts(
+                r["model"],
+                int(r["prompt_tokens"]),
+                int(r["completion_tokens"]),
+                int(r["cache_read_tokens"] or 0),
+                int(r["cache_write_tokens"] or 0),
+                include_cache,
             )
         if r["agent_name"]:
             a["names"][r["agent_name"]] += tok
@@ -2126,6 +2210,8 @@ def get_agent_rankings(
             "cost_basis_label": basis["label"],
             "cost_basis_note": basis["note"],
             "cost_basis_detail": basis,
+            "include_cache": include_cache,
+            "include_cache_zh": _cache_board_note(include_cache),
             "unlabeled_events_hidden": unlabeled_events if hide_unlabeled else 0,
             "unlabeled_events": unlabeled_events,
             "hide_unlabeled": hide_unlabeled,

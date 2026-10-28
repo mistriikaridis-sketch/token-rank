@@ -512,6 +512,10 @@
 
   <div class="wrap">
     <div class="warn-banner" id="demoWarn" hidden></div>
+    <label class="cache-toggle" id="cacheToggleLabel">
+      <input type="checkbox" id="includeCacheToggle" />
+      榜上费用含缓存（默认关闭，和以前的数字一致。这是列表价估算，不是实扣账单）
+    </label>
     <section class="setup-panel" id="setupPanel" hidden>
       <h2>首次配置</h2>
       <p>三步。密钥只留在这台浏览器里。</p>
@@ -780,7 +784,8 @@
       <div class="step-card">
         <h3>1. 选择你的系统</h3>
         <div class="os-switch">
-          <button type="button" class="pill active" id="osUnixBtn">macOS / Linux</button>
+          <button type="button" class="pill active" id="osMacBtn">macOS</button>
+          <button type="button" class="pill" id="osLinuxBtn">Linux</button>
           <button type="button" class="pill" id="osWinBtn">Windows</button>
         </div>
       </div>
@@ -805,10 +810,11 @@
         <h3>3. 再检查连接</h3>
         <button type="button" class="btn" id="checkConnBtn">再检查连接</button>
         <div id="connStatus" class="conn-status">还没检查。</div>
+        <p class="muted" id="connTools"></p>
       </div>
       <div class="step-card">
         <h3>不想自己动手？让 AI 帮你</h3>
-        <p>交给 Cursor 或 Claude。请它只运行采集命令。脚本只上报 Token 计数，不读代码和聊天内容。</p>
+        <p>交给 Cursor 或 Claude。提示词写明只装上报。失败时让它贴终端最后 30 行，并先删掉密钥。</p>
         <div class="copy-block">
           <pre id="aiInstallPrompt">粘贴用户密钥后，这里会出现可复制的提示词。</pre>
           <button type="button" class="btn" data-copy="aiInstallPrompt">复制</button>
@@ -819,7 +825,7 @@
 
     <section id="page-privacy" class="page">
       <h2 class="page-title">会上报什么</h2>
-      <p class="lead">采集器只拿 Token 数字。代码、对话、文件、密钥、截图都不采集。</p>
+      <p class="lead">采集器只拿 Token 数字。代码、对话、文件、密钥、截图都不采集。个人上报密钥以 ctr_ 开头，只给这一个账号上报，不能清库，也不能让服务器去扫目录。</p>
       <div class="step-card">
         <table class="privacy-table">
           <thead><tr><th>内容</th><th>归类</th><th>说明</th></tr></thead>
@@ -1414,6 +1420,9 @@ python -m collector once --dry-run</pre>
       const host = document.getElementById("peopleTable");
       host.innerHTML = '<div class="empty">加载中…</div>';
       const params = new URLSearchParams({ window: state.peopleWindow });
+      if (document.getElementById("includeCacheToggle") && document.getElementById("includeCacheToggle").checked) {
+        params.set("include_cache", "true");
+      }
       const account = document.getElementById("filterAccount").value;
       const project = document.getElementById("filterProject").value;
       const tool = document.getElementById("filterTool").value;
@@ -1506,6 +1515,9 @@ python -m collector once --dry-run</pre>
       const host = document.getElementById("orgTable");
       host.innerHTML = '<div class="empty">加载中…</div>';
       const params = new URLSearchParams({ window: state.orgWindow });
+      if (document.getElementById("includeCacheToggle") && document.getElementById("includeCacheToggle").checked) {
+        params.set("include_cache", "true");
+      }
       const account = document.getElementById("orgFilterAccount").value;
       const project = document.getElementById("orgFilterProject").value;
       const tool = document.getElementById("orgFilterTool").value;
@@ -1555,6 +1567,9 @@ python -m collector once --dry-run</pre>
       const host = document.getElementById("projectTable");
       host.innerHTML = '<div class="empty">加载中…</div>';
       const params = new URLSearchParams({ window: state.projectWindow });
+      if (document.getElementById("includeCacheToggle") && document.getElementById("includeCacheToggle").checked) {
+        params.set("include_cache", "true");
+      }
       const tool = document.getElementById("projectFilterTool").value;
       let account = document.getElementById("projectFilterAccount").value;
       if (!account && state._preProjectAccount) account = state._preProjectAccount;
@@ -1613,6 +1628,9 @@ python -m collector once --dry-run</pre>
       const host = document.getElementById("agentTable");
       host.innerHTML = '<div class="empty">加载中…</div>';
       const params = new URLSearchParams({ window: state.agentWindow });
+      if (document.getElementById("includeCacheToggle") && document.getElementById("includeCacheToggle").checked) {
+        params.set("include_cache", "true");
+      }
       const account = document.getElementById("agentFilterAccount").value;
       const project = document.getElementById("agentFilterProject").value;
       const tool = document.getElementById("agentFilterTool").value;
@@ -2121,6 +2139,15 @@ async function loadForum() {
       document.getElementById("setupKey").addEventListener("keydown", (e) => {
         if (e.key === "Enter") saveSetup();
       });
+      const cacheToggle = document.getElementById("includeCacheToggle");
+      if (cacheToggle) {
+        cacheToggle.addEventListener("change", () => {
+          if (state.page === "people") loadPeople();
+          else if (state.page === "orgs") loadOrgs();
+          else if (state.page === "projects") loadProjects();
+          else if (state.page === "agents") loadAgents();
+        });
+      }
 
       ["filterAccount", "filterProject", "filterTool", "filterModel", "filterTeam"].forEach(id => {
         document.getElementById(id).addEventListener("change", loadPeople);

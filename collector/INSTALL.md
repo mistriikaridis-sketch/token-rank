@@ -21,7 +21,7 @@
 
 **不会**上报：提示词、回复、工具参数、源代码、源文件名、截图、Cookie、访问令牌。含大段 `content` / `prompt` / `messages` 的行整行跳过。预览里的目录会把家目录收成 `~/...`，不打印家目录全路径。
 
-费用是公开列表价**估算**（`cost_basis=estimate`），不是发票，也不是云账单实扣。估算只按 prompt 与 completion；缓存 Token 会入库，但不会按缓存单价再加一遍。
+费用是公开列表价**估算**（`cost_basis=estimate`），不是发票，也不是云账单实扣。「我的」按输入、输出、缓存读、缓存写计算。榜上默认只按输入和输出，可以打开「含缓存」。不认识的模型用 default 档，页面标「估算」。
 
 ## 模型支持是什么意思
 
@@ -77,6 +77,9 @@ python -m collector upload --file /tmp/collector-preview.json
 
 # 和 preview 一样，不发送
 python -m collector once --dry-run
+
+# 检查连接：未上报 / 密钥无效 / 时钟偏差 / 无本地日志，并列出检测到和未检测到的工具
+python -m collector diagnose
 ```
 
 ## 从网页接入
@@ -247,12 +250,12 @@ python -m collector service --os windows
 ```bash
 docker compose up -d --build
 export RANKINGS_URL=http://127.0.0.1:8000
-# 已经有服务时改成那台的地址，例如 https://rankings.example.internal
+# 已经有服务时改成那台的地址，例如 https://tokenrank.online（示例域名）
 curl -sS "$RANKINGS_URL/health"
 ```
 
 - [ ] `"status"` 为 `"ok"`
-- [ ] `"version"` 是 `0.22.0`
+- [ ] `"version"` 是 `0.23.0`
 - [ ] `adapters` 里 `id` 为 `procode` 的 `"status"` 仍是 `placeholder`，`blocked` 含 `encrypted_sqlite`、`keychain`、`canoryn_cli`，`notes` 写明不解密
 
 ### 2. 写入密钥，六个工具各跑一遍
@@ -342,7 +345,7 @@ python -m collector once --tool cursor
 | `连不上 http://...` | `RANKINGS_URL` 错了，或服务没起来 | 先 `curl -sS "$RANKINGS_URL/health"` |
 | 0 行，且写着没找到目录 | 这台电脑没有该工具的数据目录 | 正常。ProCode 需要自己放 usage json |
 | ProCode 目录在，但仍是 0 行 | 里面只有加密库、蓝图或评论，没有 usage json | 看 diagnostics 的 `unopened_db_seen`。不要解密，也不要启动 canoryn |
-| preview 里出现 `/Users/...` 或 `/home/某用户` | 采集器版本过旧 | 升到 `0.22.0` |
+| preview 里出现 `/Users/...` 或 `/home/某用户` | 采集器版本过旧 | 升到 `0.23.0` |
 
 ## 用样例自测（不需要真的装 WorkBuddy）
 

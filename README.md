@@ -1,6 +1,6 @@
 # Token 消耗排行榜
 
-许可证：**MIT** · 版本 **0.22.0**
+许可证：**MIT** · 版本 **0.23.0**
 
 ## 客户 10 分钟跑通
 
@@ -45,6 +45,36 @@ bash scripts/customer_smoke.sh
 
 本产品只做企业内部用量排行。**不做**自研大模型网关，也**不做**公网热度榜。见 [docs/NON_GOALS.md](docs/NON_GOALS.md)。
 
+## 安全（和 /privacy 同一张表）
+
+采集器只拿 Token 数字。下面三列和网页 `/privacy`、`GET /api/v1/privacy` 的 `rows` 一致。
+
+| 内容 | 归类 | 说明 |
+|---|---|---|
+| Token 计数（输入、输出、缓存读、缓存写、推理） | 会上传 | 只有数字 |
+| 模型名、工具名、时间 | 会上传 | 用来归类，并按北京时间切日 |
+| 账号、显示名、部门 | 会上传 | 只在企业内部排行里用 |
+| 项目目录名 | 会上传 | 例如 chatbot-core，不是完整路径，也不是源文件名 |
+| 去重用的 request_id | 会上传 | 同一条再报一次不会叠量 |
+| 本机原始日志和 Cursor 的 state.vscdb | 仅本地 | 只在你的电脑上抽出计数，整库不上传 |
+| 定时任务和采集配置 | 仅本地 | cron / systemd / launchd / 计划任务 |
+| 个人上报密钥（collector.env） | 仅本地 | 文件权限 0600。不要转发，不要提交到 git |
+| 代码和源文件内容 | 永不采集 | 不上传 |
+| 对话、提示词、回复 | 永不采集 | 含大段 content / prompt 的行会整行跳过 |
+| 文件正文、截图 | 永不采集 | 不上传 |
+| 密钥、Cookie、钥匙串 | 永不采集 | ProCode 不解密、不打开 sqlite、不读钥匙串、不启动 canoryn |
+
+先看再发，这两条命令只在你的电脑上打印，不会发送：
+
+```bash
+python -m collector preview
+python -m collector once --dry-run
+```
+
+个人上报密钥以 `ctr_` 开头，**只属于一个账号**，用来让这台电脑上报用量。它不能清库，也不能让服务器去扫目录，不能看别人的账号。不要转发。
+
+生产把服务绑在本机 `127.0.0.1:8000`，再用反向代理把浏览器流量转进来。示例域名是 `tokenrank.online`（只是配置例子，不代表这台机器已经改了 DNS）。从 0.22.0 升到 0.23.0 见 [docs/INSTALL.md](docs/INSTALL.md)。更细的说明见 [docs/SECURITY.md](docs/SECURITY.md)。
+
 试用默认使用 SQLite。需要 Postgres 时：
 
 ```bash
@@ -70,7 +100,7 @@ docker compose -f docker-compose.yml -f docker-compose.postgres.yml up -d --buil
 - **交流区** `/forum`：企业内部最小讨论（发帖 / 列表 / 点赞）；匿名只读；禁止贴 Key/对话原文
 - **ProCode** `/procode`：占位适配说明；`POST /api/v1/ingest/procode`
 
-许可证：**MIT** · 版本 **0.22.0**（客户文档见文首「客户 10 分钟跑通」）
+许可证：**MIT** · 版本 **0.23.0**（客户文档见文首「客户 10 分钟跑通」。English summary is below.）
 
 ## 本地探测
 
@@ -506,6 +536,40 @@ curl -s 'http://localhost:8000/health' | jq '{version,rbac,database,tools_connec
 | `CONTINUE_ACCOUNT_ID` | — | 本地扫描时补默认账号 |
 | `CURSOR_DATA_DIR` | 见 collector 文档 | 本机 Cursor 根目录（导出或应用数据）。不是 `CURSOR_ADMIN_API_KEY` |
 | `PROCODE_DATA_DIR` | 见 collector 文档 | 本机 ProCode / Canoryn usage json/jsonl 根目录 |
+
+## English
+
+MIT license. Version **0.23.0**. Self-hosted FinOps for token usage inside one company. It is not a public model leaderboard and it does not proxy model calls. The collector is first-party: it uploads token counts only.
+
+Quick start: `docker compose up -d --build`, open <http://localhost:8000>. The published port is `127.0.0.1:8000`. Put HTTPS in front of it. The example domain in the docs is `tokenrank.online` (a config sample, not a DNS change performed by this repo).
+
+Security matches `/privacy`. Same three lists:
+
+| Item | Bucket |
+|---|---|
+| Token 计数（输入、输出、缓存读、缓存写、推理） | 会上传 / uploaded |
+| 模型名、工具名、时间 | 会上传 / uploaded |
+| 账号、显示名、部门 | 会上传 / uploaded |
+| 项目目录名 | 会上传 / uploaded |
+| 去重用的 request_id | 会上传 / uploaded |
+| 本机原始日志和 Cursor 的 state.vscdb | 仅本地 / stays on the machine |
+| 定时任务和采集配置 | 仅本地 / stays on the machine |
+| 个人上报密钥（collector.env） | 仅本地 / stays on the machine |
+| 代码和源文件内容 | 永不采集 / never collected |
+| 对话、提示词、回复 | 永不采集 / never collected |
+| 文件正文、截图 | 永不采集 / never collected |
+| 密钥、Cookie、钥匙串 | 永不采集 / never collected |
+
+Dry run, nothing is sent:
+
+```bash
+python -m collector preview
+python -m collector once --dry-run
+```
+
+A personal report token starts with `ctr_`. It can write usage for that one account only. It cannot wipe the database or scan directories on the server.
+
+Upgrade 0.22.0 → 0.23.0: pull, `docker compose up -d --build`. New tables are created on startup. Leaderboard cost still excludes cache unless you turn on 「含缓存」. Unknown model ids are stored and priced on the default tier, marked 估算 in the UI. Prices are list-price estimates, not invoices. The price-table version is on `/api/v1/pricing/formula`.
 
 ## 项目结构
 
