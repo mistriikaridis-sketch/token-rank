@@ -40,7 +40,8 @@ curl -sS http://localhost:8000/health | python3 -c 'import json,sys; d=json.load
 
 页面上的中文大意是：这次请求没有带对密钥。
 
-- 在网页「首次配置」里粘贴的是**用户密钥**（演示环境是 `demo-alice-key`），不是采集用的写入密钥。
+- 公开站点点「使用 Google 登录」。私有部署在「密钥登录」里粘贴的是**用户密钥**（演示环境是 `demo-alice-key`），不是采集用的写入密钥。
+- 登录后应先到「接入」。安装命令会接上原来的定时任务，每天自动同步用量。
 - 导入示例的命令用的是**写入密钥**（演示环境是 `dev-token-rankings-change-me`，或你在 `.env` 里设置的那一串）。两种密钥不能混用。
 - 已经改过 `.env` 时，终端里要重新 `export TOKEN_RANKINGS_API_KEY=...`，再跑导入或 `scripts/customer_smoke.sh`。
 - 生产环境开了 `RANKINGS_REQUIRE_AUTH=1` 之后，不贴密钥就看不了排行。先在「首次配置」粘贴用户密钥。

@@ -187,7 +187,7 @@ python -m collector diagnose
 
 ## 定时
 
-间隔默认 30 分钟。下面都会调用 `python -m collector once`。
+间隔默认 30 分钟。下面都会调用 `python -m collector once`。网页「接入」里的安装命令会自己跑 `python -m collector service`，并尽量启用定时任务。装好之后每日自动同步用量，不是只上报一次。手动做时用下面这些命令。
 
 ### Linux（systemd 用户定时器）
 
@@ -255,7 +255,7 @@ curl -sS "$RANKINGS_URL/health"
 ```
 
 - [ ] `"status"` 为 `"ok"`
-- [ ] `"version"` 是 `0.23.0`
+- [ ] `"version"` 是 `0.24.0`
 - [ ] `adapters` 里 `id` 为 `procode` 的 `"status"` 仍是 `placeholder`，`blocked` 含 `encrypted_sqlite`、`keychain`、`canoryn_cli`，`notes` 写明不解密
 
 ### 2. 写入密钥，六个工具各跑一遍
@@ -345,7 +345,7 @@ python -m collector once --tool cursor
 | `连不上 http://...` | `RANKINGS_URL` 错了，或服务没起来 | 先 `curl -sS "$RANKINGS_URL/health"` |
 | 0 行，且写着没找到目录 | 这台电脑没有该工具的数据目录 | 正常。ProCode 需要自己放 usage json |
 | ProCode 目录在，但仍是 0 行 | 里面只有加密库、蓝图或评论，没有 usage json | 看 diagnostics 的 `unopened_db_seen`。不要解密，也不要启动 canoryn |
-| preview 里出现 `/Users/...` 或 `/home/某用户` | 采集器版本过旧 | 升到 `0.23.0` |
+| preview 里出现 `/Users/...` 或 `/home/某用户` | 采集器版本过旧 | 升到 `0.24.0` |
 
 ## 用样例自测（不需要真的装 WorkBuddy）
 

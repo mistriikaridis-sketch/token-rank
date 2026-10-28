@@ -810,6 +810,40 @@ def _ensure_product_tables(conn: Any) -> None:
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_feedback_account ON feedback(account_id)"
     )
+    _ensure_login_tables(conn)
+
+
+def _ensure_login_tables(conn: Any) -> None:
+    """Google sign-in identities and browser sessions. No Google tokens are stored."""
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS google_users (
+            google_sub TEXT PRIMARY KEY,
+            email TEXT NOT NULL,
+            name TEXT NOT NULL,
+            role TEXT NOT NULL,
+            account_id TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )
+        """
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_google_users_email ON google_users(email)"
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS browser_sessions (
+            id TEXT PRIMARY KEY,
+            google_sub TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            expires_at TEXT NOT NULL
+        )
+        """
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_browser_sessions_sub ON browser_sessions(google_sub)"
+    )
 
 
 def insert_forum_post(

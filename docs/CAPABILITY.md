@@ -1,6 +1,6 @@
 # Token 消耗排行榜 · 能力总览
 
-客户验收请用 [ACCEPTANCE.md](ACCEPTANCE.md)（当前版本见仓库 `VERSION`，**0.23.0**）。下面是能力索引，不是购买方清单。内网试点清单在 [INSTALL.md](INSTALL.md)。真机采集打勾见 ACCEPTANCE 的「真机采集验收」。
+客户验收请用 [ACCEPTANCE.md](ACCEPTANCE.md)（当前版本见仓库 `VERSION`，**0.24.0**）。下面是能力索引，不是购买方清单。内网试点清单在 [INSTALL.md](INSTALL.md)。真机采集打勾见 ACCEPTANCE 的「真机采集验收」。
 
 面向 Mateo 的一页验收清单。代码：`/workspace/token-rankings` · 许可证 MIT · 本地：`http://localhost:8000`
 
@@ -23,7 +23,7 @@
 | `/alerts` | 闲置、用量过低、费用突增、账号费用阈值（中文） |
 | `/forum` | 企业内部交流区：发帖/列表/点赞；匿名只读 |
 | `/procode` | ProCode 占位说明 + ingest 指引 |
-| 顶栏「贴 Key」 | 用户 Key → localStorage；排行/me/export/alerts 带 Header |
+| `/login` | 公开站点 Google 登录；私有部署用用户密钥。没有用量时进入「接入」，每日自动同步用量 |
 
 ## API（摘）
 

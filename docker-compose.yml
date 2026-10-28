@@ -36,6 +36,13 @@ services:
       # volume above so the container does not keep fixtures/users.json. See .env.example.
       - USERS_FILE=${USERS_FILE:-/app/fixtures/users.json}
       - RANKINGS_REQUIRE_AUTH=${RANKINGS_REQUIRE_AUTH:-0}
+      # Google sign-in for the public site. Leave empty to keep key login only.
+      # Create the OAuth client in Google Cloud Console. Do not commit the secret.
+      # Callback: https://tokenrank.online/auth/google/callback
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+      - GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI:-}
+      - GOOGLE_ADMIN_EMAILS=${GOOGLE_ADMIN_EMAILS:-}
       # Pilot alerts (see docs/INSTALL.md). notify=true posts only when the webhook is set.
       # - LOW_USAGE_THRESHOLD_TOKENS=10000
       # - ALERT_SPEND_SPIKE_RATIO=2

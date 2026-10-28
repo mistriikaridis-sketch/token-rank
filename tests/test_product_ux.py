@@ -100,7 +100,7 @@ class ProductUxTests(unittest.TestCase):
     def test_version_and_pages(self) -> None:
         health = self.client.get("/health")
         self.assertEqual(health.status_code, 200)
-        self.assertEqual(health.json()["version"], "0.23.0")
+        self.assertEqual(health.json()["version"], "0.24.0")
         for path, text in (
             ("/onboard", "如何接入"),
             ("/onboard", "勿转发"),

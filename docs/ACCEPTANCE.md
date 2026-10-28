@@ -13,7 +13,7 @@ curl -s http://localhost:8000/health
 ```
 
 - [ ] 能打开，且 `"status"` 为 `"ok"`
-- [ ] `"version"` 是 `0.23.0`
+- [ ] `"version"` 是 `0.24.0`
 - [ ] 若仍是演示密钥，`"setup"."demo_keys_in_use"` 为 `true`，网页顶部有黄色提醒
 - [ ] 交付之后 `"setup"."demo_keys_in_use"` 为 `false`，且 `"setup"."rankings_require_auth"` 为 `true`
 
@@ -32,8 +32,9 @@ curl -s -X POST http://localhost:8000/api/v1/ingest/litellm \
 
 ## 3. 能看到「我的」和 Agent
 
-- [ ] 浏览器打开 <http://localhost:8000/me>
-- [ ] 在「首次配置」粘贴 `demo-alice-key`，账号选 `acme-prod`
+- [ ] 浏览器打开 <http://localhost:8000/login>。公开站点能看到「使用 Google 登录」。本机没有配置 Google 时，展开「私有部署 / 密钥登录」
+- [ ] 粘贴 `demo-alice-key` 并登录。还没有用量时进入「接入」。页面写着每日自动同步用量
+- [ ] 安装命令里有 `python -m collector service`，不是只上报一次
 - [ ] 页面上能看到这个账号的用量，而不是一直停在「请选择账号」
 - [ ] 打开 <http://localhost:8000/agents>，能看到 Agent 列表（导入示例之后不应是空白）
 
@@ -126,7 +127,7 @@ curl -sS "$RANKINGS_URL/health"
 ```
 
 - [ ] `"status"` 为 `"ok"`
-- [ ] `"version"` 是 `0.23.0`
+- [ ] `"version"` 是 `0.24.0`
 - [ ] `adapters` 里 ProCode 的 `"status"` 仍是 `placeholder`
 - [ ] `blocked` 含 `encrypted_sqlite`、`keychain`、`canoryn_cli`
 - [ ] `notes` 写明不解密、不打开数据库、不读钥匙串、不启动 canoryn
@@ -278,14 +279,14 @@ curl -s -o /tmp/ctr-clear.json -w '%{http_code}\n' \
 | `连不上 http://...` | `RANKINGS_URL` 错了，或服务没起来 | 先 `curl -sS "$RANKINGS_URL/health"` |
 | 0 行，且写着没找到目录 | 这台电脑没有该工具的数据目录 | 正常。没装的工具不必造目录 |
 | ProCode 目录在，但仍是 0 行 | 里面只有加密库、蓝图或评论，没有 usage json | 看 `diagnostics.unopened_db_seen`。不要解密，也不要启动 `canoryn`。状态保持 `placeholder` |
-| preview 里出现家目录全路径 | 采集器版本过旧 | 升到 `0.23.0` |
+| preview 里出现家目录全路径 | 采集器版本过旧 | 升到 `0.24.0` |
 | 项目榜是空的，但 preview 有行 | 还没 once，或窗口选得太窄，或勾了隐藏未标注 | 先 once，窗口改 `30d` 或 `all`，核对 `project_id` |
 
 ## 9. v0.23 第一次接入（大约 15 分钟）
 
 给一台还没装过采集器的电脑。不需要读代码。目标是第一次成功上报，或在失败时看到能照着做的中文原因。
 
-- [ ] `/health` 的 `"version"` 是 `0.23.0`
+- [ ] `/health` 的 `"version"` 是 `0.24.0`
 - [ ] 打开 `/onboard`，能分别选择 macOS、Linux、Windows。三条命令里都有「失败」和「下一步」
 - [ ] 没贴用户密钥时，命令里没有服务器写入密钥，也没有 `ctr_`
 - [ ] 贴上成员密钥后，命令里是 `ctr_` 开头的个人上报密钥，并写着勿转发

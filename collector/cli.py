@@ -219,7 +219,10 @@ def cmd_install(args: argparse.Namespace) -> int:
         print("写入密钥没有放进 json。请导出 TOKEN_RANKINGS_API_KEY，或再执行 install --save-key。")
     print("下一步：python -m collector preview")
     print("确认无误后：python -m collector once")
-    print("定时：python -m collector service --os linux   或   --os macos   或   --os cron --print")
+    print("然后接上原来的定时任务，每天自动同步用量，不是只跑这一次：")
+    print("  python -m collector service --os linux --enable")
+    print("  python -m collector service --os macos")
+    print("  python -m collector service --os windows")
     return 0
 
 
